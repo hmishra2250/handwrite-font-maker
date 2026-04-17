@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import argparse
 
+from .pipeline import main as pipeline_main
+
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
@@ -20,14 +22,7 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def main() -> int:
-    parser = build_parser()
-    args = parser.parse_args()
-
-    if args.command == "build":
-        raise SystemExit("Build pipeline not implemented yet.")
-
-    parser.error(f"Unknown command: {args.command}")
-    return 2
+    return pipeline_main()
 
 
 if __name__ == "__main__":
