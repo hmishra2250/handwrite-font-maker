@@ -7,6 +7,8 @@ This pipeline is built for worksheet-style specimen sheets like these:
 - `Screenshot_20250107_193344_Drive.jpg`
 - `20250107_210655.jpg`
 
+The sample sheets in this repo were created by opening a blank worksheet template on a Samsung Galaxy S23 Ultra, writing directly over it with the S Pen, and then exporting the annotated image as the pipeline input.
+
 It handles the parts that usually make this annoying:
 
 - detecting the printed grid automatically
@@ -14,6 +16,29 @@ It handles the parts that usually make this annoying:
 - smoothing the extracted bitmap before tracing
 - vectorizing glyphs to Bezier SVG outlines with `potrace`
 - generating `otf`, `ttf`, and editable `sfd` fonts with FontForge
+
+## Repository Samples
+
+Tracked example assets are included so the conversion flow is reproducible without external files.
+
+Sample inputs:
+
+- `sample-input/template.jpg`
+- `sample-input/s23-ultra-sheet-one.jpg`
+- `sample-input/s23-ultra-sheet-two.jpg`
+
+Sample outputs:
+
+- `sample-output/sheet-one/HandwriteSheetOne.otf`
+- `sample-output/sheet-one/HandwriteSheetOne.ttf`
+- `sample-output/sheet-one/preview.png`
+- `sample-output/sheet-one/detected-grid.png`
+- `sample-output/sheet-two/HandwriteSheetTwo.otf`
+- `sample-output/sheet-two/HandwriteSheetTwo.ttf`
+- `sample-output/sheet-two/preview.png`
+- `sample-output/sheet-two/detected-grid.png`
+
+The regular `output/` directory remains ignored for local builds and experiments. The checked-in `sample-output/` directory is a curated reference snapshot.
 
 ## Dependencies
 
@@ -59,13 +84,13 @@ Example commands for the two source images:
 
 ```bash
 PYTHONPATH=src python3 -m handwrite_font_maker.cli build \
-  /home/himadri/Downloads/Screenshot_20250107_193344_Drive.jpg \
+  sample-input/s23-ultra-sheet-one.jpg \
   --font-name HandwriteSheetOne \
   --family-name "Handwrite Sheet One" \
   --output-dir output/sheet-one
 
 PYTHONPATH=src python3 -m handwrite_font_maker.cli build \
-  /home/himadri/Downloads/20250107_210655.jpg \
+  sample-input/s23-ultra-sheet-two.jpg \
   --font-name HandwriteSheetTwo \
   --family-name "Handwrite Sheet Two" \
   --output-dir output/sheet-two
@@ -93,6 +118,17 @@ The current layout is the 10x8 sheet used in your samples, covering:
 - `. , ; : ! ? " ' - + = / % & ( ) [ ]`
 
 If you want to support another sheet format later, the layout mapping and grid logic live under `src/handwrite_font_maker/`.
+
+## Capture Notes
+
+The current examples were produced from:
+
+- base worksheet image: `sample-input/template.jpg`
+- device: Samsung Galaxy S23 Ultra
+- writing tool: S Pen
+- input style: handwriting drawn directly on top of the template image
+
+This means the pipeline is currently tuned for photographed or exported digital worksheet images with a consistent printed grid and handwritten dark strokes.
 
 ## Notes On Curves
 
