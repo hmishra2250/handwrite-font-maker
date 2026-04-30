@@ -31,10 +31,16 @@ def main() -> int:
 
     for glyph_data in manifest["glyphs"]:
         glyph = font.createChar(int(glyph_data["codepoint"]), glyph_data["char"])
+        if glyph_data.get("empty"):
+            glyph.width = int(glyph_data["advance_width"])
+            continue
         glyph.importOutlines(glyph_data["svg_path"])
         bbox = glyph.boundingBox()
         imported_width = bbox[2] - bbox[0]
         imported_height = bbox[3] - bbox[1]
+        if imported_width <= 0 or imported_height <= 0:
+            glyph.width = int(glyph_data["advance_width"])
+            continue
         scale_x = float(glyph_data["source_width"]) / imported_width
         scale_y = float(glyph_data["source_height"]) / imported_height
         glyph.transform(psMat.scale(scale_x, scale_y))
