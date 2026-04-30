@@ -379,7 +379,7 @@ def build_font(
 
     manifest_path = work_dir / "manifest.json"
     manifest_path.write_text(json.dumps(manifest, indent=2), encoding="utf-8")
-    debug_overlay = output_dir / "detected-grid.png"
+    debug_overlay = output_dir / "rectified-template.png"
     save_debug_overlay(document.rectified_gray, cells, debug_overlay)
 
     builder_script = Path(__file__).resolve().parents[2] / "scripts" / "fontforge_build.py"

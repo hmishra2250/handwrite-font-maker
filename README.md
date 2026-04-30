@@ -24,13 +24,13 @@ The template has four ArUco corner markers and one QR metadata block. The build 
 
 ## Repository Samples
 
-Tracked legacy sample assets remain available for reference:
+Tracked V1 sample assets are marker-template based:
 
-- `sample-input/template.jpg`
-- `sample-input/s23-ultra-sheet-one.jpg`
-- `sample-input/s23-ultra-sheet-two.jpg`
+- `sample-output/template-v1/template-v1.pdf` — print-ready blank template
+- `sample-output/template-v1/template-v1-preview.png` — preview of the designed template
+- `sample-input/template-v1-synthetic-filled.png` — synthetic filled template for smoke tests and demos
 
-Those older samples were created from the pre-marker worksheet and are retained as historical inputs. New V1 usage should start with `generate-template`.
+The old pre-marker grid worksheet samples were removed because the current V1 pipeline intentionally requires ArUco markers and QR metadata.
 
 ## Dependencies
 
@@ -101,7 +101,7 @@ Each successful build writes:
 - `<font-name>.otf`
 - `<font-name>.ttf`
 - `<font-name>.sfd`
-- `detected-grid.png` — debug overlay on the rectified page
+- `rectified-template.png` — debug overlay on the rectified page
 - `work/manifest.json`
 - `work/bitmaps/*.pbm`
 - `work/svg/*.svg` for non-empty glyphs
