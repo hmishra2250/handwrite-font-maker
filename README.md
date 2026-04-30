@@ -1,138 +1,154 @@
 # handwrite-font-maker
 
-Convert a boxed handwriting specimen sheet into installable font files.
+Convert a marker-based handwriting specimen sheet into installable font files.
 
-This pipeline is built for worksheet-style specimen sheets like these:
+The V1 flow is now built around a print-and-photo template:
 
-- `Screenshot_20250107_193344_Drive.jpg`
-- `20250107_210655.jpg`
+1. Generate a print-ready PDF template.
+2. Print it at 100% scale, write one character per cell, and photograph the page with a phone.
+3. Build a font from the photo.
 
-The sample sheets in this repo were created by opening a blank worksheet template on a Samsung Galaxy S23 Ultra, writing directly over it with the S Pen, and then exporting the annotated image as the pipeline input.
+The template has four ArUco corner markers and one QR metadata block. The build pipeline uses those markers to rectify the phone photo before extracting cells, instead of relying on brittle grid-line counting.
 
-It handles the parts that usually make this annoying:
+## What it handles
 
-- detecting the printed grid automatically
-- cleaning worksheet guide lines from each glyph
-- smoothing the extracted bitmap before tracing
+- ArUco marker detection at all four page corners
+- perspective correction / homography for phone photos
+- QR metadata decoding for layout version + character map
+- data-defined layout instead of hard-coded grid order
+- guide-line-aware glyph cleanup
+- soft glyph quality warnings without blocking structurally valid builds
 - vectorizing glyphs to Bezier SVG outlines with `potrace`
 - generating `otf`, `ttf`, and editable `sfd` fonts with FontForge
+- validating generated OTF/TTF files by reopening them with FontForge
 
 ## Repository Samples
 
-Tracked example assets are included so the conversion flow is reproducible without external files.
-
-Sample inputs:
+Tracked legacy sample assets remain available for reference:
 
 - `sample-input/template.jpg`
 - `sample-input/s23-ultra-sheet-one.jpg`
 - `sample-input/s23-ultra-sheet-two.jpg`
 
-Sample outputs:
-
-- `sample-output/sheet-one/HandwriteSheetOne.otf`
-- `sample-output/sheet-one/HandwriteSheetOne.ttf`
-- `sample-output/sheet-one/preview.png`
-- `sample-output/sheet-one/detected-grid.png`
-- `sample-output/sheet-two/HandwriteSheetTwo.otf`
-- `sample-output/sheet-two/HandwriteSheetTwo.ttf`
-- `sample-output/sheet-two/preview.png`
-- `sample-output/sheet-two/detected-grid.png`
-
-The regular `output/` directory remains ignored for local builds and experiments. The checked-in `sample-output/` directory is a curated reference snapshot.
+Those older samples were created from the pre-marker worksheet and are retained as historical inputs. New V1 usage should start with `generate-template`.
 
 ## Dependencies
 
+Python:
+
 - Python 3.11+
-- `fontforge`
-- `potrace`
 - `numpy`
 - `Pillow`
+- `opencv-python-headless`
+- `reportlab`
+- `qrcode[pil]`
 
-System tools used for verification or previews:
+System tools:
 
-- `ImageMagick` (`convert`) optional
+- `potrace`
+- `fontforge`
+
+Optional verification/preview tooling:
+
+- ImageMagick (`convert`)
 
 ## Install
 
 ```bash
 python3 -m venv .venv
 source .venv/bin/activate
-pip install -e .
+pip install -e '.[test]'
 ```
 
 ## Usage
 
-Build a font from a specimen sheet:
+### 1. Generate the printable template
 
 ```bash
-handwrite-font-maker build /path/to/specimen.jpg \
+handwrite-font-maker generate-template \
+  --output output/template-v1.pdf \
+  --paper-size A4 \
+  --layout default-v1
+```
+
+Print the PDF at **100% scale**. Disable “fit to page” / “shrink to printable area”. All four corner markers and the QR block must remain visible in the phone photo.
+
+### 2. Build a font from a phone photo
+
+```bash
+handwrite-font-maker build /path/to/filled-template-photo.jpg \
   --font-name MyHandwriting \
   --family-name "My Handwriting" \
   --output-dir output/my-handwriting
 ```
 
-Run it directly from source without installing:
+Run directly from source without installing:
 
 ```bash
-PYTHONPATH=src python3 -m handwrite_font_maker.cli build /path/to/specimen.jpg \
+PYTHONPATH=src python3 -m handwrite_font_maker.cli generate-template \
+  --output output/template-v1.pdf
+
+PYTHONPATH=src python3 -m handwrite_font_maker.cli build /path/to/filled-template-photo.jpg \
   --font-name MyHandwriting \
   --family-name "My Handwriting" \
   --output-dir output/my-handwriting
-```
-
-Example commands for the two source images:
-
-```bash
-PYTHONPATH=src python3 -m handwrite_font_maker.cli build \
-  sample-input/s23-ultra-sheet-one.jpg \
-  --font-name HandwriteSheetOne \
-  --family-name "Handwrite Sheet One" \
-  --output-dir output/sheet-one
-
-PYTHONPATH=src python3 -m handwrite_font_maker.cli build \
-  sample-input/s23-ultra-sheet-two.jpg \
-  --font-name HandwriteSheetTwo \
-  --family-name "Handwrite Sheet Two" \
-  --output-dir output/sheet-two
 ```
 
 ## Output
 
-Each build writes:
+Each successful build writes:
 
 - `<font-name>.otf`
 - `<font-name>.ttf`
 - `<font-name>.sfd`
-- `detected-grid.png`
+- `detected-grid.png` — debug overlay on the rectified page
 - `work/manifest.json`
 - `work/bitmaps/*.pbm`
-- `work/svg/*.svg`
+- `work/svg/*.svg` for non-empty glyphs
 
-## Layout Assumption
+The JSON printed by the CLI includes output paths and any soft warnings.
 
-The current layout is the 10x8 sheet used in your samples, covering:
+## Hard failures
+
+The build fails with a clear error when structural correctness is not proven:
+
+- any required ArUco corner marker is missing
+- QR metadata cannot be decoded or is not recognized
+- homography reprojection error is too high (`>= 5px`)
+- extracted cell count does not match the QR character map
+- generated OTF or TTF cannot be reopened by FontForge
+
+## Soft warnings
+
+The build continues, but reports warnings, when glyph ink coverage looks suspicious:
+
+- `< 1.5%` dark-pixel coverage: likely empty glyph
+- `> 60%` dark-pixel coverage: likely smudge or guide-line bleed
+- more than 5 likely-empty glyphs: summary re-shoot suggestion
+
+This is intentional: tiny punctuation can be valid, so subjective glyph quality does not block an otherwise structurally valid font.
+
+## Layout
+
+The default V1 layout is data-defined in `src/handwrite_font_maker/layout.py` and covers printable non-space ASCII characters:
 
 - `A-Z`
 - `a-z`
 - `0-9`
-- `. , ; : ! ? " ' - + = / % & ( ) [ ]`
+- punctuation including `{ } @ # $ ~ ^ _` and backtick
 
-If you want to support another sheet format later, the layout mapping and grid logic live under `src/handwrite_font_maker/`.
+Space is synthesized separately by the font builder.
 
-## Capture Notes
+## Testing
 
-The current examples were produced from:
+Run the full test suite:
 
-- base worksheet image: `sample-input/template.jpg`
-- device: Samsung Galaxy S23 Ultra
-- writing tool: S Pen
-- input style: handwriting drawn directly on top of the template image
+```bash
+.venv/bin/pytest -q
+```
 
-This means the pipeline is currently tuned for photographed or exported digital worksheet images with a consistent printed grid and handwritten dark strokes.
+The test suite generates synthetic marker templates, fills glyph cells, applies perspective/noise/brightness/rotation/missing-marker fixtures, and runs a full synthetic font build when `potrace` and `fontforge` are available.
 
-## Notes On Curves
+## V2 runway
 
-The traced SVGs use Bezier curves from `potrace`. FontForge then simplifies and rounds those outlines before writing both:
-
-- `OTF`, which preserves cubic-style outlines through the CFF path
-- `TTF`, which FontForge converts for broader app compatibility
+Object-character fonts are intentionally out of V1 implementation scope. The intended V2 seam is a new ingestion path that produces one grayscale crop per character from rough-cropped object photos, then feeds the same bitmap → potrace → FontForge pipeline. Candidate segmentation approaches include GrabCut first and SAM-style segmentation later if quality requires it.
