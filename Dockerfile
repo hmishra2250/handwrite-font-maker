@@ -11,4 +11,4 @@ COPY scripts /app/scripts
 RUN pip install --no-cache-dir -e .
 
 ENV PYTHONUNBUFFERED=1
-CMD ["python", "-m", "handwrite_font_maker.web.api", "worker-once", "--store", "/tmp/jobs.json", "--object-root", "/tmp/objects"]
+CMD ["python", "-m", "handwrite_font_maker.web.server"]

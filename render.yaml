@@ -2,7 +2,7 @@ services:
   - type: web
     name: handwrite-font-api
     runtime: docker
-    dockerfilePath: ./deploy/render/Dockerfile
+    dockerfilePath: ./Dockerfile
     dockerCommand: python -m handwrite_font_maker.web.server
     autoDeploy: true
     envVars:
@@ -17,7 +17,7 @@ services:
   - type: worker
     name: handwrite-font-worker
     runtime: docker
-    dockerfilePath: ./deploy/render/Dockerfile
+    dockerfilePath: ./Dockerfile
     dockerCommand: python -m handwrite_font_maker.web.worker_loop
     autoDeploy: true
     envVars:
