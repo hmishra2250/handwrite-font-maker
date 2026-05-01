@@ -153,3 +153,43 @@ The test suite generates synthetic marker templates, fills glyph cells, applies 
 ## V2 runway
 
 Object-character fonts are intentionally out of V1 implementation scope. The intended V2 seam is a new ingestion path that produces one grayscale crop per character from rough-cropped object photos, then feeds the same bitmap → potrace → FontForge pipeline. Candidate segmentation approaches include GrabCut first and SAM-style segmentation later if quality requires it.
+
+## Web UI and hosted V1 deployment plan
+
+The hosted V1 test bench is split across three services:
+
+- **Vercel** deploys the `web/` Next.js frontend from GitHub `main` with project root set to `web/`.
+- **Render** deploys the backend Docker Web Service (`handwrite-font-api`) and Docker Background Worker (`handwrite-font-worker`) from `render.yaml`.
+- **Supabase** provides Postgres job state plus private Storage for uploaded source photos and generated font artifacts.
+
+The Vercel routes are metadata-only. They can create signed Supabase upload/download URLs and read job status, but they must not proxy uploaded photos, generated fonts, or run `fontforge`, `potrace`, or `build_font(...)`. Native font generation belongs to the Render worker.
+
+Required deployment variables:
+
+- Vercel: `WORKER_API_BASE_URL`, `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `SUPABASE_STORAGE_BUCKET`, `NEXT_PUBLIC_APP_MODE`, `NEXT_PUBLIC_MAX_UPLOAD_BYTES`, `NEXT_PUBLIC_JOB_RETENTION_HOURS`.
+- Render API/worker: `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `SUPABASE_STORAGE_BUCKET`, `DATABASE_URL`.
+- Supabase: apply `supabase/migrations/0001_jobs.sql` and create a private `handwrite-font-jobs` storage bucket.
+
+Local web verification:
+
+```bash
+cd web
+npm install
+npm run lint
+npm run typecheck
+npm run test
+npm run build
+```
+
+Python/backend contract verification:
+
+```bash
+pytest -q
+python -m handwrite_font_maker.web.api create-job \
+  --store /tmp/handwrite-jobs.json \
+  --object-key jobs/job_demo/input/original.jpg \
+  --content-type image/jpeg \
+  --size-bytes 123 \
+  --font-name DemoFont-Regular \
+  --family-name "Demo Font"
+```

@@ -1,0 +1,31 @@
+services:
+  - type: web
+    name: handwrite-font-api
+    runtime: docker
+    dockerfilePath: ./deploy/render/Dockerfile
+    dockerCommand: python -m handwrite_font_maker.web.server
+    autoDeploy: true
+    envVars:
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false
+      - key: SUPABASE_STORAGE_BUCKET
+        value: handwrite-font-jobs
+      - key: DATABASE_URL
+        sync: false
+  - type: worker
+    name: handwrite-font-worker
+    runtime: docker
+    dockerfilePath: ./deploy/render/Dockerfile
+    dockerCommand: python -m handwrite_font_maker.web.worker_loop
+    autoDeploy: true
+    envVars:
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false
+      - key: SUPABASE_STORAGE_BUCKET
+        value: handwrite-font-jobs
+      - key: DATABASE_URL
+        sync: false

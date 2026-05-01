@@ -14,10 +14,13 @@ dependencies = [
   "opencv-python-headless>=4.13,<5",
   "reportlab>=4.0",
   "qrcode[pil]>=8.0",
+  "psycopg[binary]>=3.2",
+  "requests>=2.32",
 ]
 
 [project.scripts]
 handwrite-font-maker = "handwrite_font_maker.cli:main"
+handwrite-font-web-api = "handwrite_font_maker.web.api:main"
 
 [tool.setuptools]
 package-dir = {"" = "src"}
