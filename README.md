@@ -29,6 +29,7 @@ Tracked V1 sample assets are marker-template based:
 - `sample-output/template-v1/template-v1.pdf` — print-ready blank template
 - `sample-output/template-v1/template-v1-preview.png` — preview of the designed template
 - `sample-input/template-v1-synthetic-filled.png` — synthetic filled template for smoke tests and demos
+- `sample-output/template-v1-synthetic/` — generated font output for the synthetic sample input
 
 The old pre-marker grid worksheet samples were removed because the current V1 pipeline intentionally requires ArUco markers and QR metadata.
 
