@@ -26,8 +26,8 @@ The template has four ArUco corner markers and one QR metadata block. The build 
 
 Tracked V1 sample assets are marker-template based:
 
-- `sample-output/template-v1/template-v1.pdf` — print-ready blank template
-- `sample-output/template-v1/template-v1-preview.png` — preview of the designed template
+- `templates/template-v1/template-v1.pdf` — print-ready blank template
+- `templates/template-v1/template-v1-preview.png` — preview of the designed template
 - `sample-input/template-v1-synthetic-filled.png` — synthetic filled template for smoke tests and demos
 - `sample-output/template-v1-synthetic/` — generated font output for the synthetic sample input
 
@@ -67,7 +67,7 @@ pip install -e '.[test]'
 
 ```bash
 handwrite-font-maker generate-template \
-  --output output/template-v1.pdf \
+  --output templates/template-v1/template-v1.pdf \
   --paper-size A4 \
   --layout default-v1
 ```
@@ -87,7 +87,7 @@ Run directly from source without installing:
 
 ```bash
 PYTHONPATH=src python3 -m handwrite_font_maker.cli generate-template \
-  --output output/template-v1.pdf
+  --output templates/template-v1/template-v1.pdf
 
 PYTHONPATH=src python3 -m handwrite_font_maker.cli build /path/to/filled-template-photo.jpg \
   --font-name MyHandwriting \
