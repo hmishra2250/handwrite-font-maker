@@ -1,0 +1,47 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    ports:
+      - "5433:5432"
+    environment:
+      POSTGRES_USER: handwrite
+      POSTGRES_PASSWORD: handwrite
+      POSTGRES_DB: handwrite_fonts
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./supabase/migrations/0001_jobs.sql:/docker-entrypoint-initdb.d/0001_jobs.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U handwrite -d handwrite_fonts"]
+      interval: 3s
+      retries: 10
+
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile.api
+    ports:
+      - "8000:8000"
+    environment:
+      DATABASE_URL: postgresql://handwrite:handwrite@postgres:5432/handwrite_fonts
+      LOCAL_OBJECT_ROOT: /data/objects
+      PROCESS_JOBS_INLINE: "1"
+    volumes:
+      - objects:/data/objects
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile.web
+    ports:
+      - "3000:3000"
+    environment:
+      WORKER_API_BASE_URL: http://api:8000
+    depends_on:
+      - api
+
+volumes:
+  pgdata:
+  objects:
