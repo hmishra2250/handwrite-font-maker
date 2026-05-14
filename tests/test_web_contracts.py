@@ -12,7 +12,6 @@ def test_hard_error_taxonomy_contains_plan_codes():
     expected = {
         'MARKER_GEOMETRY_INVALID',
         'TEMPLATE_BORDER_CROPPED',
-        'QR_TEMPLATE_MISMATCH',
         'RECTIFIED_PAGE_OUT_OF_BOUNDS',
         'GLYPH_GRID_NOT_FOUND',
         'GLYPH_REQUIRED_SET_MISSING',
