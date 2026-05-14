@@ -29,10 +29,10 @@ def _load_font(size: int, bold: bool = False) -> ImageFont.FreeTypeFont:
 
 
 _CHAR_GROUPS = {
-    "upper": {"label": "A - Z", "tint": (232, 237, 252), "accent": (120, 148, 210), "accent_light": (175, 192, 232)},
-    "lower": {"label": "a - z", "tint": (252, 237, 232), "accent": (210, 130, 115), "accent_light": (232, 182, 175)},
-    "digit": {"label": "0 - 9", "tint": (232, 248, 240), "accent": (105, 180, 142), "accent_light": (168, 214, 192)},
-    "symbol": {"label": "Symbols", "tint": (248, 244, 230), "accent": (180, 168, 110), "accent_light": (214, 205, 168)},
+    "upper": {"label": "A - Z", "tint": (222, 230, 250), "accent": (100, 132, 200), "accent_light": (162, 182, 228)},
+    "lower": {"label": "a - z", "tint": (250, 230, 222), "accent": (200, 115, 100), "accent_light": (228, 172, 162)},
+    "digit": {"label": "0 - 9", "tint": (222, 246, 234), "accent": (85, 170, 130), "accent_light": (152, 210, 182)},
+    "symbol": {"label": "Symbols", "tint": (246, 240, 218), "accent": (170, 155, 95), "accent_light": (205, 195, 152)},
 }
 
 
@@ -77,18 +77,18 @@ def render_template_image(
 
     _draw_header(draw, geometry, layout)
 
-    label_font = _load_font(max(14, pw // 75))
-    label_font_sm = _load_font(max(11, pw // 100))
-    group_font = _load_font(max(9, pw // 125), bold=True)
+    label_font = _load_font(max(15, pw // 70))
+    label_font_sm = _load_font(max(12, pw // 95))
+    group_font = _load_font(max(10, pw // 115), bold=True)
 
-    border_outer = (208, 204, 196)
-    border_inner = (230, 226, 220)
-    label_color = (85, 78, 68)
-    label_color_sym = (145, 138, 128)
-    guide_cap = (192, 186, 178)
-    guide_baseline = (148, 140, 130)
-    guide_descender = (208, 204, 196)
-    accent_bar_w = max(3, pw // 300)
+    border_outer = (200, 196, 188)
+    border_inner = (225, 221, 215)
+    label_color = (72, 65, 55)
+    label_color_sym = (128, 120, 110)
+    guide_cap = (185, 180, 172)
+    guide_baseline = (140, 125, 118)
+    guide_descender = (200, 196, 188)
+    accent_bar_w = max(3, pw // 280)
 
     prev_group = None
     group_first_indices = {}
@@ -207,32 +207,30 @@ def _draw_empty_cells(
 
 def _draw_header(draw: ImageDraw.ImageDraw, geometry: TemplateGeometry, layout: TemplateLayout) -> None:
     pw = geometry.page_width
-    title_font = _load_font(max(18, pw // 52), bold=True)
-    subtitle_font = _load_font(max(10, pw // 115))
-    instr_font = _load_font(max(9, pw // 128))
+    title_font = _load_font(max(20, pw // 48), bold=True)
+    subtitle_font = _load_font(max(10, pw // 112))
+    instr_font = _load_font(max(9, pw // 125))
 
     title_x = geometry.marker_boxes["top_left"].right + 16
-    title_y = geometry.margin + 2
+    title_y = geometry.margin
 
-    draw.text((title_x, title_y), "Handwriting Font Template", fill=(28, 24, 18), font=title_font)
+    draw.text((title_x, title_y), "Handwriting Font Template", fill=(25, 22, 16), font=title_font)
 
-    sub_y = title_y + title_font.size + 2
-    draw.text((title_x, sub_y), "V1", fill=(155, 148, 138), font=subtitle_font)
+    sub_y = title_y + title_font.size + 1
+    draw.text((title_x, sub_y), "V1", fill=(145, 138, 128), font=subtitle_font)
 
     v1_w = draw.textbbox((0, 0), "V1", font=subtitle_font)[2]
-    info_x = title_x + v1_w + 8
-    draw.text((info_x, sub_y + 1), "94 characters  |  Print at 100%, write with dark pen", fill=(175, 168, 158), font=instr_font)
+    info_x = title_x + v1_w + 6
+    draw.text((info_x, sub_y + 1), "94 characters  |  Print at 100%, dark pen, no fit-to-page", fill=(170, 164, 155), font=instr_font)
 
-    sep_y = sub_y + subtitle_font.size + 6
+    sep_y = sub_y + subtitle_font.size + 5
     sep_right = geometry.marker_boxes["top_right"].left - 16
-    draw.line((title_x, sep_y, sep_right, sep_y), fill=(215, 211, 205), width=1)
+    draw.line((title_x, sep_y, sep_right, sep_y), fill=(210, 206, 200), width=1)
 
     inst_y = sep_y + 5
-    for line in [
-        "One character per cell.  Stay within the guide lines.  Keep all corner markers visible.",
-    ]:
-        draw.text((title_x, inst_y), line, fill=(148, 142, 132), font=instr_font)
-        inst_y += instr_font.size + 2
+    draw.text((title_x, inst_y),
+              "One character per cell.  Stay within the guide lines.  Keep all corner markers visible.",
+              fill=(142, 136, 126), font=instr_font)
 
 
 def _draw_footer(draw: ImageDraw.ImageDraw, geometry: TemplateGeometry) -> None:
