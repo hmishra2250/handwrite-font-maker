@@ -35,11 +35,11 @@ def encode_metadata(metadata: TemplateMetadata) -> str:
 
 def decode_metadata(payload: str) -> TemplateMetadata:
     if not payload:
-        raise MetadataDecodeError("Template QR metadata could not be decoded; the template is not recognized.")
+        raise MetadataDecodeError("Template metadata could not be decoded; the template is not recognized.")
     try:
         data = json.loads(payload)
     except json.JSONDecodeError as exc:
-        raise MetadataDecodeError("Template QR metadata is invalid; the template is not recognized.") from exc
+        raise MetadataDecodeError("Template metadata is invalid; the template is not recognized.") from exc
 
     kind = data.get("kind", data.get("k"))
     version = data.get("version", data.get("v"))

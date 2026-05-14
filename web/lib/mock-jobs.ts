@@ -18,16 +18,16 @@ export const demoSuccessJob: JobResponse = {
     {
       kind: 'otf',
       label: 'OpenType Font',
-      objectKey: '/sample-output/template-v1-synthetic/TemplateV1Synthetic.otf',
-      url: '/sample-output/template-v1-synthetic/TemplateV1Synthetic.otf',
+      objectKey: '/samples/output/v1-synthetic/TemplateV1Synthetic.otf',
+      url: '/samples/output/v1-synthetic/TemplateV1Synthetic.otf',
       contentType: 'font/otf',
       sizeBytes: 1
     },
     {
       kind: 'ttf',
       label: 'TrueType Font',
-      objectKey: '/sample-output/template-v1-synthetic/TemplateV1Synthetic.ttf',
-      url: '/sample-output/template-v1-synthetic/TemplateV1Synthetic.ttf',
+      objectKey: '/samples/output/v1-synthetic/TemplateV1Synthetic.ttf',
+      url: '/samples/output/v1-synthetic/TemplateV1Synthetic.ttf',
       contentType: 'font/ttf',
       sizeBytes: 1
     }

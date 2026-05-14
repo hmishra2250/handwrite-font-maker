@@ -8,7 +8,8 @@ __pycache__/
 *.pyo
 *.egg-info/
 tmp_*.png
-sample-output/*/work/
+samples/output/*/work/
+.omx/
 web/node_modules/
 web/.next/
 web/tsconfig.tsbuildinfo

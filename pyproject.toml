@@ -13,7 +13,6 @@ dependencies = [
   "Pillow>=10.0",
   "opencv-python-headless>=4.13,<5",
   "reportlab>=4.0",
-  "qrcode[pil]>=8.0",
   "psycopg[binary]>=3.2",
   "requests>=2.32",
 ]

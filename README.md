@@ -1,196 +1,102 @@
 # handwrite-font-maker
 
-Convert a marker-based handwriting specimen sheet into installable font files.
+Convert a handwriting specimen sheet into installable font files (OTF/TTF).
 
-The V1 flow is now built around a print-and-photo template:
+1. Print the template, write one character per cell with a dark pen.
+2. Photograph the page with your phone.
+3. Upload the photo and download your font.
 
-1. Generate a print-ready PDF template.
-2. Print it at 100% scale, write one character per cell, and photograph the page with a phone.
-3. Build a font from the photo.
+## Repository structure
 
-The template has four ArUco corner markers and one QR metadata block. The build pipeline uses those markers to rectify the phone photo before extracting cells, instead of relying on brittle grid-line counting.
+```
+templates/v1/              Printable template (PDF, PNG, B&W reference)
+samples/
+  input/                   Filled template photos for testing
+  output/v1-synthetic/     Example generated font
+src/handwrite_font_maker/  Core Python library
+  web/                     HTTP API server (job processing)
+web/                       Next.js frontend
+tests/                     Python test suite
+scripts/                   Utility scripts (FontForge, Gemini)
+supabase/migrations/       Database schema
+```
 
-## What it handles
+## How it works
 
-- ArUco marker detection at all four page corners
-- perspective correction / homography for phone photos
-- QR metadata decoding for layout version + character map
-- data-defined layout instead of hard-coded grid order
-- guide-line-aware glyph cleanup
-- soft glyph quality warnings without blocking structurally valid builds
-- vectorizing glyphs to Bezier SVG outlines with `potrace`
-- generating `otf`, `ttf`, and editable `sfd` fonts with FontForge
-- validating generated OTF/TTF files by reopening them with FontForge
+The template has four ArUco corner markers (DICT_4X4_50). The pipeline:
 
-## Repository Samples
+1. Detects markers and computes a homography to rectify the photo
+2. Extracts each cell using the grid geometry
+3. Cleans guide lines, thresholds to binary, vectorizes with potrace
+4. Generates OTF/TTF/SFD fonts with FontForge
 
-Tracked V1 sample assets are marker-template based:
-
-- `templates/template-v1/template-v1.pdf` — print-ready blank template
-- `templates/template-v1/template-v1-preview.png` — preview of the designed template
-- `sample-input/template-v1-synthetic-filled.png` — synthetic filled template for smoke tests and demos
-- `sample-output/template-v1-synthetic/` — generated font output for the synthetic sample input
-
-The old pre-marker grid worksheet samples were removed because the current V1 pipeline intentionally requires ArUco markers and QR metadata.
+Detection is robust to: perspective warp, B&W printing, mobile camera noise,
+uneven lighting, JPEG compression (quality 30), and partial shadow.
 
 ## Dependencies
 
-Python:
-
-- Python 3.11+
-- `numpy`
-- `Pillow`
-- `opencv-python-headless`
-- `reportlab`
-- `qrcode[pil]`
-
-System tools:
-
-- `potrace`
-- `fontforge`
-
-Optional verification/preview tooling:
-
-- ImageMagick (`convert`)
+Python 3.11+, `numpy`, `Pillow`, `opencv-python-headless`, `reportlab`.
+System: `potrace`, `fontforge`.
 
 ## Install
 
 ```bash
-python3 -m venv .venv
-source .venv/bin/activate
+python3 -m venv .venv && source .venv/bin/activate
 pip install -e '.[test]'
 ```
 
 ## Usage
 
-### 1. Generate the printable template
+### Generate the template
 
 ```bash
-handwrite-font-maker generate-template \
-  --output templates/template-v1/template-v1.pdf \
-  --paper-size A4 \
-  --layout default-v1
+handwrite-font-maker generate-template --output templates/v1/template.pdf
 ```
 
-Print the PDF at **100% scale**. Disable “fit to page” / “shrink to printable area”. All four corner markers and the QR block must remain visible in the phone photo.
+Print the PDF at **100% scale** (no fit-to-page). Keep all four corner markers visible.
 
-### 2. Build a font from a phone photo
+### Build a font
 
 ```bash
-handwrite-font-maker build /path/to/filled-template-photo.jpg \
+handwrite-font-maker build photo.jpg \
   --font-name MyHandwriting \
   --family-name "My Handwriting" \
   --output-dir output/my-handwriting
 ```
 
-Run directly from source without installing:
+### Local development (Docker Compose)
 
 ```bash
-PYTHONPATH=src python3 -m handwrite_font_maker.cli generate-template \
-  --output templates/template-v1/template-v1.pdf
+docker compose up -d          # postgres + python api + next.js
+open http://localhost:3000     # web UI
+```
 
-PYTHONPATH=src python3 -m handwrite_font_maker.cli build /path/to/filled-template-photo.jpg \
-  --font-name MyHandwriting \
-  --family-name "My Handwriting" \
-  --output-dir output/my-handwriting
+Or run services individually:
+
+```bash
+# Terminal 1: Python API
+DATABASE_URL=postgresql://handwrite:handwrite@localhost:5433/handwrite_fonts \
+LOCAL_OBJECT_ROOT=/tmp/objects PROCESS_JOBS_INLINE=1 \
+.venv/bin/python -m handwrite_font_maker.web.server
+
+# Terminal 2: Next.js
+cd web && npm run dev -- -p 3001
+```
+
+## Testing
+
+```bash
+.venv/bin/pytest -q           # Python tests (31 tests)
+cd web && npm test            # Frontend tests
 ```
 
 ## Output
 
-Each successful build writes:
+Each build produces: `<name>.otf`, `<name>.ttf`, `<name>.sfd`,
+`rectified-template.png` (debug overlay), and `work/manifest.json`.
 
-- `<font-name>.otf`
-- `<font-name>.ttf`
-- `<font-name>.sfd`
-- `rectified-template.png` — debug overlay on the rectified page
-- `work/manifest.json`
-- `work/bitmaps/*.pbm`
-- `work/svg/*.svg` for non-empty glyphs
+## Deployment
 
-The JSON printed by the CLI includes output paths and any soft warnings.
-
-## Hard failures
-
-The build fails with a clear error when structural correctness is not proven:
-
-- any required ArUco corner marker is missing
-- QR metadata cannot be decoded or is not recognized
-- homography reprojection error is too high (`>= 5px`)
-- extracted cell count does not match the QR character map
-- generated OTF or TTF cannot be reopened by FontForge
-
-## Soft warnings
-
-The build continues, but reports warnings, when glyph ink coverage looks suspicious:
-
-- `< 1.5%` dark-pixel coverage: likely empty glyph
-- `> 60%` dark-pixel coverage: likely smudge or guide-line bleed
-- more than 5 likely-empty glyphs: summary re-shoot suggestion
-
-This is intentional: tiny punctuation can be valid, so subjective glyph quality does not block an otherwise structurally valid font.
-
-## Layout
-
-The default V1 layout is data-defined in `src/handwrite_font_maker/layout.py` and covers printable non-space ASCII characters:
-
-- `A-Z`
-- `a-z`
-- `0-9`
-- punctuation including `{ } @ # $ ~ ^ _` and backtick
-
-Space is synthesized separately by the font builder.
-
-## Testing
-
-Run the full test suite:
-
-```bash
-.venv/bin/pytest -q
-```
-
-The test suite generates synthetic marker templates, fills glyph cells, applies perspective/noise/brightness/rotation/missing-marker fixtures, and runs a full synthetic font build when `potrace` and `fontforge` are available.
-
-## V2 runway
-
-Object-character fonts are intentionally out of V1 implementation scope. The intended V2 seam is a new ingestion path that produces one grayscale crop per character from rough-cropped object photos, then feeds the same bitmap → potrace → FontForge pipeline. Candidate segmentation approaches include GrabCut first and SAM-style segmentation later if quality requires it.
-
-## Web UI and hosted V1 deployment plan
-
-The hosted V1 test bench is split across three services:
-
-- **Vercel** deploys the `web/` Next.js frontend from GitHub `main` with project root set to `web/`.
-- **Render** deploys one free Docker Web Service (`handwrite-font-api`) from `render.yaml`.
-- **Supabase** provides Postgres job state plus private Storage for uploaded source photos and generated font artifacts.
-
-The Vercel routes are metadata-only. They can create signed Supabase upload/download URLs and read job status, but they must not proxy uploaded photos, generated fonts, or run `fontforge`, `potrace`, or `build_font(...)`. Native font generation belongs to the Render web service, not Vercel.
-The Render web service starts each accepted job in-process (`PROCESS_JOBS_INLINE=1`) so the V1 demo can stay on Render's free web-service tier without a paid background worker.
-
-Required deployment variables:
-
-- Vercel: `WORKER_API_BASE_URL`, `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `SUPABASE_STORAGE_BUCKET`, `NEXT_PUBLIC_APP_MODE`, `NEXT_PUBLIC_MAX_UPLOAD_BYTES`, `NEXT_PUBLIC_JOB_RETENTION_HOURS`.
-- Render API: `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `SUPABASE_STORAGE_BUCKET`, `DATABASE_URL`, `PROCESS_JOBS_INLINE=1`.
-- Supabase: apply `supabase/migrations/0001_jobs.sql` and create a private `handwrite-font-jobs` storage bucket.
-
-Local web verification:
-
-```bash
-cd web
-npm install
-npm run lint
-npm run typecheck
-npm run test
-npm run build
-```
-
-Python/backend contract verification:
-
-```bash
-pytest -q
-python -m handwrite_font_maker.web.api create-job \
-  --store /tmp/handwrite-jobs.json \
-  --object-key jobs/job_demo/input/original.jpg \
-  --content-type image/jpeg \
-  --size-bytes 123 \
-  --font-name DemoFont-Regular \
-  --family-name "Demo Font"
-```
+- **Vercel**: `web/` Next.js frontend
+- **Render**: Python API from `Dockerfile.api`
+- **Supabase**: Postgres + Storage (or use local Postgres + file storage)

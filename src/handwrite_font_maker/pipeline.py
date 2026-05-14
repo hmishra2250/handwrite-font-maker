@@ -252,10 +252,9 @@ def _dependency_check() -> None:
         hasattr(cv2.aruco, "ArucoDetector"),
         hasattr(cv2.aruco, "getPredefinedDictionary"),
         hasattr(cv2.aruco, "generateImageMarker"),
-        hasattr(cv2, "QRCodeDetector"),
     ]
     if not all(required):
-        raise RuntimeError("Installed OpenCV package does not expose required ArUco/QR APIs.")
+        raise RuntimeError("Installed OpenCV package does not expose required ArUco APIs.")
 
 
 def _warning_for(char: str, code: str, coverage: float) -> GlyphWarning:
