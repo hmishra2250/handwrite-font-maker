@@ -22,7 +22,6 @@ class JobStage(StrEnum):
     UPLOAD_RECEIVED = "upload_received"
     QUEUED = "queued"
     MARKER_DETECTION = "marker_detection"
-    QR_DECODE = "qr_decode"
     HOMOGRAPHY_RECTIFICATION = "homography_rectification"
     GLYPH_EXTRACTION = "glyph_extraction"
     FONT_GENERATION = "font_generation"
@@ -36,10 +35,6 @@ class HardErrorCode(StrEnum):
     MARKER_AMBIGUOUS = "MARKER_AMBIGUOUS"
     MARKER_GEOMETRY_INVALID = "MARKER_GEOMETRY_INVALID"
     TEMPLATE_BORDER_CROPPED = "TEMPLATE_BORDER_CROPPED"
-    QR_NOT_FOUND = "QR_NOT_FOUND"
-    QR_UNREADABLE = "QR_UNREADABLE"
-    QR_TEMPLATE_VERSION_UNSUPPORTED = "QR_TEMPLATE_VERSION_UNSUPPORTED"
-    QR_TEMPLATE_MISMATCH = "QR_TEMPLATE_MISMATCH"
     HOMOGRAPHY_FAILED = "HOMOGRAPHY_FAILED"
     HOMOGRAPHY_CONFIDENCE_LOW = "HOMOGRAPHY_CONFIDENCE_LOW"
     RECTIFIED_PAGE_OUT_OF_BOUNDS = "RECTIFIED_PAGE_OUT_OF_BOUNDS"
@@ -128,7 +123,6 @@ def is_safe_font_name(font_name: str) -> bool:
 def hard_error_message(code: HardErrorCode) -> str:
     return {
         HardErrorCode.MARKER_NOT_FOUND: "We could not find all four page markers. Retake the photo with the entire page visible.",
-        HardErrorCode.QR_UNREADABLE: "The QR code could not be read. Retake the photo with sharper focus and less glare.",
         HardErrorCode.HOMOGRAPHY_FAILED: "Perspective correction failed. Retake with less tilt and all corners visible.",
         HardErrorCode.FONT_VALIDATION_FAILED: "The generated font failed validation. Retake the photo or try a simpler font name.",
         HardErrorCode.FONT_METADATA_INVALID: "The font metadata is invalid. Use letters, numbers, hyphens, or underscores.",

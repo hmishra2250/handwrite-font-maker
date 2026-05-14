@@ -5,10 +5,10 @@ from pathlib import Path
 
 import numpy as np
 
-from .diagnostics import HomographyQualityError, MetadataDecodeError
+from .diagnostics import HomographyQualityError
 from .layout import get_layout
 from .markers import DetectedMarkers, detect_required_markers
-from .metadata import decode_metadata
+from .metadata import metadata_for_layout
 from .schema import DEFAULT_DPI, MARKER_ROLES, Rect, TemplateGeometry, TemplateLayout, TemplateMetadata, compute_geometry
 
 HOMOGRAPHY_REPROJECTION_THRESHOLD_PX = 5.0
@@ -69,44 +69,17 @@ def estimate_homography(
     return homography, reprojection_error
 
 
-def _decode_qr(rectified_bgr: np.ndarray, geometry: TemplateGeometry) -> TemplateMetadata:
-    cv2 = _cv2()
-    detector = cv2.QRCodeDetector()
-    box = geometry.qr_box
-    pad = max(12, int(round(box.width * 0.12)))
-    crop = rectified_bgr[
-        max(0, box.top - pad) : min(rectified_bgr.shape[0], box.bottom + pad + 1),
-        max(0, box.left - pad) : min(rectified_bgr.shape[1], box.right + pad + 1),
-    ]
-    payload, _points, _straight = detector.detectAndDecode(crop)
-    if not payload:
-        enlarged = cv2.resize(crop, None, fx=2.0, fy=2.0, interpolation=cv2.INTER_NEAREST)
-        payload, _points, _straight = detector.detectAndDecode(enlarged)
-    if not payload:
-        payload, _points, _straight = detector.detectAndDecode(rectified_bgr)
-    return decode_metadata(payload)
-
-
 def rectify_template_photo(image_path: Path, *, dpi: int = DEFAULT_DPI) -> RectifiedDocument:
     cv2 = _cv2()
     image = load_bgr(image_path)
 
-    # Use the default marker layout first; metadata is decoded after rectification.
-    bootstrap_layout = get_layout()
-    bootstrap_geometry = compute_geometry(bootstrap_layout, dpi=dpi, paper_size=bootstrap_layout.paper_size)
-    detected = detect_required_markers(image, bootstrap_layout)
-    homography, error = estimate_homography(detected, bootstrap_geometry)
-    rectified = cv2.warpPerspective(image, homography, (bootstrap_geometry.page_width, bootstrap_geometry.page_height), borderValue=(255, 255, 255))
-    metadata = _decode_qr(rectified, bootstrap_geometry)
-    layout = get_layout(layout_id=metadata.layout_id, paper_size=metadata.paper_size)
-    geometry = compute_geometry(layout, dpi=metadata.dpi, paper_size=metadata.paper_size)
-    if geometry.page_width != bootstrap_geometry.page_width or geometry.page_height != bootstrap_geometry.page_height:
-        # Re-warp if metadata selects another canonical page size.
-        homography, error = estimate_homography(detected, geometry)
-        rectified = cv2.warpPerspective(image, homography, (geometry.page_width, geometry.page_height), borderValue=(255, 255, 255))
+    layout = get_layout()
+    geometry = compute_geometry(layout, dpi=dpi, paper_size=layout.paper_size)
+    detected = detect_required_markers(image, layout)
+    homography, error = estimate_homography(detected, geometry)
+    rectified = cv2.warpPerspective(image, homography, (geometry.page_width, geometry.page_height), borderValue=(255, 255, 255))
+    metadata = metadata_for_layout(layout, dpi=dpi)
     gray = cv2.cvtColor(rectified, cv2.COLOR_BGR2GRAY)
-    if tuple(metadata.chars) != tuple(layout.chars):
-        raise MetadataDecodeError("Template character map does not match the declared layout.")
     return RectifiedDocument(
         rectified_bgr=rectified,
         rectified_gray=gray,

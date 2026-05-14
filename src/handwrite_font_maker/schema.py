@@ -85,7 +85,6 @@ class TemplateGeometry:
     page_height: int
     marker_size: int
     margin: int
-    qr_box: Rect
     marker_boxes: dict[str, Rect]
     cell_rects: tuple[Rect, ...]
     grid_rect: Rect
@@ -108,8 +107,7 @@ def compute_geometry(layout: TemplateLayout, *, dpi: int = DEFAULT_DPI, paper_si
     layout.validate()
     width, height = paper_dimensions_px(paper_size or layout.paper_size, dpi=dpi)
     margin = max(36, int(round(width * 0.05)))
-    marker_size = max(72, int(round(width * 0.08)))
-    qr_size = max(380, int(round(width * 0.30)))
+    marker_size = max(60, int(round(width * 0.065)))
 
     marker_boxes = {
         "top_left": Rect(margin, margin, margin + marker_size - 1, margin + marker_size - 1),
@@ -122,9 +120,8 @@ def compute_geometry(layout: TemplateLayout, *, dpi: int = DEFAULT_DPI, paper_si
         ),
         "bottom_left": Rect(margin, height - margin - marker_size, margin + marker_size - 1, height - margin - 1),
     }
-    qr_box = Rect((width - qr_size) // 2, margin, (width + qr_size) // 2 - 1, margin + qr_size - 1)
 
-    grid_top = max(margin + marker_size + 48, qr_box.bottom + 36, int(round(height * 0.22)))
+    grid_top = margin + marker_size + 48
     grid_bottom = height - margin - marker_size - 36
     grid_left = margin
     grid_right = width - margin - 1
@@ -147,7 +144,6 @@ def compute_geometry(layout: TemplateLayout, *, dpi: int = DEFAULT_DPI, paper_si
         page_height=height,
         marker_size=marker_size,
         margin=margin,
-        qr_box=qr_box,
         marker_boxes=marker_boxes,
         cell_rects=tuple(cells),
         grid_rect=grid_rect,

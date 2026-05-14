@@ -98,8 +98,6 @@ def _code_for_exception(exc: Exception) -> HardErrorCode:
         return HardErrorCode.FONT_VALIDATION_FAILED
     if "marker" in message:
         return HardErrorCode.MARKER_NOT_FOUND
-    if "qr" in message or "metadata" in message:
-        return HardErrorCode.QR_UNREADABLE
     if "homography" in message or "reprojection" in message:
         return HardErrorCode.HOMOGRAPHY_FAILED
     return HardErrorCode.INTERNAL_ERROR
@@ -109,8 +107,6 @@ def _stage_for_exception(exc: Exception) -> JobStage:
     code = _code_for_exception(exc)
     if code.name.startswith("MARKER"):
         return JobStage.MARKER_DETECTION
-    if code.name.startswith("QR"):
-        return JobStage.QR_DECODE
     if code.name.startswith("HOMOGRAPHY"):
         return JobStage.HOMOGRAPHY_RECTIFICATION
     if code in {HardErrorCode.FONT_VALIDATION_FAILED}:

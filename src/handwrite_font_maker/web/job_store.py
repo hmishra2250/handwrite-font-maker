@@ -36,9 +36,8 @@ class JobRecord:
 def progress_label(stage: JobStage) -> str:
     return {
         JobStage.UPLOAD_RECEIVED: "Upload received",
-        JobStage.QUEUED: "Waiting for the font worker",
+        JobStage.QUEUED: "Waiting for backend processing",
         JobStage.MARKER_DETECTION: "Finding page markers",
-        JobStage.QR_DECODE: "Reading template metadata",
         JobStage.HOMOGRAPHY_RECTIFICATION: "Correcting phone perspective",
         JobStage.GLYPH_EXTRACTION: "Extracting glyph cells",
         JobStage.FONT_GENERATION: "Generating font outlines",
