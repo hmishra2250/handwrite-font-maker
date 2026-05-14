@@ -4,8 +4,8 @@ import { UploadWorkbench } from './upload-workbench';
 
 const steps = [
   ['01', 'Print the marker template', 'Download the V1 PDF, print at 100 percent scale, and keep the ArUco corners visible.'],
-  ['02', 'Photograph the completed sheet', 'Use bright even light, keep the full page in frame, and avoid glare over the QR block.'],
-  ['03', 'Upload and build', 'The browser uploads to Supabase Storage, then the Render worker generates installable font files.']
+  ['02', 'Write and photograph', 'Fill in every cell. Use bright even light, keep the full page in frame, and avoid glare over the QR block.'],
+  ['03', 'Upload and build', 'The browser uploads to Supabase Storage, then the Render runs the native FontForge/potrace worker. Supabase stores job data and files.'],
 ] as const;
 
 export default function Home() {
@@ -14,10 +14,11 @@ export default function Home() {
     <main className="shell">
       <section className="hero" aria-labelledby="hero-title">
         <div className="heroCopy">
-          <p className="eyebrow">Marker Template V1</p>
+          <span className="eyebrow">Marker Template V1</span>
           <h1 id="hero-title">Turn a photographed handwriting sheet into a test font.</h1>
           <p className="lede">
-            A phone-friendly test bench for the marker-based pipeline. Vercel serves this interface, Supabase stores job data and files, and Render runs the native FontForge/potrace worker.
+            A phone-friendly pipeline for handwriting-to-font conversion. Vercel serves this interface,
+            Supabase stores job data and files, and Render runs the native FontForge/potrace worker.
           </p>
           <div className="heroActions">
             <a className="primaryLink" href="/template-v1.pdf" download>Download V1 template</a>

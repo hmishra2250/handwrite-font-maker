@@ -6,10 +6,6 @@ export const HARD_ERROR_CODES = [
   'MARKER_AMBIGUOUS',
   'MARKER_GEOMETRY_INVALID',
   'TEMPLATE_BORDER_CROPPED',
-  'QR_NOT_FOUND',
-  'QR_UNREADABLE',
-  'QR_TEMPLATE_VERSION_UNSUPPORTED',
-  'QR_TEMPLATE_MISMATCH',
   'HOMOGRAPHY_FAILED',
   'HOMOGRAPHY_CONFIDENCE_LOW',
   'RECTIFIED_PAGE_OUT_OF_BOUNDS',
@@ -38,7 +34,6 @@ export const JOB_STAGES = [
   'upload_received',
   'queued',
   'marker_detection',
-  'qr_decode',
   'homography_rectification',
   'glyph_extraction',
   'font_generation',
@@ -80,7 +75,7 @@ export interface UploadRequest {
 }
 
 export interface UploadResponse {
-  mode: 'live' | 'demo';
+  mode: 'live' | 'local' | 'demo';
   uploadUrl: string;
   method: 'PUT' | 'POST';
   objectKey: string;
@@ -130,10 +125,6 @@ export const ERROR_COPY: Record<HardErrorCode, string> = {
   MARKER_AMBIGUOUS: 'The page markers were detected inconsistently. Retake the photo on a flatter surface.',
   MARKER_GEOMETRY_INVALID: 'The marker geometry does not match the template. Retake the photo straight-on.',
   TEMPLATE_BORDER_CROPPED: 'The template border appears cropped. Retake with margin around the full page.',
-  QR_NOT_FOUND: 'The template QR code was not found. Use the V1 template and keep the top area visible.',
-  QR_UNREADABLE: 'The QR code could not be read. Retake the photo with sharper focus and less glare.',
-  QR_TEMPLATE_VERSION_UNSUPPORTED: 'This template version is not supported by the current builder.',
-  QR_TEMPLATE_MISMATCH: 'The QR metadata does not match the expected V1 layout.',
   HOMOGRAPHY_FAILED: 'Perspective correction failed. Retake with less tilt and all corners visible.',
   HOMOGRAPHY_CONFIDENCE_LOW: 'The page was detected, but the warp looked unreliable. Retake with the sheet flatter.',
   RECTIFIED_PAGE_OUT_OF_BOUNDS: 'The rectified page fell outside expected bounds. Retake from farther away.',
@@ -155,6 +146,15 @@ export const ERROR_COPY: Record<HardErrorCode, string> = {
 
 export function isLiveMode() {
   return Boolean(process.env.WORKER_API_BASE_URL && process.env.SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY && process.env.SUPABASE_STORAGE_BUCKET);
+}
+
+/** Local mode: Python backend is reachable but Supabase is not configured. */
+export function isLocalMode() {
+  return Boolean(process.env.WORKER_API_BASE_URL) && !isLiveMode();
+}
+
+export function workerBaseUrl() {
+  return process.env.WORKER_API_BASE_URL ?? '';
 }
 
 export function retentionExpiry(hours = JOB_RETENTION_HOURS) {
