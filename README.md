@@ -159,15 +159,16 @@ Object-character fonts are intentionally out of V1 implementation scope. The int
 The hosted V1 test bench is split across three services:
 
 - **Vercel** deploys the `web/` Next.js frontend from GitHub `main` with project root set to `web/`.
-- **Render** deploys the backend Docker Web Service (`handwrite-font-api`) and Docker Background Worker (`handwrite-font-worker`) from `render.yaml`.
+- **Render** deploys one free Docker Web Service (`handwrite-font-api`) from `render.yaml`.
 - **Supabase** provides Postgres job state plus private Storage for uploaded source photos and generated font artifacts.
 
-The Vercel routes are metadata-only. They can create signed Supabase upload/download URLs and read job status, but they must not proxy uploaded photos, generated fonts, or run `fontforge`, `potrace`, or `build_font(...)`. Native font generation belongs to the Render worker.
+The Vercel routes are metadata-only. They can create signed Supabase upload/download URLs and read job status, but they must not proxy uploaded photos, generated fonts, or run `fontforge`, `potrace`, or `build_font(...)`. Native font generation belongs to the Render web service, not Vercel.
+The Render web service starts each accepted job in-process (`PROCESS_JOBS_INLINE=1`) so the V1 demo can stay on Render's free web-service tier without a paid background worker.
 
 Required deployment variables:
 
 - Vercel: `WORKER_API_BASE_URL`, `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `SUPABASE_STORAGE_BUCKET`, `NEXT_PUBLIC_APP_MODE`, `NEXT_PUBLIC_MAX_UPLOAD_BYTES`, `NEXT_PUBLIC_JOB_RETENTION_HOURS`.
-- Render API/worker: `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `SUPABASE_STORAGE_BUCKET`, `DATABASE_URL`.
+- Render API: `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `SUPABASE_STORAGE_BUCKET`, `DATABASE_URL`, `PROCESS_JOBS_INLINE=1`.
 - Supabase: apply `supabase/migrations/0001_jobs.sql` and create a private `handwrite-font-jobs` storage bucket.
 
 Local web verification:
