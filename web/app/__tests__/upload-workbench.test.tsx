@@ -60,32 +60,53 @@ describe('UploadWorkbench', () => {
     cleanup();
   });
 
-  it('renders the upload form with capture zone', () => {
+  it('renders the capture zone with camera and upload buttons', () => {
     render(<UploadWorkbench />);
-    expect(screen.getByText('Take a photo or drag an image')).toBeInTheDocument();
+    expect(screen.getByText('Take photo')).toBeInTheDocument();
+    expect(screen.getByText('Upload file')).toBeInTheDocument();
     expect(screen.getByText('Build font')).toBeDisabled();
   });
 
-  it('shows image preview after file selection', async () => {
+  it('has camera input with capture attribute for mobile', () => {
     render(<UploadWorkbench />);
-    const input = document.querySelector('input[type="file"]') as HTMLInputElement;
+    const inputs = document.querySelectorAll('input[type="file"]');
+    const cameraInput = Array.from(inputs).find(i => i.hasAttribute('capture'));
+    expect(cameraInput).toBeTruthy();
+    expect(cameraInput?.getAttribute('capture')).toBe('environment');
+    expect(cameraInput?.getAttribute('accept')).toContain('image/jpeg');
+  });
+
+  it('has a file input without capture for desktop uploads', () => {
+    render(<UploadWorkbench />);
+    const inputs = document.querySelectorAll('input[type="file"]');
+    const fileInput = Array.from(inputs).find(i => !i.hasAttribute('capture'));
+    expect(fileInput).toBeTruthy();
+    expect(fileInput?.getAttribute('accept')).toContain('image/jpeg');
+  });
+
+  it('shows image preview after file selection via upload button', async () => {
+    render(<UploadWorkbench />);
+    const inputs = document.querySelectorAll('input[type="file"]');
+    const fileInput = Array.from(inputs).find(i => !i.hasAttribute('capture')) as HTMLInputElement;
     const file = createTestFile();
-    await userEvent.upload(input, file);
+    await userEvent.upload(fileInput, file);
     expect(screen.getByAltText('Captured template preview')).toBeInTheDocument();
     expect(URL.createObjectURL).toHaveBeenCalledWith(file);
   });
 
   it('enables submit button when file is selected', async () => {
     render(<UploadWorkbench />);
-    const input = document.querySelector('input[type="file"]') as HTMLInputElement;
-    await userEvent.upload(input, createTestFile());
+    const inputs = document.querySelectorAll('input[type="file"]');
+    const fileInput = Array.from(inputs).find(i => !i.hasAttribute('capture')) as HTMLInputElement;
+    await userEvent.upload(fileInput, createTestFile());
     expect(screen.getByText('Build font')).not.toBeDisabled();
   });
 
   it('removes file preview when remove button is clicked', async () => {
     render(<UploadWorkbench />);
-    const input = document.querySelector('input[type="file"]') as HTMLInputElement;
-    await userEvent.upload(input, createTestFile());
+    const inputs = document.querySelectorAll('input[type="file"]');
+    const fileInput = Array.from(inputs).find(i => !i.hasAttribute('capture')) as HTMLInputElement;
+    await userEvent.upload(fileInput, createTestFile());
     expect(screen.getByAltText('Captured template preview')).toBeInTheDocument();
     const removeBtn = screen.getByLabelText('Remove photo');
     await userEvent.click(removeBtn);
@@ -95,18 +116,19 @@ describe('UploadWorkbench', () => {
 
   it('validates unsupported image types', async () => {
     render(<UploadWorkbench />);
-    const input = document.querySelector('input[type="file"]') as HTMLInputElement;
-    // Simulate setting an invalid file directly via fireEvent since userEvent.upload respects accept
+    const inputs = document.querySelectorAll('input[type="file"]');
+    const fileInput = Array.from(inputs).find(i => !i.hasAttribute('capture')) as HTMLInputElement;
     const pdfFile = createTestFile('doc.pdf', 'application/pdf');
-    fireEvent.change(input, { target: { files: [pdfFile] } });
+    fireEvent.change(fileInput, { target: { files: [pdfFile] } });
     await userEvent.click(screen.getByText('Build font'));
     expect(screen.getByRole('alert')).toHaveTextContent('JPEG, PNG, or WebP');
   });
 
   it('validates font name format', async () => {
     render(<UploadWorkbench />);
-    const input = document.querySelector('input[type="file"]') as HTMLInputElement;
-    await userEvent.upload(input, createTestFile());
+    const inputs = document.querySelectorAll('input[type="file"]');
+    const fileInput = Array.from(inputs).find(i => !i.hasAttribute('capture')) as HTMLInputElement;
+    await userEvent.upload(fileInput, createTestFile());
     const fontInput = screen.getByDisplayValue('MyHandwrite-Regular');
     await userEvent.clear(fontInput);
     await userEvent.type(fontInput, 'bad font name');
@@ -114,7 +136,7 @@ describe('UploadWorkbench', () => {
     expect(screen.getByRole('alert')).toBeInTheDocument();
   });
 
-  it('shows progress stages during polling', async () => {
+  it('shows progress stages during polling and completes', async () => {
     let pollCount = 0;
     vi.spyOn(globalThis, 'fetch').mockImplementation(async (url) => {
       const urlStr = typeof url === 'string' ? url : url.toString();
@@ -133,8 +155,9 @@ describe('UploadWorkbench', () => {
     });
 
     render(<UploadWorkbench />);
-    const input = document.querySelector('input[type="file"]') as HTMLInputElement;
-    await userEvent.upload(input, createTestFile());
+    const inputs = document.querySelectorAll('input[type="file"]');
+    const fileInput = Array.from(inputs).find(i => !i.hasAttribute('capture')) as HTMLInputElement;
+    await userEvent.upload(fileInput, createTestFile());
     await userEvent.click(screen.getByText('Build font'));
 
     await waitFor(() => {
@@ -155,8 +178,9 @@ describe('UploadWorkbench', () => {
     });
 
     render(<UploadWorkbench />);
-    const input = document.querySelector('input[type="file"]') as HTMLInputElement;
-    await userEvent.upload(input, createTestFile());
+    const inputs = document.querySelectorAll('input[type="file"]');
+    const fileInput = Array.from(inputs).find(i => !i.hasAttribute('capture')) as HTMLInputElement;
+    await userEvent.upload(fileInput, createTestFile());
     await userEvent.click(screen.getByText('Build font'));
 
     await waitFor(() => {
@@ -170,5 +194,10 @@ describe('UploadWorkbench', () => {
     render(<UploadWorkbench />);
     expect(screen.getByText('Ready')).toBeInTheDocument();
     expect(screen.getByText('Upload a photographed template to start a font build.')).toBeInTheDocument();
+  });
+
+  it('shows drag-and-drop hint text', () => {
+    render(<UploadWorkbench />);
+    expect(screen.getByText(/drag and drop/i)).toBeInTheDocument();
   });
 });

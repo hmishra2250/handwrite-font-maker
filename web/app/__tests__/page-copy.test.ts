@@ -3,11 +3,11 @@ import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
 describe('home page copy', () => {
-  it('documents the V1 flow and deployment boundary', () => {
+  it('documents the V1 template workflow', () => {
     const source = readFileSync(join(process.cwd(), 'app/page.tsx'), 'utf8');
-    expect(source).toContain('Turn a photographed handwriting sheet into a test font.');
-    expect(source).toContain('Supabase stores job data and files');
-    expect(source).toContain('Render runs the native FontForge/potrace worker');
+    expect(source).toContain('Turn your handwriting into an installable font.');
+    expect(source).toContain('ArUco corner markers');
     expect(source).toContain('/template-v1.pdf');
+    expect(source).toContain('94 glyph cells');
   });
 });

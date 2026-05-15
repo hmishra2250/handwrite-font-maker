@@ -9,11 +9,14 @@ __pycache__/
 *.egg-info/
 tmp_*.png
 samples/output/*/work/
+tests/fixtures/synthetic_captures/
+tests/capture_test_report.json
 .omx/
 web/node_modules/
 web/.next/
 web/tsconfig.tsbuildinfo
 web/.vercel/
 web/.env.local
+web/test-results/
 .env
 .claude/

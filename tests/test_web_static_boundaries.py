@@ -1,8 +1,10 @@
 from pathlib import Path
 
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
+
 
 def test_vercel_routes_do_not_shell_out_or_import_python_pipeline():
-    api_root = Path('web/app/api')
+    api_root = PROJECT_ROOT / 'web' / 'app' / 'api'
     assert api_root.exists()
     forbidden = ['child_process', 'spawn(', 'exec(', 'fontforge', 'potrace', 'build_font', 'handwrite_font_maker']
     for path in api_root.rglob('*.ts'):
@@ -12,7 +14,7 @@ def test_vercel_routes_do_not_shell_out_or_import_python_pipeline():
 
 
 def test_vercel_routes_do_not_return_binary_responses():
-    for path in Path('web/app/api').rglob('*.ts'):
+    for path in (PROJECT_ROOT / 'web' / 'app' / 'api').rglob('*.ts'):
         source = path.read_text(encoding='utf-8')
         assert 'arrayBuffer' not in source
         assert 'ReadableStream' not in source
