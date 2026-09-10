@@ -139,6 +139,33 @@ but `BILLING_ENABLED=0` and checkout is fail-closed. Invited alpha users get fre
 operator-provisioned access. Add a real provider only after there is a project
 credit ledger, webhook idempotency, refund handling, and merchant approval.
 
+## Disk capacity and container logs
+
+Check both the host and Docker storage before building. On macOS, Colima is the
+Linux VM that hosts Docker: free Mac space does not imply free VM space.
+
+```bash
+df -h .
+docker system df
+docker buildx du
+# Colima installations only:
+colima ssh -- df -h /var/lib/docker
+```
+
+The alpha Compose services rotate their JSON logs at 10 MB, keeping three files
+per container (approximately 30 MB each). Recreate existing alpha containers with
+`docker compose --env-file .env.alpha -f docker-compose.alpha.yml up -d` to apply
+this setting. It does not change logging for unrelated containers or limit
+uploads, database growth, model files or Docker build caches.
+
+If space is low, inspect unused build caches and images before pruning; deleting
+them means subsequent builds/downloads take longer. Preserve active worktrees,
+credentials, `.alpha`, `.models`, uploaded images and Docker volumes. Do not use
+`docker system prune --volumes` or delete Docker's storage directories. Container
+logs can also consume substantial space not shown in the writable-layer total:
+inspect their sizes separately, and preserve any needed diagnostics before
+maintenance. Do not restart a shared Docker VM while other projects are running.
+
 ## Backup and restore
 
 Use a short maintenance window so the SQLite snapshot and object files agree.

@@ -1,5 +1,11 @@
 # Private alpha: single-host, local SQLite/object storage, no public API port.
 # Usage: cp .env.alpha.example .env.alpha && edit secrets && docker compose --env-file .env.alpha -f docker-compose.alpha.yml up --build
+x-logging: &logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+
 x-python: &python
   build:
     context: .
@@ -16,6 +22,7 @@ x-python: &python
     BILLING_ENABLED: "0"
   init: true
   restart: unless-stopped
+  logging: *logging
   read_only: true
   tmpfs:
     - /tmp:size=512m,mode=1777
@@ -78,6 +85,7 @@ services:
       - "127.0.0.1:${ALPHA_WEB_PORT:-3000}:3000"
     init: true
     restart: unless-stopped
+    logging: *logging
     security_opt:
       - no-new-privileges:true
     cap_drop: [ALL]

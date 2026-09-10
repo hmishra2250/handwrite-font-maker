@@ -79,6 +79,9 @@ and its object directory across unrelated hosts or use ephemeral serverless disk
   16 GB host RAM and an 8 GB API limit. Budget persistent disk for images, artifacts,
   container layers and backups; start with at least 20 GB free and monitor growth.
   Confirm actual peak memory/latency on your target host before inviting users.
+  On macOS, check free space **inside Docker's VM as well as on the Mac**. Alpha
+  container logs rotate at three 10 MB files per service; see the
+  [disk-capacity and log-maintenance runbook](docs/PRIVATE-ALPHA.md#disk-capacity-and-container-logs).
 
 ```bash
 git clone git@github.com:hmishra2250/handwrite-font-maker.git
