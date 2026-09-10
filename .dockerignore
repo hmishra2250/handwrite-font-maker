@@ -21,3 +21,13 @@ output
 inputs
 *.log
 .DS_Store
+
+# Local accounts, captures, TLS keys and backups never enter build context.
+.alpha
+backups
+web/.next-phone
+web/.next-mobile
+
+# Isolated browser-test builds must not share dev/preview caches.
+web/.next-e2e/
+web/.next-alpha-e2e/

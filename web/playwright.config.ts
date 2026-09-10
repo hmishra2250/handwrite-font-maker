@@ -10,6 +10,7 @@ export default defineConfig({
   },
   webServer: {
     command: 'npx next dev --port 3003',
+    env: { HANDWRITE_E2E: '1', DEPLOYMENT_MODE: 'local', WORKER_API_BASE_URL: '' },
     port: 3003,
     timeout: 30_000,
     reuseExistingServer: false,

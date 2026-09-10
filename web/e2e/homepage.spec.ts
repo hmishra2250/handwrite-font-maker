@@ -1,45 +1,55 @@
 import { test, expect } from '@playwright/test';
 
-test.describe('Homepage', () => {
-  test('renders hero section with current proposition', async ({ page }) => {
+test.describe('Studio workspace', () => {
+  test('opens directly into the studio instead of a marketing page', async ({ page }) => {
     await page.goto('/');
-    await expect(page.locator('h1')).toContainText('Turn handwriting and handmade shapes into a font you can type with');
+    await expect(page.getByRole('heading', { level: 1 })).toHaveText('Create your font');
+    await expect(page.getByRole('button', { name: 'Upload file', exact: true })).toBeInViewport({ ratio: 1 });
+    await expect(page.locator('#pricing')).toHaveCount(0);
   });
 
-  test('has markerless and legacy template download links', async ({ page }) => {
+  test('opens usable saved-project controls from the resource navigation', async ({ page }) => {
     await page.goto('/');
-    await expect(page.locator('a[download][href="/template-markerless.pdf"]')).toContainText('Download markerless A4');
-    await expect(page.locator('a[download][href="/template-v1.pdf"]')).toContainText('Legacy V1 PDF');
+    await page.getByRole('link', { name: 'Saved projects', exact: true }).click();
+    await expect(page.getByLabel('Project name', { exact: true })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'New project', exact: true })).toBeVisible();
   });
 
-  test('displays all three capture workflow steps', async ({ page }) => {
+  test('keeps both printable templates in the resource navigation', async ({ page }) => {
     await page.goto('/');
-    await expect(page.getByText('Capture real shapes')).toBeVisible();
-    await expect(page.getByText('Correct before building')).toBeVisible();
-    await expect(page.getByText('Proof and download')).toBeVisible();
+    await page.locator('.studio-sidebar summary').filter({ hasText: 'Templates' }).click();
+    await expect(page.locator('.studio-sidebar a[download][href="/template-markerless.pdf"]')).toBeVisible();
+    await expect(page.locator('.studio-sidebar a[download][href="/template-v1.pdf"]')).toBeVisible();
   });
 
-  test('shows the markerless template preview image', async ({ page }) => {
+  test('keeps all three capture methods available without repeated explainer cards', async ({ page }) => {
     await page.goto('/');
-    const img = page.locator('img[alt*="markerless default-v1 A4"]');
-    await expect(img).toBeVisible();
+    await expect(page.getByRole('tab', { name: /Guided characters/ })).toBeVisible();
+    await expect(page.getByRole('tab', { name: /Markerless A4 sheet/ })).toBeVisible();
+    await expect(page.getByRole('tab', { name: /Legacy marker sheet/ })).toBeVisible();
+    await expect(page.getByRole('region', { name: 'Workflow steps' })).toHaveCount(0);
   });
 
-  test('displays upload limits and alpha output in facts section', async ({ page }) => {
+  test('desktop exposes upload without a webcam action', async ({ page }) => {
     await page.goto('/');
-    await expect(page.getByText('Max upload')).toBeVisible();
-    await expect(page.getByText('15 MB', { exact: true })).toBeVisible();
-    await expect(page.getByText('Guided labels')).toBeVisible();
-    await expect(page.getByText('Alpha output')).toBeVisible();
-    await expect(page.getByText('TTF/OTF', { exact: true })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Take photo', exact: true })).toHaveCount(0);
+    await expect(page.locator('input[type="file"]:not([capture])')).toHaveAttribute('accept', 'image/jpeg,image/png,image/webp');
+  });
+
+  test('keeps secondary feedback collapsed by default', async ({ page }) => {
+    await page.goto('/');
+    const feedback = page.locator('.studio-feedback');
+    await expect(feedback).not.toHaveAttribute('open');
+    await feedback.locator(':scope > summary').click();
+    await expect(page.getByRole('heading', { name: 'Help improve the beta' })).toBeVisible();
   });
 });
 
 test.describe('Upload Workbench', () => {
-  test('renders guided capture mode with camera and upload buttons', async ({ page }) => {
+  test('renders guided capture mode with desktop upload', async ({ page }) => {
     await page.goto('/');
     await expect(page.getByRole('tab', { name: /Guided characters/ })).toHaveAttribute('aria-selected', 'true');
-    await expect(page.getByText('Take photo')).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Take photo', exact: true })).toHaveCount(0);
     await expect(page.getByText('Upload file')).toBeVisible();
   });
 
@@ -56,6 +66,7 @@ test.describe('Upload Workbench', () => {
       mimeType: 'image/png',
       buffer: Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAQAAAAECAYAAACp8Z5+AAAAF0lEQVR4nGNgYGD4DwJwGoUDpBkIqgAAP0sn2RCw+XYAAAAASUVORK5CYII=', 'base64'),
     });
+    await page.locator('summary').filter({ hasText: 'Advanced correction tools' }).click();
     const canvas = page.getByRole('img', { name: 'Editable mask for A' });
     await expect(canvas).toBeVisible();
     await expect(page.getByRole('button', { name: 'Reset mask edits' })).toBeEnabled();
@@ -71,7 +82,7 @@ test.describe('Upload Workbench', () => {
     expect(box).not.toBeNull();
     if (!box) throw new Error('Canvas box missing');
 
-    await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
+    await canvas.click({ position: { x: box.width / 2, y: box.height / 2 } });
     await expect(page.getByRole('button', { name: 'Undo mask edit' })).toBeEnabled();
     const edited = await pixels();
     expect(edited).not.toEqual(original);
@@ -80,8 +91,8 @@ test.describe('Upload Workbench', () => {
     await expect(page.getByText('Undid the last brush stroke.')).toBeVisible();
     expect(await pixels()).toEqual(original);
 
-    await page.mouse.click(box.x + box.width / 3, box.y + box.height / 3);
-    await page.mouse.click(box.x + (box.width * 2) / 3, box.y + (box.height * 2) / 3);
+    await canvas.click({ position: { x: box.width / 3, y: box.height / 3 } });
+    await canvas.click({ position: { x: (box.width * 2) / 3, y: (box.height * 2) / 3 } });
     expect(await pixels()).not.toEqual(original);
     await page.getByRole('button', { name: 'Reset mask edits' }).click();
     await expect(page.getByText('Reset to the latest extracted mask.')).toBeVisible();
@@ -121,6 +132,7 @@ test.describe('Upload Workbench', () => {
 });
 
 test.describe('Responsive layout', () => {
+  test.use({ hasTouch: true, isMobile: true });
   test('stacks to usable capture on mobile', async ({ page }) => {
     await page.setViewportSize({ width: 375, height: 812 });
     await page.goto('/');
@@ -128,11 +140,11 @@ test.describe('Responsive layout', () => {
     await expect(page.getByRole('tab', { name: /Guided characters/ })).toBeVisible();
   });
 
-  test('keeps primary capture CTA readable on mobile', async ({ page }) => {
+  test('keeps the camera above the fold and avoids horizontal overflow on mobile', async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 });
     await page.goto('/');
-    const cta = page.getByRole('link', { name: 'Start capture' });
-    await expect(cta).toBeVisible();
-    await expect(cta).toHaveCSS('color', 'rgb(255, 255, 255)');
+    await expect(page.getByRole('button', { name: 'Take photo', exact: true })).toBeInViewport({ ratio: 1 });
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+    await expect(page.locator('.studio-mobile-nav')).toBeVisible();
   });
 });

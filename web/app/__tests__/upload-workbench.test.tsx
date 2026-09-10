@@ -77,6 +77,24 @@ function uploadInput() {
   return fileInputs().find((input) => !input.hasAttribute('capture')) as HTMLInputElement;
 }
 
+function expandProjectControls() {
+  const summary = screen.getByText('Project').closest('summary');
+  if (!summary) throw new Error('Project summary not found.');
+  if (!summary.closest('details')?.hasAttribute('open')) fireEvent.click(summary);
+}
+
+function expandRefinementTools() {
+  const summary = screen.getByText('Refinement tools').closest('summary');
+  if (!summary) throw new Error('Refinement summary not found.');
+  if (!summary.closest('details')?.hasAttribute('open')) fireEvent.click(summary);
+}
+
+function expandFontSettings() {
+  const summary = screen.getByText('Font settings').closest('summary');
+  if (!summary) throw new Error('Font settings summary not found.');
+  if (!summary.closest('details')?.hasAttribute('open')) fireEvent.click(summary);
+}
+
 function installImageAndCanvasMocks() {
   class MockImage {
     onload: (() => void) | null = null;
@@ -126,16 +144,23 @@ describe('UploadWorkbench', () => {
   it('renders capture modes with guided mode active by default', () => {
     render(<UploadWorkbench />);
     expect(screen.getByRole('tab', { name: /Guided characters/i })).toHaveAttribute('aria-selected', 'true');
-    expect(screen.getByText('Current character')).toBeInTheDocument();
+    expect(screen.getByText('Capture A')).toBeInTheDocument();
     expect(screen.getByText('Build guided font (0 accepted)')).toBeDisabled();
   });
 
-  it('has camera input with capture attribute for mobile', () => {
+  it('can render as a constrained mobile phone-capture workbench without the marketing subtitle', () => {
+    render(<UploadWorkbench presentation="mobile" />);
+    expect(screen.getByRole('heading', { name: 'Capture your font' })).toBeInTheDocument();
+    expect(screen.getByText('Phone capture alpha')).toBeInTheDocument();
+    expect(screen.queryByText('Your handwriting. Found shapes. A font only you could make.')).not.toBeInTheDocument();
+    expect(document.querySelector('.mobile-workbench')).toBeInTheDocument();
+    expect(document.querySelector('.mobile-workbench')?.className).toContain('max-w-[760px]');
+  });
+
+  it('keeps desktop upload-only without requesting camera access', () => {
     render(<UploadWorkbench />);
-    const cameraInput = fileInputs().find((input) => input.hasAttribute('capture'));
-    expect(cameraInput).toBeTruthy();
-    expect(cameraInput?.getAttribute('capture')).toBe('environment');
-    expect(cameraInput?.getAttribute('accept')).toContain('image/jpeg');
+    expect(screen.queryByRole('button', { name: 'Take photo' })).not.toBeInTheDocument();
+    expect(fileInputs().some((input) => input.hasAttribute('capture'))).toBe(false);
   });
 
   it('has a file input without capture for desktop uploads', () => {
@@ -173,11 +198,134 @@ describe('UploadWorkbench', () => {
     render(<UploadWorkbench />);
     await userEvent.upload(uploadInput(), createTestFile());
     await waitFor(() => expect(screen.getByLabelText('Editable mask for A')).toBeInTheDocument());
+    expandRefinementTools();
     expect(screen.getByRole('radio', { name: /Global threshold/i })).toBeChecked();
     await userEvent.click(screen.getByRole('radio', { name: /Adaptive local threshold/i }));
     expect(screen.getByRole('radio', { name: /Adaptive local threshold/i })).toBeChecked();
     expect(screen.getByRole('slider', { name: /Global threshold/i })).toBeDisabled();
     await waitFor(() => expect(screen.getByLabelText('Editable mask for A')).toBeInTheDocument());
+  });
+
+  it('collapses secondary project controls without losing edited state', async () => {
+    render(<UploadWorkbench />);
+    expandProjectControls();
+    const projectName = screen.getByLabelText(/Project name/i);
+    await userEvent.clear(projectName);
+    await userEvent.type(projectName, 'Leaves test');
+    const summary = screen.getByText('Project').closest('summary');
+    if (!summary) throw new Error('Project summary not found.');
+    await userEvent.click(summary);
+    expect(screen.queryByLabelText(/Project name/i)).not.toBeInTheDocument();
+    await userEvent.click(summary);
+    expect(screen.getByLabelText(/Project name/i)).toHaveValue('Leaves test');
+  });
+
+
+  it('auto-runs ink then object candidate stages and accepts the selected mask exactly', async () => {
+    let uploadedMaskText = '';
+    let resolveObjects: (response: Response) => void = () => { throw new Error('objects stage did not start'); };
+    const objectsResponse = new Promise<Response>((resolve) => { resolveObjects = resolve; });
+    const fetchMock = vi.spyOn(globalThis, 'fetch').mockImplementation(async (url, init) => {
+      const urlStr = typeof url === 'string' ? url : url.toString();
+      if (urlStr.includes('/api/uploads')) {
+        const body = JSON.parse(String(init?.body ?? '{}')) as { filename?: string };
+        if (body.filename?.startsWith('glyph-')) return Response.json({ ...validUploadResponse, mode: 'local', uploadUrl: '/upload-mask' });
+        return Response.json(validUploadResponse);
+      }
+      if (urlStr === '/upload-mask') {
+        uploadedMaskText = await ((init?.body as Blob | undefined)?.text() ?? Promise.resolve(''));
+        return new Response(null, { status: 200 });
+      }
+      if (urlStr.includes('/api/capture/candidates')) {
+        const body = JSON.parse(String(init?.body));
+        if (body.stage === 'ink') {
+          return Response.json({
+            stage: 'ink',
+            failures: [],
+            candidates: [{ id: 'clean', label: 'Clean ink', maskDataUrl: `data:image/png;base64,${btoa('candidate-mask')}`, svgDataUrl: `data:image/svg+xml;base64,${btoa('<svg xmlns="http://www.w3.org/2000/svg"/>')}`, width: 2, height: 2, method: 'threshold-clean', warnings: [] }],
+          });
+        }
+        return objectsResponse;
+      }
+      if (urlStr.endsWith('/api/jobs')) return Response.json(queuedJobResponse, { status: 202 });
+      return Response.json({});
+    });
+
+    render(<UploadWorkbench />);
+    await userEvent.upload(uploadInput(), createTestFile('white-a-on-black.jpg'));
+
+    const candidate = await screen.findByTestId('candidate-option-ink-clean');
+    expect(candidate).toHaveAttribute('aria-selected', 'true');
+    expect(screen.getAllByText('Trying object cutouts…').length).toBeGreaterThan(0);
+    await userEvent.click(screen.getByText('Accept A'));
+    expect(screen.getByLabelText('B missing')).toBeInTheDocument();
+
+    resolveObjects(Response.json({
+      stage: 'objects',
+      failures: [],
+      candidates: [{ id: 'late-object', label: 'Late object', maskDataUrl: `data:image/png;base64,${btoa('late-mask')}`, svgDataUrl: `data:image/svg+xml;base64,${btoa('<svg xmlns="http://www.w3.org/2000/svg"/>')}`, width: 2, height: 2, method: 'efficientsam', warnings: [] }],
+    }));
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(screen.queryByTestId('candidate-option-objects-late-object')).not.toBeInTheDocument();
+
+    await userEvent.click(screen.getByText('Build guided font (1 accepted)'));
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledWith('/api/jobs', expect.anything()));
+    expect(uploadedMaskText).toBe('candidate-mask');
+  });
+
+  it('keeps fast ink candidates when the object stage fails', async () => {
+    vi.spyOn(globalThis, 'fetch').mockImplementation(async (url, init) => {
+      const urlStr = typeof url === 'string' ? url : url.toString();
+      if (urlStr.includes('/api/uploads')) return Response.json(validUploadResponse);
+      if (urlStr.includes('/api/capture/candidates')) {
+        const body = JSON.parse(String(init?.body));
+        if (body.stage === 'ink') return Response.json({
+          stage: 'ink',
+          failures: [],
+          candidates: [{ id: 'soft', label: 'Soft vector', maskDataUrl: `data:image/png;base64,${btoa('soft-mask')}`, svgDataUrl: `data:image/svg+xml;base64,${btoa('<svg xmlns="http://www.w3.org/2000/svg"/>')}`, width: 2, height: 2, method: 'threshold-soft', warnings: [] }],
+        });
+        return Response.json({ error: { message: 'model timed out' } }, { status: 504 });
+      }
+      return Response.json({});
+    });
+
+    render(<UploadWorkbench />);
+    await userEvent.upload(uploadInput(), createTestFile('leaf.jpg'));
+    expect(await screen.findByTestId('candidate-option-ink-soft')).toBeInTheDocument();
+    await waitFor(() => expect(screen.getByText(/model timed out/i)).toBeInTheDocument());
+    expect(screen.getByText('Accept A')).not.toBeDisabled();
+  });
+
+  it('does not let a stale source upload overwrite the current guided upload ref', async () => {
+    let resolveFirstUpload: (response: Response) => void = () => { throw new Error('first upload not started'); };
+    const firstUpload = new Promise<Response>((resolve) => { resolveFirstUpload = resolve; });
+    const candidateBodies: unknown[] = [];
+    vi.spyOn(globalThis, 'fetch').mockImplementation(async (url, init) => {
+      const urlStr = typeof url === 'string' ? url : url.toString();
+      if (urlStr.includes('/api/uploads')) {
+        const body = JSON.parse(String(init?.body ?? '{}')) as { filename?: string };
+        if (body.filename === 'old.jpg') return firstUpload;
+        return Response.json({ ...validUploadResponse, objectKey: 'jobs/job_test/input/new.jpg' });
+      }
+      if (urlStr.includes('/api/capture/candidates')) {
+        candidateBodies.push(JSON.parse(String(init?.body)));
+        return Response.json({
+          stage: 'ink',
+          failures: [],
+          candidates: [{ id: 'new', label: 'New file option', maskDataUrl: `data:image/png;base64,${btoa('new-mask')}`, svgDataUrl: `data:image/svg+xml;base64,${btoa('<svg xmlns="http://www.w3.org/2000/svg"/>')}`, width: 2, height: 2, method: 'threshold-clean', warnings: [] }],
+        });
+      }
+      return Response.json({});
+    });
+
+    render(<UploadWorkbench />);
+    await userEvent.upload(uploadInput(), createTestFile('old.jpg'));
+    await userEvent.upload(uploadInput(), createTestFile('new.jpg'));
+    resolveFirstUpload(Response.json({ ...validUploadResponse, objectKey: 'jobs/job_test/input/old.jpg' }));
+
+    await screen.findByTestId('candidate-option-ink-new');
+    expect(candidateBodies).toContainEqual(expect.objectContaining({ inputPhoto: expect.objectContaining({ objectKey: 'jobs/job_test/input/new.jpg' }) }));
+    expect(candidateBodies).not.toContainEqual(expect.objectContaining({ inputPhoto: expect.objectContaining({ objectKey: 'jobs/job_test/input/old.jpg' }) }));
   });
 
   it('supports bounded manual mask brush edits with undo and reset', async () => {
@@ -318,6 +466,7 @@ describe('UploadWorkbench', () => {
     render(<UploadWorkbench />);
     await userEvent.upload(uploadInput(), createTestFile('leaf.jpg'));
     await waitFor(() => expect(screen.getByLabelText('Editable mask for A')).toBeInTheDocument());
+    expandRefinementTools();
     await userEvent.click(screen.getByLabelText(/Backend segmentation cutout/i));
     expect(screen.getByText(/No browser-only model is simulated/i)).toBeInTheDocument();
     expect(screen.getByRole('slider', { name: 'Left boundary slider' })).toBeInTheDocument();
@@ -362,6 +511,7 @@ describe('UploadWorkbench', () => {
     render(<UploadWorkbench />);
     await userEvent.upload(uploadInput(), createTestFile('leaf.jpg'));
     await waitFor(() => expect(screen.getByLabelText('Editable mask for A')).toBeInTheDocument());
+    expandRefinementTools();
     await userEvent.click(screen.getByLabelText(/Backend segmentation cutout/i));
     await userEvent.click(screen.getByLabelText(/SlimSAM point cutout/i));
     await userEvent.click(screen.getByText('Extract mask'));
@@ -391,7 +541,7 @@ describe('UploadWorkbench', () => {
     });
   });
 
-  it('makes auto extraction without a Keep object prompt visibly use classical GrabCut', async () => {
+  it('makes auto extraction without a Keep object prompt show bounded automatic fallback', async () => {
     const maskDataUrl = `data:image/png;base64,${btoa('mask-png')}`;
     const fetchMock = vi.spyOn(globalThis, 'fetch').mockImplementation(async (url) => {
       const urlStr = typeof url === 'string' ? url : url.toString();
@@ -403,9 +553,10 @@ describe('UploadWorkbench', () => {
     render(<UploadWorkbench />);
     await userEvent.upload(uploadInput(), createTestFile('leaf.jpg'));
     await waitFor(() => expect(screen.getByLabelText('Editable mask for A')).toBeInTheDocument());
+    expandRefinementTools();
     await userEvent.click(screen.getByLabelText(/Backend segmentation cutout/i));
     await userEvent.click(screen.getByText('Extract mask'));
-    await waitFor(() => expect(screen.getAllByText(/used classical GrabCut instead of model segmentation/i).length).toBeGreaterThan(0));
+    await waitFor(() => expect(screen.getAllByText(/automatic high-contrast extraction with a bounded classical fallback/i).length).toBeGreaterThan(0));
     const foregroundCall = fetchMock.mock.calls.find(([url]) => String(url).includes('/api/capture/foreground'));
     const foregroundBody = JSON.parse(String((foregroundCall?.[1] as RequestInit).body));
     expect(foregroundBody).toMatchObject({ method: 'grabcut', style: 'silhouette' });
@@ -424,6 +575,7 @@ describe('UploadWorkbench', () => {
     render(<UploadWorkbench />);
     await userEvent.upload(uploadInput(), createTestFile('leaf.jpg'));
     await waitFor(() => expect(screen.getByLabelText('Editable mask for A')).toBeInTheDocument());
+    expandRefinementTools();
     await userEvent.click(screen.getByLabelText(/Backend segmentation cutout/i));
     const sourcePrompt = screen.getByLabelText(/Add Keep object prompt point/i);
     fireEvent.click(sourcePrompt, { clientX: 0, clientY: 0 });
@@ -486,6 +638,7 @@ describe('UploadWorkbench', () => {
     });
 
     render(<UploadWorkbench />);
+    expandProjectControls();
     await user.selectOptions(await screen.findByLabelText(/Open saved project/i), 'project_1');
     await screen.findByDisplayValue('Queued Project');
 
@@ -529,6 +682,7 @@ describe('UploadWorkbench', () => {
     });
 
     render(<UploadWorkbench />);
+    expandProjectControls();
     await user.selectOptions(await screen.findByLabelText(/Open saved project/i), 'project_1');
     await screen.findByDisplayValue('Project One');
     const nameInput = screen.getByLabelText(/Project name/i);
@@ -538,6 +692,7 @@ describe('UploadWorkbench', () => {
     await user.clear(nameInput);
     await user.type(nameInput, 'Queued old edit');
     await new Promise((resolve) => setTimeout(resolve, 900));
+    expandProjectControls();
     expect(screen.getByLabelText(/Open saved project/i)).toBeDisabled();
     resolveFirstSave(Response.json(createProjectFixture({ id: 'project_1', name: 'One edit', revision: 2 })));
     await new Promise((resolve) => setTimeout(resolve, 300));
@@ -560,6 +715,7 @@ describe('UploadWorkbench', () => {
     });
 
     const rendered = render(<UploadWorkbench />);
+    expandProjectControls();
     await userEvent.selectOptions(await screen.findByLabelText(/Open saved project/i), 'project_1');
     await screen.findByDisplayValue('Queued Project');
     await userEvent.clear(screen.getByLabelText(/Project name/i));
@@ -581,6 +737,7 @@ describe('UploadWorkbench', () => {
     await userEvent.upload(uploadInput(), createTestFile());
     await waitFor(() => expect(screen.getByLabelText('Editable mask for A')).toBeInTheDocument());
     await userEvent.click(screen.getByText('Accept A'));
+    expandProjectControls();
     await userEvent.click(screen.getByText('New project'));
     await screen.findByText(/Quota exceeded/i);
     expect(screen.getByLabelText('A accepted')).toBeInTheDocument();
@@ -621,6 +778,7 @@ describe('UploadWorkbench', () => {
     await userEvent.click(screen.getByText('Accept A'));
     expect(screen.getByLabelText('A accepted')).toBeInTheDocument();
 
+    expandProjectControls();
     await userEvent.selectOptions(await screen.findByLabelText(/Open saved project/i), 'project_bad');
     await screen.findByText('Could not restore an accepted mask PNG from the saved project.');
     expect(screen.getByLabelText('A accepted')).toBeInTheDocument();
@@ -644,6 +802,7 @@ describe('UploadWorkbench', () => {
     });
 
     render(<UploadWorkbench />);
+    expandProjectControls();
     await userEvent.selectOptions(await screen.findByLabelText(/Open saved project/i), 'project_1');
     await screen.findByDisplayValue('Queued Project');
     await userEvent.click(screen.getByRole('tab', { name: /Markerless A4 sheet/i }));
@@ -683,6 +842,7 @@ describe('UploadWorkbench', () => {
       return Response.json({});
     });
     render(<UploadWorkbench />);
+    expandProjectControls();
     await userEvent.selectOptions(await screen.findByLabelText(/Open saved project/i), 'project_1');
     await screen.findByDisplayValue('Queued Project');
     await userEvent.click(screen.getByRole('tab', { name: /Markerless A4 sheet/i }));
@@ -713,6 +873,7 @@ describe('UploadWorkbench', () => {
     });
 
     render(<UploadWorkbench />);
+    expandProjectControls();
     await userEvent.selectOptions(await screen.findByLabelText(/Open saved project/i), 'project_sheet');
     await screen.findByAltText('Captured markerless A4 sheet preview');
     expect(screen.getByText('Confirmed for job submission.')).toBeInTheDocument();
@@ -743,6 +904,7 @@ describe('UploadWorkbench', () => {
     });
 
     render(<UploadWorkbench />);
+    expandProjectControls();
     await userEvent.selectOptions(await screen.findByLabelText(/Open saved project/i), 'project_legacy');
     await screen.findByAltText('Captured template preview');
     await userEvent.click(screen.getByText('Build legacy marker font'));
@@ -895,6 +1057,7 @@ describe('UploadWorkbench', () => {
     await userEvent.upload(uploadInput(), createTestFile());
     await waitFor(() => expect(screen.getByLabelText('Editable mask for A')).toBeInTheDocument());
     await userEvent.click(screen.getByText('Accept A'));
+    expandFontSettings();
     const fontInput = screen.getByDisplayValue('MyHandwrite-Regular');
     await userEvent.clear(fontInput);
     await userEvent.type(fontInput, 'bad font name');
@@ -924,6 +1087,7 @@ describe('UploadWorkbench', () => {
     await userEvent.click(screen.getByText('Accept A'));
     await userEvent.click(screen.getByText('Build guided font (1 accepted)'));
 
+    expandProjectControls();
     expect(screen.getByLabelText(/Open saved project/i)).toBeDisabled();
     await waitFor(() => expect(screen.getByText('Complete')).toBeInTheDocument(), { timeout: 10000 });
     expect(screen.getByText('OpenType Font')).toBeInTheDocument();
@@ -931,6 +1095,39 @@ describe('UploadWorkbench', () => {
     expect(screen.getByText('Typed proof from generated TTF')).toBeInTheDocument();
     expect(screen.getByDisplayValue('A')).toBeInTheDocument();
     expect(screen.getByText(/How to install/)).toBeInTheDocument();
+  });
+
+
+  it('deduplicates completed job keyed children when the same succeeded job is observed again', async () => {
+    let pollCount = 0;
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    vi.spyOn(globalThis, 'fetch').mockImplementation(async (url) => {
+      const urlStr = typeof url === 'string' ? url : url.toString();
+      if (urlStr.includes('/api/uploads')) return Response.json(validUploadResponse);
+      if (urlStr.includes('/api/jobs/') && !urlStr.endsWith('/api/jobs')) {
+        pollCount++;
+        return Response.json({ ...succeededJobResponse, progressLabel: `Font build complete ${pollCount}` });
+      }
+      if (urlStr.endsWith('/api/jobs')) return Response.json(queuedJobResponse, { status: 202 });
+      return Response.json({});
+    });
+    vi.stubGlobal('FontFace', class { constructor(public family: string) {} async load() { return this; } });
+    Object.defineProperty(document, 'fonts', { value: { add: vi.fn() }, configurable: true });
+
+    render(<UploadWorkbench allowDelete />);
+    await userEvent.upload(uploadInput(), createTestFile());
+    await waitFor(() => expect(screen.getByLabelText('Editable mask for A')).toBeInTheDocument());
+    await userEvent.click(screen.getByText('Accept A'));
+    await userEvent.click(screen.getByText('Build guided font (1 accepted)'));
+
+    await waitFor(() => expect(screen.getByText('Complete')).toBeInTheDocument(), { timeout: 10000 });
+    expect(screen.getByText('Typed proof from generated TTF')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Delete this job and files/i })).toBeInTheDocument();
+
+    await userEvent.click(screen.getByText('Build guided font (1 accepted)'));
+    await waitFor(() => expect(pollCount).toBe(2), { timeout: 10000 });
+    expect(screen.getAllByRole('button', { name: /Delete this job and files/i })).toHaveLength(1);
+    expect(consoleError.mock.calls.flat().join('\n')).not.toContain('Encountered two children with the same key');
   });
 
   it('shows error state on job failure', async () => {
@@ -955,6 +1152,6 @@ describe('UploadWorkbench', () => {
   it('shows ready status when no job is active', () => {
     render(<UploadWorkbench />);
     expect(screen.getByText('Ready')).toBeInTheDocument();
-    expect(screen.getByText('Choose a capture mode, then build with a configured Python worker.')).toBeInTheDocument();
+    expect(screen.getByText('Your font preview will appear here. Add a character and build your font.')).toBeInTheDocument();
   });
 });

@@ -270,7 +270,7 @@ def test_capture_foreground_endpoint_returns_png_data_url(monkeypatch, tmp_path:
         assert image.size == (32, 24)
 
 
-def test_capture_foreground_auto_reports_grabcut_fallback_without_weights(monkeypatch, tmp_path: Path):
+def test_capture_foreground_auto_reports_fast_threshold_without_weights(monkeypatch, tmp_path: Path):
     object_key = "jobs/job_foreground_auto/input/original.png"
     size = _png(tmp_path / "objects" / object_key, size=(96, 96))
     monkeypatch.setenv("HANDWRITE_MODEL_DIR", str(tmp_path / "missing-model"))
@@ -287,10 +287,10 @@ def test_capture_foreground_auto_reports_grabcut_fallback_without_weights(monkey
     finally:
         server.shutdown()
     assert status == 200
-    assert payload["method"] == "grabcut"
+    assert payload["method"] == "threshold"
     assert payload["modelId"] is None
     assert payload["warnings"]
-    assert "grabcut" in payload["warnings"][0].lower()
+    assert any("threshold" in warning.lower() for warning in payload["warnings"])
     assert payload["maskDataUrl"].startswith("data:image/png;base64,")
 
 
@@ -649,3 +649,53 @@ def test_worker_guided_cumulative_cap_uses_actual_downloaded_bytes_not_declared(
     assert result is not None
     assert result["status"] == "failed"
     assert result["error"]["code"] == "UPLOAD_OBJECT_TOO_LARGE"
+
+
+def test_capture_diagnostics_record_success_and_failure(monkeypatch, tmp_path):
+    diagnostics = tmp_path / 'private-diagnostics'
+    monkeypatch.setenv('HANDWRITE_CAPTURE_DIAGNOSTICS_DIR', str(diagnostics))
+    key = 'jobs/diagnostic/input/original.png'
+    size = _png(tmp_path / 'objects' / key)
+    monkeypatch.setattr('handwrite_font_maker.web.server._extract_foreground',
+                        lambda *args, **kwargs: __import__('numpy').pad(__import__('numpy').zeros((16, 16), dtype='uint8'), 8, constant_values=255))
+    server, base = _start_server(tmp_path)
+    body = {'inputPhoto': {'objectKey': key, 'contentType': 'image/png', 'sizeBytes': size},
+            'rectangle': [.1, .1, .9, .9], 'method': 'grabcut', 'style': 'silhouette'}
+    try:
+        status, payload = _post_json(base + '/capture/foreground', body)
+        assert status == 200
+        records = list(diagnostics.glob('*/record.json'))
+        assert len(records) == 1
+        record = json.loads(records[0].read_text())
+        assert record['request'] == body
+        assert record['result']['method'] == payload['method']
+        assert (records[0].parent / 'mask.png').is_file()
+        def fail(*args, **kwargs):
+            raise ValueError('No foreground found')
+        monkeypatch.setattr('handwrite_font_maker.web.server._extract_foreground', fail)
+        status, _ = _post_json(base + '/capture/foreground', body)
+        assert status >= 400
+        assert sorted(json.loads(p.read_text())['state'] for p in diagnostics.glob('*/record.json')) == ['failed', 'succeeded']
+    finally:
+        server.shutdown()
+
+
+def test_candidate_route_validates_and_records_options(monkeypatch,tmp_path):
+    key='jobs/candidate/input/original.png';size=_png(tmp_path/'objects'/key)
+    monkeypatch.setenv('HANDWRITE_CAPTURE_DIAGNOSTICS_DIR',str(tmp_path/'diagnostics'))
+    seen=[]
+    def generate(path,rectangle,stage):
+        seen.append((rectangle,stage))
+        return {'stage':stage,'candidates':[],'failures':[{'method':'test','message':'test failure'}]}
+    monkeypatch.setattr('handwrite_font_maker.candidates.generate_candidates',generate)
+    server,base=_start_server(tmp_path)
+    body={'inputPhoto':{'objectKey':key,'contentType':'image/png','sizeBytes':size},'rectangle':[.1,.1,.9,.9],'stage':'ink','context':{'character':'A','invert':True}}
+    try:
+        status,result=_post_json(base+'/capture/candidates',body)
+        assert status==200 and result['stage']=='ink'
+        assert seen==[((.1,.1,.9,.9),'ink')]
+        record=json.loads(next((tmp_path/'diagnostics').glob('*/record.json')).read_text())
+        assert record['request']['context']==body['context'] and record['sourceSha256']
+        status,_=_post_json(base+'/capture/candidates',{**body,'stage':'invalid'})
+        assert status>=400 and len(seen)==1
+    finally:server.shutdown()

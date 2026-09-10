@@ -2,7 +2,8 @@ import cv2
 import numpy as np
 import pytest
 
-from handwrite_font_maker.foreground import extract_foreground
+from handwrite_font_maker import foreground as fg
+from handwrite_font_maker.foreground import extract_foreground, threshold_foreground
 
 
 def test_object_cutout_preserves_hole_and_disconnected_parts():
@@ -42,3 +43,67 @@ def test_output_is_bounded_and_not_cropped():
 def test_extreme_aspect_ratio_is_not_stretched():
     with pytest.raises(ValueError, match="too narrow"):
         extract_foreground(np.zeros((8, 2048, 3), np.uint8), [0.1, 0.1, 0.9, 0.9])
+
+
+def test_high_contrast_light_foreground_uses_threshold_without_grabcut(monkeypatch):
+    source = np.zeros((180, 140, 3), np.uint8)
+    cv2.putText(source, "A", (32, 132), cv2.FONT_HERSHEY_SIMPLEX, 3.2, (245, 245, 245), 18, cv2.LINE_AA)
+    monkeypatch.setattr(fg, "_bounded_grabcut", lambda *_args, **_kwargs: pytest.fail("high-contrast light glyph reached GrabCut"))
+
+    mask = extract_foreground(source, [0.08, 0.08, 0.92, 0.92])
+
+    assert mask[95, 60] == 255  # counter/hole remains background
+    assert mask[132, 45] == 0
+    assert mask[10, 10] == 255
+    assert np.count_nonzero(mask < 128) > 500
+
+
+@pytest.mark.parametrize(
+    ("polarity", "background", "foreground"),
+    [("dark", 240, 20), ("light", 10, 245)],
+)
+def test_threshold_foreground_supports_explicit_polarities(polarity, background, foreground):
+    source = np.full((90, 120, 3), background, np.uint8)
+    cv2.circle(source, (60, 45), 24, (foreground, foreground, foreground), -1)
+
+    mask = threshold_foreground(source, [0.1, 0.1, 0.9, 0.9], polarity=polarity)
+
+    assert mask[45, 60] == 0
+    assert mask[0, 0] == 255
+
+
+def test_bounded_grabcut_times_out_hard(monkeypatch):
+    class FakeConnection:
+        def close(self):
+            pass
+
+    class FakeProcess:
+        terminated = False
+        sentinel = object()
+
+        def __init__(self, **_kwargs):
+            pass
+
+        def start(self):
+            pass
+
+        def join(self, _timeout=None):
+            pass
+
+        def is_alive(self):
+            return not self.terminated
+
+        def terminate(self):
+            self.terminated = True
+
+    class FakeContext:
+        def Pipe(self, duplex=False):
+            return FakeConnection(), FakeConnection()
+
+        Process = FakeProcess
+
+    source = np.full((80, 80, 3), 127, np.uint8)
+    monkeypatch.setattr(fg.mp, "get_context", lambda _method=None: FakeContext())
+    monkeypatch.setattr(fg, "wait", lambda _items, _timeout: [])
+    with pytest.raises(ValueError, match="time limit"):
+        fg._bounded_grabcut(source, (10, 10, 70, 70), 0.05)

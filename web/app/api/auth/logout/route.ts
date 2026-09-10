@@ -1,6 +1,6 @@
 import { createClient, type Session } from '@supabase/supabase-js';
 import { NextResponse } from 'next/server';
-import { ACCESS_COOKIE, clearSessionCookies, deploymentMode, enforceMutationOrigin, noStoreResponse, protectedDeploymentConfig, readSessionCookie, REFRESH_COOKIE, setSessionCookies } from '@/lib/server-auth';
+import { ACCESS_COOKIE, clearSessionCookies, deploymentMode, enforceMutationOrigin, isLocalHttpAlpha, LOCAL_ALPHA_ACCESS_COOKIE, noStoreResponse, protectedDeploymentConfig, readSessionCookie, REFRESH_COOKIE, setSessionCookies, type ProtectedDeploymentConfig } from '@/lib/server-auth';
 
 type StatusError = { status?: unknown } | null | undefined;
 type LogoutSession = Pick<Session, 'access_token' | 'refresh_token' | 'expires_in'>;
@@ -19,16 +19,45 @@ function unavailableResponse(session?: LogoutSession) {
   return noStoreResponse(response);
 }
 
+function readAlphaAccess(request: Request, config: ProtectedDeploymentConfig) {
+  return readSessionCookie(request, ACCESS_COOKIE) || (isLocalHttpAlpha(config) ? readSessionCookie(request, LOCAL_ALPHA_ACCESS_COOKIE) : '');
+}
+
+async function logoutPrivateAlpha(request: Request) {
+  const configResult = protectedDeploymentConfig();
+  if (!configResult.ok) return configResult.response;
+  const accessToken = readAlphaAccess(request, configResult.config);
+  if (accessToken) {
+    try {
+      const upstream = await fetch(new URL('/auth/logout', configResult.config.workerApiBaseUrl), {
+        method: 'POST',
+        headers: { authorization: `Bearer ${accessToken}`, 'x-internal-api-key': configResult.config.internalApiKey },
+        cache: 'no-store',
+        signal: AbortSignal.timeout(10_000),
+      });
+      if (!upstream.ok && !isInvalidSessionStatus(upstream.status)) return unavailableResponse();
+    } catch {
+      return unavailableResponse();
+    }
+  }
+  const response = NextResponse.json({ ok: true });
+  clearSessionCookies(response);
+  return noStoreResponse(response);
+}
+
 export async function POST(request: Request) {
   const originError = enforceMutationOrigin(request);
   if (originError) return originError;
 
-  if (deploymentMode() !== 'local') {
+  const mode = deploymentMode();
+  if (mode === 'private_alpha') return logoutPrivateAlpha(request);
+
+  if (mode !== 'local') {
     const configResult = protectedDeploymentConfig();
     if (!configResult.ok) return configResult.response;
     const accessToken = readSessionCookie(request, ACCESS_COOKIE);
     const refreshToken = readSessionCookie(request, REFRESH_COOKIE);
-    const supabase = createClient(configResult.config.supabaseUrl, configResult.config.supabaseAnonKey, {
+    const supabase = createClient(configResult.config.supabaseUrl!, configResult.config.supabaseAnonKey!, {
       auth: { autoRefreshToken: false, persistSession: false, detectSessionInUrl: false },
     });
 

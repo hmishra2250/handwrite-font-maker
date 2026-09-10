@@ -17,7 +17,7 @@ import cv2
 import numpy as np
 from PIL import Image
 
-from .foreground import MAX_CUTOUT_SIDE, extract_foreground
+from .foreground import MAX_CUTOUT_SIDE, extract_foreground_result, threshold_foreground
 
 MODEL_REPO = 'Xenova/slimsam-77-uniform'
 MODEL_REVISION = '5850ab45f587c112167512ffef949107115e26a0'
@@ -157,6 +157,23 @@ def _validate_points(points, rectangle) -> list[dict]:
     return points
 
 
+def _rectangle_area_pixels(shape: tuple[int, int], rectangle: tuple[float, float, float, float]) -> int:
+    height, width = shape
+    left, top, right, bottom = rectangle
+    x0, y0 = int(left * width), int(top * height)
+    x1, y1 = min(width, math.ceil(right * width)), min(height, math.ceil(bottom * height))
+    return max(0, x1 - x0) * max(0, y1 - y0)
+
+
+def _reject_selection_that_is_really_the_box(mask: np.ndarray, rectangle: tuple[float, float, float, float]) -> None:
+    area = _rectangle_area_pixels(mask.shape[:2], rectangle)
+    if area <= 0:
+        raise ValueError('Select a larger rectangle around the entire character.')
+    foreground = int(np.count_nonzero(mask < 128))
+    if foreground / area > 0.85:
+        raise ValueError('This method selected almost the entire box, not the character. Try threshold extraction, a tighter crop, or prompt points.')
+
+
 def predict_slimsam(image_bgr: np.ndarray, rectangle, *, variant: str = 'fp32', points=None) -> np.ndarray:
     image_bgr, rectangle = _prepare_source(image_bgr, rectangle)
     points = _validate_points(points, rectangle)
@@ -197,13 +214,24 @@ def predict_slimsam(image_bgr: np.ndarray, rectangle, *, variant: str = 'fp32', 
         _INFERENCE_LOCK.release()
 
 
-def segment_image(image_bgr: np.ndarray, rectangle, *, method: str = 'auto', style: str = 'silhouette', threshold: int = 128, points=None) -> CutoutResult:
+def segment_image(
+    image_bgr: np.ndarray,
+    rectangle,
+    *,
+    method: str = 'auto',
+    style: str = 'silhouette',
+    threshold: int = 128,
+    points=None,
+    ink_polarity: str = 'dark',
+) -> CutoutResult:
     if method not in {'auto', 'model', 'grabcut', 'box-model'}:
         raise ValueError('method must be auto, model, grabcut or box-model.')
     if style not in {'silhouette', 'ink'}:
         raise ValueError('style must be silhouette or ink.')
     if isinstance(threshold, bool) or not isinstance(threshold, int) or not 1 <= threshold <= 254:
         raise ValueError('threshold must be an integer between 1 and 254.')
+    if ink_polarity not in {'dark', 'light', 'auto'}:
+        raise ValueError('ink_polarity must be dark, light or auto.')
     source, rectangle = _prepare_source(image_bgr, rectangle)
     warnings: tuple[str, ...] = ()
     actual_method, model_id = 'grabcut', None
@@ -232,15 +260,27 @@ def segment_image(image_bgr: np.ndarray, rectangle, *, method: str = 'auto', sty
             except ModelUnavailableError as exc:
                 if method == 'model':
                     raise
-                warnings = (f'Learned segmentation unavailable; used classical GrabCut instead. {exc}',)
-                mask = extract_foreground(source, rectangle)
+                foreground = extract_foreground_result(source, rectangle)
+                warnings = (f'Learned segmentation unavailable; used {foreground.method} instead. {exc}', *foreground.warnings)
+                mask = foreground.mask
+                actual_method = foreground.method
         else:
             if method == 'auto':
-                warnings = ('Used classical GrabCut. Add a keep point on the character to try learned segmentation.',)
-            mask = extract_foreground(source, rectangle)
+                warnings = ('Used classical extraction. Add a keep point on the character to try learned segmentation.',)
+            foreground = extract_foreground_result(source, rectangle)
+            mask = foreground.mask
+            actual_method = foreground.method
+            warnings = (*warnings, *foreground.warnings)
+    _reject_selection_that_is_really_the_box(mask, rectangle)
     if style == 'ink':
-        gray = cv2.cvtColor(source, cv2.COLOR_BGR2GRAY)
-        mask = np.where((mask < 128) & (gray < threshold), 0, 255).astype(np.uint8)
-        if np.count_nonzero(mask < 128) < 4:
+        if ink_polarity == 'auto':
+            detail = threshold_foreground(source, rectangle, polarity='auto', adaptive=False)
+            mask = np.where((mask < 128) & (detail < 128), 0, 255).astype(np.uint8)
+        else:
+            gray = cv2.cvtColor(source, cv2.COLOR_BGR2GRAY)
+            detail = gray < threshold if ink_polarity == 'dark' else gray > threshold
+            mask = np.where((mask < 128) & detail, 0, 255).astype(np.uint8)
+        foreground_pixels = int(np.count_nonzero(mask < 128))
+        if foreground_pixels < max(4, int(mask.size * 0.0005)):
             raise ValueError('No ink detail remains at this threshold. Increase it or choose silhouette.')
     return CutoutResult(mask=mask, method=actual_method, model_id=model_id, warnings=warnings)

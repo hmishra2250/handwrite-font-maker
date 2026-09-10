@@ -35,6 +35,11 @@ def validate_payload(payload: object, *, event: bool) -> dict[str, str]:
 def submit(config: RuntimeConfig, owner_id: str, payload: object, *, event: bool, local_path: Path | None = None) -> None:
     value = validate_payload(payload, event=event)
     if config.auth_required:
+        if getattr(config.mode, "value", None) == "private_alpha":
+            from .sqlite_store import SQLiteFeedbackStore
+
+            SQLiteFeedbackStore(config.alpha_database_path or '').submit_value(owner_id, value, event=event)
+            return
         store = PostgresTenantStore(config.database_url)
         with store._connect() as conn, conn.cursor() as cur:
             store._ensure_and_lock_tenant(cur, owner_id)
@@ -86,6 +91,11 @@ def _local_write(path: Path, value: dict[str, str] | None, *, event: bool) -> No
 
 
 def cleanup_feedback(config: RuntimeConfig) -> None:
+    if getattr(config.mode, "value", None) == "private_alpha":
+        from .sqlite_store import SQLiteFeedbackStore
+
+        SQLiteFeedbackStore(config.alpha_database_path or '').cleanup()
+        return
     if not config.database_url:
         path = Path(os.environ.get('FEEDBACK_STORE_PATH', '/tmp/handwrite-feedback.json'))
         if path.exists():

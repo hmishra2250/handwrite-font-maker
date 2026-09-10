@@ -688,7 +688,12 @@ class WorkerArtifactRegistry:
             job = None
         self.job = job
         self.config = load_runtime_config()
-        self.store = PostgresTenantStore(database_url or self.config.database_url)
+        if getattr(self.config.mode, "value", None) == "private_alpha":
+            from .sqlite_store import SQLiteTenantStore
+
+            self.store = SQLiteTenantStore(self.config.alpha_database_path or "")
+        else:
+            self.store = PostgresTenantStore(database_url or self.config.database_url)
         self.bucket = bucket or self.config.storage_bucket
 
     @classmethod
@@ -737,6 +742,12 @@ def cleanup_expired_from_env(*, object_root: Path | None = None, limit: int = 10
     from .supabase_store import LocalObjectStore, SupabaseStorage
 
     config = load_runtime_config()
+    if getattr(config.mode, "value", None) == "private_alpha":
+        from .sqlite_store import SQLiteTenantStore
+
+        store = SQLiteTenantStore(config.alpha_database_path or "")
+        object_store = LocalObjectStore(object_root or Path(config.local_object_root or os.environ.get("LOCAL_OBJECT_ROOT", "/tmp/objects")))
+        return store.cleanup_expired(object_store=object_store, limit=limit)
     store = PostgresTenantStore(config.database_url)
     object_store = SupabaseStorage(bucket=config.storage_bucket) if config.auth_required else LocalObjectStore(object_root or Path(os.environ.get("LOCAL_OBJECT_ROOT", "/tmp/objects")))
     return store.cleanup_expired(object_store=object_store, limit=limit)

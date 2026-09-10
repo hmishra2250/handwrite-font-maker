@@ -85,7 +85,7 @@ export async function POST(request: Request) {
   if (!upstream.ok) return applyAuthCookies(NextResponse.json(sanitizeProtectedWorkerError(auth, payload, 'Foreground extraction failed.'), { status: upstream.status }), auth);
 
   const result = payload as CaptureForegroundResponse;
-  const validMethod = result.method === 'grabcut' || result.method === 'slimsam' || result.method === 'efficientsam';
+  const validMethod = result.method === 'threshold' || result.method === 'grabcut' || result.method === 'slimsam' || result.method === 'efficientsam';
   const validWarnings = result.warnings === undefined || (Array.isArray(result.warnings) && result.warnings.every((warning) => typeof warning === 'string'));
   const modelId = (payload as { modelId?: unknown }).modelId;
   const validModelId = modelId === undefined || modelId === null || typeof modelId === 'string';

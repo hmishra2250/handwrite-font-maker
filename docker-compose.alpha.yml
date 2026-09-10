@@ -1,0 +1,90 @@
+# Private alpha: single-host, local SQLite/object storage, no public API port.
+# Usage: cp .env.alpha.example .env.alpha && edit secrets && docker compose --env-file .env.alpha -f docker-compose.alpha.yml up --build
+x-python: &python
+  build:
+    context: .
+    dockerfile: Dockerfile.api
+    args:
+      INSTALL_ML: ${INSTALL_ML:-false}
+  env_file: ${ALPHA_ENV_FILE:-.env.alpha}
+  environment: &python-env
+    DEPLOYMENT_MODE: private_alpha
+    ALPHA_DATABASE_PATH: /data/alpha.sqlite3
+    LOCAL_OBJECT_ROOT: /data/objects
+    PROCESS_JOBS_INLINE: "0"
+    WORKER_API_BASE_URL: http://api:8000
+    BILLING_ENABLED: "0"
+  init: true
+  restart: unless-stopped
+  read_only: true
+  tmpfs:
+    - /tmp:size=512m,mode=1777
+  volumes:
+    - alpha-data:/data
+    - ./.models:/models:ro
+  security_opt:
+    - no-new-privileges:true
+  cap_drop: [ALL]
+  mem_limit: 4g
+  cpus: 2.0
+
+services:
+  api:
+    <<: *python
+    command: python -m handwrite_font_maker.web.server
+    environment:
+      <<: *python-env
+      HOST: 0.0.0.0
+      PORT: "8000"
+    # Optional candidates can run two ML families concurrently; size explicitly.
+    mem_limit: ${ALPHA_API_MEMORY_LIMIT:-4g}
+    cpus: ${ALPHA_API_CPUS:-2.0}
+    expose: ["8000"]
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/readyz', timeout=5)"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+
+  worker:
+    <<: *python
+    command: python -m handwrite_font_maker.web.worker_loop
+    depends_on:
+      api:
+        condition: service_healthy
+
+  cleanup:
+    <<: *python
+    command: python -m handwrite_font_maker.web.cleanup --object-root /data/objects --interval-seconds 300
+    mem_limit: 256m
+    cpus: 0.5
+    depends_on:
+      api:
+        condition: service_healthy
+
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile.web
+    env_file: ${ALPHA_ENV_FILE:-.env.alpha}
+    environment:
+      DEPLOYMENT_MODE: private_alpha
+      SITE_URL: ${SITE_URL:-http://localhost:3000}
+      WORKER_API_BASE_URL: http://api:8000
+      PORT: "3000"
+      BILLING_ENABLED: "0"
+    ports:
+      - "127.0.0.1:${ALPHA_WEB_PORT:-3000}:3000"
+    init: true
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    cap_drop: [ALL]
+    mem_limit: 768m
+    depends_on:
+      api:
+        condition: service_healthy
+
+volumes:
+  alpha-data:

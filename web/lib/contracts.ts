@@ -109,7 +109,7 @@ export type CaptureForegroundRequestMethod = (typeof CAPTURE_FOREGROUND_METHODS)
 export const CAPTURE_FOREGROUND_STYLES = ['silhouette', 'ink'] as const;
 export type CaptureForegroundStyle = (typeof CAPTURE_FOREGROUND_STYLES)[number];
 
-export const CAPTURE_FOREGROUND_RESULT_METHODS = ['grabcut', 'slimsam', 'efficientsam'] as const;
+export const CAPTURE_FOREGROUND_RESULT_METHODS = ['threshold', 'grabcut', 'slimsam', 'efficientsam'] as const;
 export type CaptureForegroundResultMethod = (typeof CAPTURE_FOREGROUND_RESULT_METHODS)[number];
 
 export interface CaptureForegroundPromptPoint {

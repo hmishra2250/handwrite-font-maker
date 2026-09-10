@@ -70,7 +70,7 @@ docker build -f Dockerfile.api --build-arg INSTALL_ML=true \
 
 `INSTALL_MODELS` accepts `none`, `efficientsam`, `slimsam`, or `both`; downloads happen at **build time**, with pinned size/SHA-256 verification. Set the corresponding runtime directory to `/models/efficientsam` and/or `/models/slimsam`. Do not mount an empty directory over baked-in weights. Use `scripts/deploy_preflight.py --check-models` inside the configured image to verify files without running inference. Request handling never downloads models.
 
-Local isolated peak RSS was about 1.39 GB EfficientSAM, 2.71 GB SlimSAM fp32, and 3.62 GB SlimSAM int8. These are not cloud/container sizing guarantees. Keep one inference process, allow headroom (the beta API profile has a 4 GB limit), test model switching and bursts, and monitor OOMs. SlimSAM int8 is **not** the recommended memory optimization. See [ML evidence](ML-SEGMENTATION.md).
+Local isolated peak RSS was about 1.39 GB EfficientSAM, 2.71 GB SlimSAM fp32, and 3.62 GB SlimSAM int8. These are not cloud/container sizing guarantees. These older measurements are per model, not the aggregate footprint of automatic candidates: the candidate endpoint now runs both ML families in isolated concurrent children. The beta API profile still defaults to 4 GB; override its `api.mem_limit` to at least an initial 8 GB budget for both models, provide host headroom, then test bursts and monitor OOMs. The current alpha README documents configurable limits and a 16 GB host planning estimate. SlimSAM int8 is **not** the recommended memory optimization. See [ML evidence](ML-SEGMENTATION.md).
 
 ## Render alternative
 

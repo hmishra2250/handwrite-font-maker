@@ -7,7 +7,7 @@ const config = [
   ...nextVitals,
   ...nextTs,
   {
-    ignores: ['.next/**', 'node_modules/**', 'out/**', 'next-env.d.ts']
+    ignores: ['.next/**', '.next-phone/**', '.next-mobile/**', '.next-alpha-e2e/**', '.next-e2e/**', 'node_modules/**', 'out/**', 'next-env.d.ts']
   }
 ];
 

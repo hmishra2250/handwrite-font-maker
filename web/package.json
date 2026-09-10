@@ -9,7 +9,9 @@
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test",
+    "test:e2e:alpha": "playwright test --config playwright.alpha.config.ts",
+    "test:e2e:mobile": "playwright test --config playwright.mobile.config.ts"
   },
   "dependencies": {
     "@supabase/supabase-js": "2.105.1",

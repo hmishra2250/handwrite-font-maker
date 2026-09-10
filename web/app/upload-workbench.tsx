@@ -27,6 +27,8 @@ import { projectObjectUrl, type FontProject, type ProjectGlyph, type ProjectPayl
 import { recordFunnelEvent } from '@/lib/feedback-client';
 import { DeleteJobButton } from './delete-job-button';
 import { buildInkMask, type InkMaskMethod } from '@/lib/ink-mask';
+import { MobileCameraButton } from './capture/mobile-camera';
+import type { CaptureCandidate, CaptureCandidatesResponse } from '@/lib/capture-candidates';
 
 type LocalState =
   | 'idle'
@@ -52,10 +54,15 @@ type MaskResult = {
 type CurrentMask = MaskResult & {
   url: string;
   originalBlob: Blob;
-  sourceMethod: 'threshold' | 'grabcut' | 'slimsam' | 'efficientsam';
+  sourceMethod: 'threshold' | 'grabcut' | 'slimsam' | 'efficientsam' | 'candidate' | 'edited';
   modelId?: string;
   warnings: string[];
+  candidateLabel?: string;
+  candidateMethod?: string;
+  candidateSvgDataUrl?: string;
 };
+
+type CaptureCandidateOption = CaptureCandidate & { stage: 'ink' | 'objects' };
 
 type AcceptedGlyph = {
   char: string;
@@ -188,15 +195,6 @@ async function createSyntheticMaskBlob(char: string): Promise<MaskResult> {
   ctx.textBaseline = 'alphabetic';
   ctx.fillText(char, canvas.width / 2, 205);
   return maskResultFromCanvas(canvas);
-}
-
-function CameraIcon({ className }: { className?: string }) {
-  return (
-    <svg className={className} width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" />
-      <circle cx="12" cy="13" r="4" />
-    </svg>
-  );
 }
 
 function UploadIcon({ className }: { className?: string }) {
@@ -340,6 +338,7 @@ function normalizeRectangle(rectangle: NormalizedRectangle): NormalizedRectangle
 function describeForegroundMethod(result: CaptureForegroundResponse) {
   if (result.method === 'slimsam') return `AI model SlimSAM${result.modelId ? ` (${result.modelId})` : ''}`;
   if (result.method === 'efficientsam') return `AI box model EfficientSAM${result.modelId ? ` (${result.modelId})` : ''}`;
+  if (result.method === 'threshold') return 'Fast high-contrast extraction';
   return 'classical GrabCut';
 }
 
@@ -347,10 +346,14 @@ function describeMaskSource(mask: CurrentMask) {
   if (mask.sourceMethod === 'threshold') return 'local threshold';
   if (mask.sourceMethod === 'slimsam') return `AI model SlimSAM${mask.modelId ? ` (${mask.modelId})` : ''}`;
   if (mask.sourceMethod === 'efficientsam') return `AI box model EfficientSAM${mask.modelId ? ` (${mask.modelId})` : ''}`;
+  if (mask.sourceMethod === 'candidate') return mask.candidateLabel ? `candidate option: ${mask.candidateLabel}` : 'candidate option';
+  if (mask.sourceMethod === 'edited') return 'edited mask';
   return 'classical GrabCut';
 }
 
-export function UploadWorkbench({ allowDelete = false }: { allowDelete?: boolean } = {}) {
+type WorkbenchPresentation = 'studio' | 'mobile';
+
+export function UploadWorkbench({ allowDelete = false, presentation = 'studio' }: { allowDelete?: boolean; presentation?: WorkbenchPresentation } = {}) {
   const [mode, setMode] = useState<WorkbenchMode>('guided');
   const [legacyFile, setLegacyFile] = useState<File | null>(null);
   const [legacyPreview, setLegacyPreview] = useState<string | null>(null);
@@ -380,6 +383,12 @@ export function UploadWorkbench({ allowDelete = false }: { allowDelete?: boolean
   const [currentCharIndex, setCurrentCharIndex] = useState(0);
   const [currentMask, setCurrentMask] = useState<CurrentMask | null>(null);
   const currentMaskRef = useRef<CurrentMask | null>(null);
+  const [candidateOptions, setCandidateOptions] = useState<CaptureCandidateOption[]>([]);
+  const [candidateFailures, setCandidateFailures] = useState<{ method: string; message: string; stage: 'ink' | 'objects' }[]>([]);
+  const [candidateStatus, setCandidateStatus] = useState<string | null>(null);
+  const [candidateError, setCandidateError] = useState<string | null>(null);
+  const [selectedCandidateId, setSelectedCandidateId] = useState<string | null>(null);
+  const [candidateObjectsPending, setCandidateObjectsPending] = useState(false);
   const [maskEditPending, setMaskEditPending] = useState(false);
   const [maskEditError, setMaskEditError] = useState<string | null>(null);
   const [acceptedGlyphs, setAcceptedGlyphs] = useState<Record<string, AcceptedGlyph>>({});
@@ -398,14 +407,16 @@ export function UploadWorkbench({ allowDelete = false }: { allowDelete?: boolean
   const { projects, activeProject, status: projectSaveStatus, message: projectMessage, createProject, openProject, saveProject, deleteProject } = projectClient;
   const pollRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pollCount = useRef(0);
-  const legacyCameraRef = useRef<HTMLInputElement>(null);
   const legacyFileRef = useRef<HTMLInputElement>(null);
-  const pageCameraRef = useRef<HTMLInputElement>(null);
   const pageFileRef = useRef<HTMLInputElement>(null);
-  const guidedCameraRef = useRef<HTMLInputElement>(null);
   const guidedFileRef = useRef<HTMLInputElement>(null);
+  const guidedSourceFileRef = useRef<File | null>(null);
+  const guidedSourceSeq = useRef(0);
   const maskGenerationSeq = useRef(0);
   const foregroundRequestSeq = useRef(0);
+  const candidateRequestSeq = useRef(0);
+  const candidateSelectionSeq = useRef(0);
+  const candidateAbortRef = useRef<AbortController | null>(null);
   const pageCornerRequestSeq = useRef(0);
   const activePageCornerRequestRef = useRef<number | null>(null);
   const projectSwitchSeq = useRef(0);
@@ -419,10 +430,12 @@ export function UploadWorkbench({ allowDelete = false }: { allowDelete?: boolean
   const hydratingProjectRef = useRef(false);
   const projectHydrationFailedRef = useRef(false);
   const recordedSuccessJobIdsRef = useRef<Set<string>>(new Set());
+  const currentCharRef = useRef('A');
 
   const guidedCharacters = useMemo(() => Array.from(normalizeTargetCharacters(targetCharacters)), [targetCharacters]);
   const safeCurrentCharIndex = Math.min(currentCharIndex, Math.max(0, guidedCharacters.length - 1));
   const currentChar = guidedCharacters[safeCurrentCharIndex] ?? guidedCharacters[0] ?? 'A';
+  currentCharRef.current = currentChar;
   const effectiveReviewSelectedChar = guidedCharacters.includes(reviewSelectedChar) ? reviewSelectedChar : guidedCharacters[0] ?? 'A';
   const acceptedCount = guidedCharacters.filter((char) => acceptedGlyphs[char]).length;
   const missingCount = Math.max(0, guidedCharacters.length - acceptedCount);
@@ -446,6 +459,7 @@ export function UploadWorkbench({ allowDelete = false }: { allowDelete?: boolean
   useEffect(() => { cleanupRef.current.legacyPreview = legacyPreview; }, [legacyPreview]);
   useEffect(() => { cleanupRef.current.pagePreview = pagePreview; }, [pagePreview]);
   useEffect(() => { cleanupRef.current.guidedPreview = guidedPreview; }, [guidedPreview]);
+  useEffect(() => { guidedSourceFileRef.current = guidedFile; }, [guidedFile]);
   useEffect(() => {
     cleanupRef.current.currentMaskUrl = currentMask?.url ?? null;
     currentMaskRef.current = currentMask;
@@ -461,6 +475,11 @@ export function UploadWorkbench({ allowDelete = false }: { allowDelete?: boolean
     activePageCornerRequestRef.current = null;
     activeProjectRef.current = null;
     pendingSaveFingerprintRef.current = null;
+    candidateRequestSeq.current += 1;
+    candidateSelectionSeq.current += 1;
+    guidedSourceSeq.current += 1;
+    candidateAbortRef.current?.abort();
+    candidateAbortRef.current = null;
     if (autosaveTimerRef.current) clearTimeout(autosaveTimerRef.current);
     const cleanup = cleanupRef.current;
     if (cleanup.legacyPreview) URL.revokeObjectURL(cleanup.legacyPreview);
@@ -482,6 +501,7 @@ export function UploadWorkbench({ allowDelete = false }: { allowDelete?: boolean
         localUrl = URL.createObjectURL(mask.blob);
         setMaskEditPending(false);
         setMaskEditError(null);
+        setSelectedCandidateId(null);
         setCurrentMask((previous) => {
           if (previous) URL.revokeObjectURL(previous.url);
           return { ...mask, url: localUrl, originalBlob: mask.blob, sourceMethod: 'threshold', warnings: [] };
@@ -509,6 +529,22 @@ export function UploadWorkbench({ allowDelete = false }: { allowDelete?: boolean
     if (state === 'failed' || state === 'succeeded') {
       setState('idle');
       setJob(null);
+    }
+  }
+
+  function cancelCandidateExtraction(clear = false) {
+    candidateRequestSeq.current += 1;
+    candidateSelectionSeq.current += 1;
+    candidateAbortRef.current?.abort();
+    candidateAbortRef.current = null;
+    setCandidateObjectsPending(false);
+    if (clear) {
+      guidedSourceSeq.current += 1;
+      setCandidateOptions([]);
+      setCandidateFailures([]);
+      setCandidateStatus(null);
+      setCandidateError(null);
+      setSelectedCandidateId(null);
     }
   }
 
@@ -560,8 +596,11 @@ export function UploadWorkbench({ allowDelete = false }: { allowDelete?: boolean
   }
 
   function handleGuidedFile(file: File | null) {
+    guidedSourceSeq.current += 1;
+    guidedSourceFileRef.current = file;
     maskGenerationSeq.current++;
     foregroundRequestSeq.current++;
+    cancelCandidateExtraction(true);
     if (guidedPreview) URL.revokeObjectURL(guidedPreview);
     setGuidedFile(file);
     setGuidedPreview(file ? URL.createObjectURL(file) : null);
@@ -841,6 +880,7 @@ export function UploadWorkbench({ allowDelete = false }: { allowDelete?: boolean
     projectSwitchSeq.current += 1;
     maskGenerationSeq.current += 1;
     foregroundRequestSeq.current += 1;
+    cancelCandidateExtraction(true);
     pageCornerRequestSeq.current += 1;
     activePageCornerRequestRef.current = null;
     const switchId = projectSwitchSeq.current;
@@ -973,6 +1013,7 @@ export function UploadWorkbench({ allowDelete = false }: { allowDelete?: boolean
     projectSwitchSeq.current += 1;
     maskGenerationSeq.current += 1;
     foregroundRequestSeq.current += 1;
+    cancelCandidateExtraction(true);
     pendingSaveFingerprintRef.current = null;
     const payload: ProjectPayload = {
       name: projectName.trim() || 'My first handwriting font',
@@ -1089,16 +1130,150 @@ export function UploadWorkbench({ allowDelete = false }: { allowDelete?: boolean
     return inputPhoto;
   }
 
-  async function ensureGuidedSourceUpload() {
+  async function ensureGuidedSourceUpload(options: { quiet?: boolean } = {}) {
     if (guidedUploadRef) return guidedUploadRef;
-    if (!guidedFile) throw new Error('Capture or upload an image before extracting a mask.');
-    const validation = validateFontAndFile(guidedFile);
+    const file = guidedSourceFileRef.current ?? guidedFile;
+    if (!file) throw new Error('Capture or upload an image before extracting a mask.');
+    const sourceId = guidedSourceSeq.current;
+    const switchId = projectSwitchSeq.current;
+    const validation = validateFontAndFile(file);
     if (validation) throw new Error(validation);
-    setState('preparing_upload');
-    const inputPhoto = await uploadToSlot(guidedFile, guidedFile.name, guidedFile.type);
+    if (!options.quiet) setState('preparing_upload');
+    const inputPhoto = await uploadToSlot(file, file.name, file.type);
+    if (sourceId !== guidedSourceSeq.current || switchId !== projectSwitchSeq.current || guidedSourceFileRef.current !== file) {
+      throw new Error('The source image changed before the upload finished.');
+    }
     setGuidedUploadRef(inputPhoto);
     return inputPhoto;
   }
+
+  function candidateKey(candidate: CaptureCandidateOption) {
+    return `${candidate.stage}:${candidate.id}`;
+  }
+
+  async function applyCandidateOption(candidate: CaptureCandidateOption, requestId = candidateRequestSeq.current, char = currentCharRef.current) {
+    const selectionId = ++candidateSelectionSeq.current;
+    try {
+      const blob = dataUrlToBlob(candidate.maskDataUrl);
+      const measured = await measureMaskBlob(blob);
+      if (selectionId !== candidateSelectionSeq.current || requestId !== candidateRequestSeq.current || char !== currentCharRef.current) return;
+      const url = URL.createObjectURL(blob);
+      setMaskEditPending(false);
+      setMaskEditError(null);
+      setSelectedCandidateId(candidateKey(candidate));
+      setCurrentMask((previous) => {
+        if (previous) URL.revokeObjectURL(previous.url);
+        return {
+          ...measured,
+          url,
+          originalBlob: blob,
+          sourceMethod: 'candidate',
+          warnings: candidate.warnings ?? [],
+          candidateLabel: candidate.label,
+          candidateMethod: candidate.method,
+          candidateSvgDataUrl: candidate.svgDataUrl,
+        };
+      });
+    } catch (err) {
+      if (selectionId !== candidateSelectionSeq.current) return;
+      setCandidateError(err instanceof Error ? err.message : 'Could not open this letter option.');
+    }
+  }
+
+  async function fetchCandidateStage(stage: 'ink' | 'objects', requestId: number, controller: AbortController, inputPhoto: InputPhotoRef, char: string): Promise<CaptureCandidatesResponse> {
+    const timeout = window.setTimeout(() => controller.abort(), 45_000);
+    try {
+      const response = await fetch('/api/capture/candidates', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        signal: controller.signal,
+        body: JSON.stringify({
+          inputPhoto,
+          rectangle: foregroundRectangle,
+          stage,
+          context: {
+            character: char,
+            baseline,
+            threshold,
+            invert,
+            inkMaskMethod,
+            foregroundMethod,
+            foregroundStyle,
+          },
+        }),
+      });
+      const payload = (await response.json().catch(() => ({}))) as CaptureCandidatesResponse | { error?: { message?: string } };
+      if (!response.ok || !('candidates' in payload) || !Array.isArray(payload.candidates)) {
+        throw new Error(('error' in payload ? payload.error?.message : undefined) ?? 'Could not prepare letter options.');
+      }
+      if (requestId !== candidateRequestSeq.current || char !== currentCharRef.current) throw new Error('stale candidate response');
+      return payload;
+    } catch (err) {
+      if (controller.signal.aborted) throw new Error(stage === 'objects' ? 'Object cutouts took too long. The fast letter options are still available.' : 'Letter options took too long. Try a simpler crop or use Advanced correction tools.');
+      throw err;
+    } finally {
+      window.clearTimeout(timeout);
+    }
+  }
+
+  async function runCandidateExtraction(file: File, char: string) {
+    const requestId = ++candidateRequestSeq.current;
+    candidateSelectionSeq.current += 1;
+    candidateAbortRef.current?.abort();
+    const controller = new AbortController();
+    candidateAbortRef.current = controller;
+    setCandidateOptions([]);
+    setCandidateFailures([]);
+    setCandidateError(null);
+    setSelectedCandidateId(null);
+    setCandidateObjectsPending(false);
+    if (!isSupportedImage(file.type)) return;
+    try {
+      setCandidateStatus('Preparing letter options…');
+      const inputPhoto = await ensureGuidedSourceUpload({ quiet: true });
+      if (requestId !== candidateRequestSeq.current || controller.signal.aborted || char !== currentCharRef.current) return;
+      const inkPayload = await fetchCandidateStage('ink', requestId, controller, inputPhoto, char);
+      if (requestId !== candidateRequestSeq.current || controller.signal.aborted || char !== currentCharRef.current) return;
+      const inkCandidates = inkPayload.candidates.map((candidate) => ({ ...candidate, stage: 'ink' as const }));
+      setCandidateOptions(inkCandidates);
+      setCandidateFailures(inkPayload.failures.map((failure) => ({ ...failure, stage: 'ink' as const })));
+      if (inkCandidates[0]) void applyCandidateOption(inkCandidates[0], requestId, char);
+
+      setCandidateStatus('Trying object cutouts…');
+      setCandidateObjectsPending(true);
+      try {
+        const objectPayload = await fetchCandidateStage('objects', requestId, controller, inputPhoto, char);
+        if (requestId !== candidateRequestSeq.current || controller.signal.aborted || char !== currentCharRef.current) return;
+        const objectCandidates = objectPayload.candidates.map((candidate) => ({ ...candidate, stage: 'objects' as const }));
+        setCandidateOptions((previous) => [...previous, ...objectCandidates]);
+        setCandidateFailures((previous) => [...previous, ...objectPayload.failures.map((failure) => ({ ...failure, stage: 'objects' as const }))]);
+        if (!inkCandidates[0] && objectCandidates[0]) void applyCandidateOption(objectCandidates[0], requestId, char);
+        setCandidateError(objectPayload.failures.length > 0 ? 'Some object cutout methods failed. Pick any option that looks right.' : null);
+      } catch (err) {
+        if (requestId === candidateRequestSeq.current && char === currentCharRef.current) {
+          setCandidateError(err instanceof Error ? err.message : 'Object cutouts failed. The fast letter options are still available.');
+        }
+      } finally {
+        if (requestId === candidateRequestSeq.current && char === currentCharRef.current) setCandidateObjectsPending(false);
+      }
+      if (requestId === candidateRequestSeq.current && char === currentCharRef.current) setCandidateStatus('Choose the cleanest vector option, then accept it.');
+    } catch (err) {
+      if (requestId !== candidateRequestSeq.current || char !== currentCharRef.current) return;
+      setCandidateStatus(null);
+      setCandidateObjectsPending(false);
+      setCandidateError(err instanceof Error ? err.message : 'Could not prepare letter options. The Advanced tools are still available.');
+    } finally {
+      if (candidateAbortRef.current === controller) candidateAbortRef.current = null;
+    }
+  }
+
+  useEffect(() => {
+    if (!guidedFile || !isSupportedImage(guidedFile.type)) return undefined;
+    void runCandidateExtraction(guidedFile, currentCharRef.current);
+    return undefined;
+    // Run only when the user supplies a new source image; Advanced sliders remain manual.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [guidedFile]);
 
   async function extractObjectMask() {
     setError(null);
@@ -1114,7 +1289,7 @@ export function UploadWorkbench({ allowDelete = false }: { allowDelete?: boolean
       const effectiveMethod: CaptureForegroundRequestMethod = foregroundMethod === 'auto' && !hasPositivePoint ? 'grabcut' : foregroundMethod;
       const sendsPromptPoints = effectiveMethod === 'auto' || effectiveMethod === 'model';
       const localWarnings = foregroundMethod === 'auto' && !hasPositivePoint
-        ? ['Auto has no Keep object point, so this extraction used classical GrabCut instead of model segmentation.']
+        ? ['No object point was supplied; trying automatic high-contrast extraction with a bounded classical fallback.']
         : [];
       const inputPhoto = await ensureGuidedSourceUpload();
       if (requestId !== foregroundRequestSeq.current) return;
@@ -1245,6 +1420,7 @@ export function UploadWorkbench({ allowDelete = false }: { allowDelete?: boolean
     });
     setReviewSelectedChar(currentChar);
     recordFunnelEvent('glyph_accepted');
+    cancelCandidateExtraction(true);
     if (currentCharIndex < guidedCharacters.length - 1) setCurrentCharIndex((idx) => idx + 1);
   }
 
@@ -1270,7 +1446,15 @@ export function UploadWorkbench({ allowDelete = false }: { allowDelete?: boolean
     if (currentMaskRef.current?.url !== sourceUrl) return;
     setCurrentMask((previous) => {
       if (!previous || previous.url !== sourceUrl) return previous;
-      return { ...previous, ...mask };
+      setSelectedCandidateId(null);
+      return {
+        ...previous,
+        ...mask,
+        sourceMethod: 'edited',
+        candidateLabel: undefined,
+        candidateMethod: undefined,
+        candidateSvgDataUrl: undefined,
+      };
     });
     setMaskEditPending(false);
     setMaskEditError(null);
@@ -1300,6 +1484,7 @@ export function UploadWorkbench({ allowDelete = false }: { allowDelete?: boolean
 
   function handleTargetCharactersChange(value: string) {
     const normalized = normalizeTargetCharacters(value);
+    cancelCandidateExtraction(true);
     setTargetCharacters(value);
     setCurrentCharIndex(0);
     setReviewSelectedChar(normalized[0] ?? 'A');
@@ -1313,6 +1498,7 @@ export function UploadWorkbench({ allowDelete = false }: { allowDelete?: boolean
       const switchId = ++projectSwitchSeq.current;
       maskGenerationSeq.current += 1;
       foregroundRequestSeq.current += 1;
+      cancelCandidateExtraction(true);
       pageCornerRequestSeq.current += 1;
       activePageCornerRequestRef.current = null;
     projectHydrationFailedRef.current = false;
@@ -1406,19 +1592,18 @@ export function UploadWorkbench({ allowDelete = false }: { allowDelete?: boolean
   }
 
   const isProcessing = state === 'preparing_upload' || state === 'uploading' || state === 'creating_job' || state === 'polling';
+  const isMobilePresentation = presentation === 'mobile';
 
   return (
-    <section className="grid min-w-0 grid-cols-1 items-start [overflow-wrap:anywhere] gap-6 md:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)]" aria-labelledby="workbench-title">
-      <div className="col-span-full mb-2">
-        <span className="mb-3 inline-block rounded-[4px] bg-teal-muted px-2.5 py-1 font-mono text-[11px] font-medium uppercase tracking-[.12em] text-teal">
-          Build
-        </span>
-        <h2 id="workbench-title" className="mt-1 text-[clamp(1.8rem,3.5vw,2.8rem)] font-bold leading-none tracking-[-0.04em]">
-          Capture characters for a real font build
-        </h2>
-        <p className="mt-2 text-sm text-text-secondary">
-          Use guided character photos, a markerless A4 sheet with confirmed corners, or the original marker template. If no build worker is connected, the page will say so instead of showing fake downloads.
-        </p>
+    <section className={`studio-workbench grid min-w-0 grid-cols-1 items-start [overflow-wrap:anywhere] gap-4 ${isMobilePresentation ? 'mobile-workbench mx-auto w-full max-w-[760px]' : 'xl:grid-cols-[minmax(0,1fr)_320px]'}`} aria-labelledby="workbench-title">
+      <div className="col-span-full flex min-w-0 flex-wrap items-end justify-between gap-3">
+        <div className="min-w-0">
+          <p className="font-mono text-[11px] font-semibold uppercase tracking-[.14em] text-text-tertiary">{isMobilePresentation ? 'Phone capture alpha' : 'Private alpha studio'}</p>
+          <h1 id="workbench-title" className="mt-1 text-[clamp(1.75rem,3vw,2rem)] font-bold leading-[.98] tracking-[-0.045em]">
+            {isMobilePresentation ? 'Capture your font' : 'Create your font'}
+          </h1>
+        </div>
+        {!isMobilePresentation && <p className="max-w-[42ch] text-sm text-text-secondary">Your handwriting. Found shapes. A font only you could make.</p>}
       </div>
 
       <div className="col-span-full">
@@ -1436,11 +1621,24 @@ export function UploadWorkbench({ allowDelete = false }: { allowDelete?: boolean
         />
       </div>
 
-      <div className="grid min-w-0 grid-cols-1 gap-5 rounded-[22px] border border-border bg-surface p-7">
+      <div className="studio-capture-panel grid min-w-0 grid-cols-1 gap-4 rounded-[26px] border border-border bg-surface p-4 shadow-[0_20px_70px_rgba(24,24,27,0.06)] sm:p-5">
         <ModeChooser mode={mode} onModeChange={handleModeChange} />
-        <FontFields fontName={fontName} familyName={familyName} styleName={styleName} onFontName={setFontName} onFamilyName={setFamilyName} onStyleName={setStyleName} />
-        <StarterSamplePanel disabled={isProjectBusy} onLoadSample={loadStarterSample} />
-        <TargetCharacterControls value={targetCharacters} normalizedValue={normalizeTargetCharacters(targetCharacters)} onChange={handleTargetCharactersChange} />
+        <details className="group rounded-2xl border border-border bg-bg p-3">
+          <summary className="cursor-pointer list-none text-sm font-semibold text-text-primary outline-none focus-visible:ring-2 focus-visible:ring-teal group-open:mb-3">
+            Font settings
+            <span className="ml-2 font-normal text-text-tertiary">{fontName} · {normalizeTargetCharacters(targetCharacters).length} characters</span>
+          </summary>
+          <div className="grid gap-3">
+            <FontFields fontName={fontName} familyName={familyName} styleName={styleName} onFontName={setFontName} onFamilyName={setFamilyName} onStyleName={setStyleName} />
+            <StudioSetupControls
+              targetCharacters={targetCharacters}
+              normalizedTargetCharacters={normalizeTargetCharacters(targetCharacters)}
+              onTargetCharactersChange={handleTargetCharactersChange}
+              sampleDisabled={isProjectBusy}
+              onLoadSample={loadStarterSample}
+            />
+          </div>
+        </details>
 
         {mode === 'guided' && (
           <form className="grid min-w-0 grid-cols-1 gap-5" onSubmit={submitGuided}>
@@ -1453,6 +1651,12 @@ export function UploadWorkbench({ allowDelete = false }: { allowDelete?: boolean
               acceptedCount={acceptedCount}
               guidedPreview={guidedPreview}
               currentMask={currentMask}
+              candidateOptions={candidateOptions}
+              selectedCandidateId={selectedCandidateId}
+              candidateFailures={candidateFailures}
+              candidateStatus={candidateStatus}
+              candidateError={candidateError}
+              candidateObjectsPending={candidateObjectsPending}
               maskEditPending={maskEditPending}
               maskEditError={maskEditError}
               maskMethod={guidedMaskMethod}
@@ -1467,7 +1671,6 @@ export function UploadWorkbench({ allowDelete = false }: { allowDelete?: boolean
               threshold={threshold}
               invert={invert}
               baseline={baseline}
-              cameraRef={guidedCameraRef}
               fileRef={guidedFileRef}
               onFile={handleGuidedFile}
               onMaskMethod={setGuidedMaskMethod}
@@ -1485,14 +1688,15 @@ export function UploadWorkbench({ allowDelete = false }: { allowDelete?: boolean
               onBaseline={setBaseline}
               onMaskEdited={updateCurrentMaskEdit}
               onMaskEditPending={handleMaskEditPending}
+              onCandidateSelect={(candidate) => { void applyCandidateOption(candidate); }}
               onAccept={acceptCurrentGlyph}
               onRedo={redoCurrentGlyph}
-              onPrevious={() => setCurrentCharIndex((idx) => Math.max(0, Math.min(idx - 1, guidedCharacters.length - 1)))}
-              onNext={() => setCurrentCharIndex((idx) => Math.min(Math.max(0, guidedCharacters.length - 1), idx + 1))}
-              onPickChar={(char) => setCurrentCharIndex(Math.max(0, guidedCharacters.indexOf(char)))}
+              onPrevious={() => { cancelCandidateExtraction(true); setCurrentCharIndex((idx) => Math.max(0, Math.min(idx - 1, guidedCharacters.length - 1))); }}
+              onNext={() => { cancelCandidateExtraction(true); setCurrentCharIndex((idx) => Math.min(Math.max(0, guidedCharacters.length - 1), idx + 1)); }}
+              onPickChar={(char) => { cancelCandidateExtraction(true); setCurrentCharIndex(Math.max(0, guidedCharacters.indexOf(char))); }}
               isProcessing={isProcessing}
             />
-            <FontReviewPanel glyphs={reviewGlyphs} selectedChar={effectiveReviewSelectedChar} onSelect={(char) => { setReviewSelectedChar(char); setCurrentCharIndex(Math.max(0, guidedCharacters.indexOf(char))); }} onMetricsChange={updateGlyphMetrics} />
+            {acceptedCount > 0 && <FontReviewPanel glyphs={reviewGlyphs} selectedChar={effectiveReviewSelectedChar} onSelect={(char) => { setReviewSelectedChar(char); setCurrentCharIndex(Math.max(0, guidedCharacters.indexOf(char))); }} onMetricsChange={updateGlyphMetrics} />}
             {error && <ErrorMessage message={error} />}
             <button type="submit" disabled={isProcessing || isProjectBusy || acceptedCount < 1} className="primary-button">
               {isProcessing ? 'Processing…' : `Build guided font (${acceptedCount} accepted)`}
@@ -1507,7 +1711,6 @@ export function UploadWorkbench({ allowDelete = false }: { allowDelete?: boolean
               preview={pagePreview}
               previewAlt="Captured markerless A4 sheet preview"
               file={pageFile}
-              cameraRef={pageCameraRef}
               fileRef={pageFileRef}
               dragover={dragover}
               setDragover={setDragover}
@@ -1548,7 +1751,6 @@ export function UploadWorkbench({ allowDelete = false }: { allowDelete?: boolean
               preview={legacyPreview}
               previewAlt="Captured template preview"
               file={legacyFile}
-              cameraRef={legacyCameraRef}
               fileRef={legacyFileRef}
               dragover={dragover}
               setDragover={setDragover}
@@ -1573,9 +1775,36 @@ export function UploadWorkbench({ allowDelete = false }: { allowDelete?: boolean
   );
 }
 
+function StudioSetupControls({ targetCharacters, normalizedTargetCharacters, onTargetCharactersChange, sampleDisabled, onLoadSample }: {
+  targetCharacters: string;
+  normalizedTargetCharacters: string;
+  onTargetCharactersChange: (value: string) => void;
+  sampleDisabled: boolean;
+  onLoadSample: () => void;
+}) {
+  return (
+    <section className="grid gap-2 rounded-2xl border border-border bg-bg p-3" aria-label="Studio setup">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div>
+          <strong className="text-sm">Quick start</strong>
+          <p className="mt-0.5 text-xs text-text-tertiary">Start with ABCDE on phone; expand characters when the capture quality looks right.</p>
+        </div>
+        <StarterSamplePanel disabled={sampleDisabled} onLoadSample={onLoadSample} />
+      </div>
+      <details className="group rounded-xl border border-border bg-surface px-3 py-2">
+        <summary className="cursor-pointer list-none text-sm font-semibold text-text-primary outline-none focus-visible:ring-2 focus-visible:ring-teal group-open:mb-3">
+          Characters and samples
+          <span className="ml-2 font-normal text-text-tertiary">({normalizedTargetCharacters.length} targets)</span>
+        </summary>
+        <TargetCharacterControls value={targetCharacters} normalizedValue={normalizedTargetCharacters} onChange={onTargetCharactersChange} />
+      </details>
+    </section>
+  );
+}
+
 function TargetCharacterControls({ value, normalizedValue, onChange }: { value: string; normalizedValue: string; onChange: (value: string) => void }) {
   return (
-    <section className="grid gap-3 rounded-xl border border-border bg-bg p-4" aria-label="Target characters">
+    <section className="grid gap-3" aria-label="Target characters">
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div>
           <strong className="text-sm">Target characters</strong>
@@ -1593,23 +1822,24 @@ function TargetCharacterControls({ value, normalizedValue, onChange }: { value: 
 }
 
 function ModeChooser({ mode, onModeChange }: { mode: WorkbenchMode; onModeChange: (mode: WorkbenchMode) => void }) {
-  const modes: { key: WorkbenchMode; title: string; detail: string }[] = [
-    { key: 'guided', title: 'Guided characters', detail: 'Best for partial alphabets, drawings, leaves, and redo-one-character capture.' },
-    { key: 'markerless', title: 'Markerless A4 sheet', detail: 'Use default-v1 A4 page geometry and confirm TL/TR/BR/BL corners.' },
-    { key: 'legacy', title: 'Legacy marker sheet', detail: 'Keep the old ArUco V1 template path for existing filled sheets.' },
+  const modes: { key: WorkbenchMode; title: string; visibleTitle: string; detail: string }[] = [
+    { key: 'guided', title: 'Guided characters', visibleTitle: 'Guided', detail: 'One by one' },
+    { key: 'markerless', title: 'Markerless A4 sheet', visibleTitle: 'Full sheet', detail: 'No markers' },
+    { key: 'legacy', title: 'Legacy marker sheet', visibleTitle: 'Legacy', detail: 'Markers' },
   ];
   return (
-    <div className="grid gap-2 sm:grid-cols-3" role="tablist" aria-label="Capture mode">
+    <div className="grid min-w-0 grid-cols-3 gap-1 rounded-2xl border border-border bg-bg p-1" role="tablist" aria-label="Capture mode">
       {modes.map((item) => (
         <button
           key={item.key}
           type="button"
           role="tab"
+          aria-label={item.title}
           aria-selected={mode === item.key}
           onClick={() => onModeChange(item.key)}
-          className={`rounded-xl border px-4 py-3 text-left transition-colors ${mode === item.key ? 'border-accent bg-accent text-white' : 'border-border bg-bg hover:border-border-strong'}`}
+          className={`rounded-xl border px-2 py-2 text-center transition-colors ${mode === item.key ? 'border-accent bg-accent text-white shadow-sm' : 'border-transparent bg-transparent hover:border-border-strong hover:bg-surface'}`}
         >
-          <strong className="block text-sm">{item.title}</strong>
+          <strong className="block text-[13px] sm:text-sm">{item.visibleTitle}</strong>
           <span className={`mt-1 block text-xs ${mode === item.key ? 'text-white/80' : 'text-text-tertiary'}`}>{item.detail}</span>
         </button>
       ))}
@@ -1626,29 +1856,36 @@ function FontFields(props: {
   onStyleName: (value: string) => void;
 }) {
   return (
-    <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-2">
-      <label className="col-span-full grid gap-1.5">
+    <section className="grid gap-2 rounded-2xl border border-border bg-bg p-3" aria-label="Font metadata">
+      <label className="grid gap-1.5 sm:grid-cols-[100px_minmax(0,1fr)] sm:items-center">
         <span className="text-[13px] font-semibold text-text-primary">Font name</span>
-        <input type="text" value={props.fontName} onChange={(e) => props.onFontName(e.target.value)} className="field" />
+        <input type="text" value={props.fontName} onChange={(e) => props.onFontName(e.target.value)} className="field h-10" />
       </label>
-      <label className="grid gap-1.5">
-        <span className="text-[13px] font-semibold text-text-primary">Family name</span>
-        <input type="text" value={props.familyName} onChange={(e) => props.onFamilyName(e.target.value)} className="field" />
-      </label>
-      <label className="grid gap-1.5">
-        <span className="text-[13px] font-semibold text-text-primary">Style</span>
-        <input type="text" value={props.styleName} onChange={(e) => props.onStyleName(e.target.value)} className="field" />
-      </label>
-    </div>
+      <details className="group rounded-xl border border-border bg-surface px-3 py-2">
+        <summary className="cursor-pointer list-none text-sm font-semibold text-text-primary outline-none focus-visible:ring-2 focus-visible:ring-teal group-open:mb-3">
+          Family and style
+          <span className="ml-2 font-normal text-text-tertiary">{props.familyName} · {props.styleName}</span>
+        </summary>
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <label className="grid gap-1.5">
+            <span className="text-[13px] font-semibold text-text-primary">Family name</span>
+            <input type="text" value={props.familyName} onChange={(e) => props.onFamilyName(e.target.value)} className="field" />
+          </label>
+          <label className="grid gap-1.5">
+            <span className="text-[13px] font-semibold text-text-primary">Style</span>
+            <input type="text" value={props.styleName} onChange={(e) => props.onStyleName(e.target.value)} className="field" />
+          </label>
+        </div>
+      </details>
+    </section>
   );
 }
 
-function FileCaptureBox({ label, preview, previewAlt, file, cameraRef, fileRef, dragover, setDragover, onFile, onRemove }: {
+function FileCaptureBox({ label, preview, previewAlt, file, fileRef, dragover, setDragover, onFile, onRemove }: {
   label: string;
   preview: string | null;
   previewAlt: string;
   file: File | null;
-  cameraRef: RefObject<HTMLInputElement | null>;
   fileRef: RefObject<HTMLInputElement | null>;
   dragover: boolean;
   setDragover: (value: boolean) => void;
@@ -1676,17 +1913,13 @@ function FileCaptureBox({ label, preview, previewAlt, file, cameraRef, fileRef, 
           onDrop={(e) => { e.preventDefault(); setDragover(false); onFile(e.dataTransfer.files[0] ?? null); }}
         >
           <div className="flex flex-wrap justify-center gap-3">
-            <button type="button" onClick={() => cameraRef.current?.click()} className="secondary-button">
-              <CameraIcon className="text-teal" />
-              Take photo
-            </button>
-            <button type="button" onClick={() => fileRef.current?.click()} className="secondary-button">
-              <UploadIcon className="text-text-secondary" />
+            <MobileCameraButton onCapture={onFile} className="primary-button" />
+            <button type="button" onClick={() => fileRef.current?.click()} className="primary-button">
+              <UploadIcon className="text-white" />
               Upload file
             </button>
           </div>
           <p className="text-center text-xs text-text-tertiary">or drag and drop &middot; JPEG, PNG, WebP &middot; up to {Math.round(MAX_UPLOAD_BYTES / 1024 / 1024)} MB</p>
-          <input ref={cameraRef} type="file" accept="image/jpeg,image/png,image/webp" capture="environment" className="hidden" onChange={(e) => onFile(e.target.files?.[0] ?? null)} />
           <input ref={fileRef} type="file" accept="image/jpeg,image/png,image/webp" className="hidden" onChange={(e) => onFile(e.target.files?.[0] ?? null)} />
         </div>
       )}
@@ -1694,7 +1927,7 @@ function FileCaptureBox({ label, preview, previewAlt, file, cameraRef, fileRef, 
   );
 }
 
-function GuidedCapturePanel({ currentChar, currentCharIndex, guidedCharacters, acceptedGlyphs, missingCount, acceptedCount, guidedPreview, currentMask, maskEditPending, maskEditError, maskMethod, foregroundMethod, foregroundStyle, foregroundRectangle, foregroundPoints, foregroundPromptMode, foregroundStatus, inkThreshold, inkMaskMethod, threshold, invert, baseline, cameraRef, fileRef, onFile, onMaskMethod, onForegroundMethod, onForegroundStyle, onForegroundRectangle, onForegroundPoint, onForegroundPromptMode, onClearForegroundPoints, onExtractObject, onInkThreshold, onInkMaskMethod, onThreshold, onInvert, onBaseline, onMaskEdited, onMaskEditPending, onAccept, onRedo, onPrevious, onNext, onPickChar, isProcessing }: {
+function GuidedCapturePanel({ currentChar, currentCharIndex, guidedCharacters, acceptedGlyphs, missingCount, acceptedCount, guidedPreview, currentMask, candidateOptions, selectedCandidateId, candidateFailures, candidateStatus, candidateError, candidateObjectsPending, maskEditPending, maskEditError, maskMethod, foregroundMethod, foregroundStyle, foregroundRectangle, foregroundPoints, foregroundPromptMode, foregroundStatus, inkThreshold, inkMaskMethod, threshold, invert, baseline, fileRef, onFile, onMaskMethod, onForegroundMethod, onForegroundStyle, onForegroundRectangle, onForegroundPoint, onForegroundPromptMode, onClearForegroundPoints, onExtractObject, onInkThreshold, onInkMaskMethod, onThreshold, onInvert, onBaseline, onMaskEdited, onMaskEditPending, onCandidateSelect, onAccept, onRedo, onPrevious, onNext, onPickChar, isProcessing }: {
   currentChar: string;
   currentCharIndex: number;
   guidedCharacters: string[];
@@ -1703,6 +1936,12 @@ function GuidedCapturePanel({ currentChar, currentCharIndex, guidedCharacters, a
   acceptedCount: number;
   guidedPreview: string | null;
   currentMask: CurrentMask | null;
+  candidateOptions: CaptureCandidateOption[];
+  selectedCandidateId: string | null;
+  candidateFailures: { method: string; message: string; stage: 'ink' | 'objects' }[];
+  candidateStatus: string | null;
+  candidateError: string | null;
+  candidateObjectsPending: boolean;
   maskEditPending: boolean;
   maskEditError: string | null;
   maskMethod: GuidedMaskMethod;
@@ -1717,7 +1956,6 @@ function GuidedCapturePanel({ currentChar, currentCharIndex, guidedCharacters, a
   threshold: number;
   invert: boolean;
   baseline: number;
-  cameraRef: RefObject<HTMLInputElement | null>;
   fileRef: RefObject<HTMLInputElement | null>;
   onFile: (file: File | null) => void;
   onMaskMethod: (value: GuidedMaskMethod) => void;
@@ -1735,6 +1973,7 @@ function GuidedCapturePanel({ currentChar, currentCharIndex, guidedCharacters, a
   onBaseline: (value: number) => void;
   onMaskEdited: (mask: MaskResult, sourceUrl: string) => void;
   onMaskEditPending: (pending: boolean, message?: string | null) => void;
+  onCandidateSelect: (candidate: CaptureCandidateOption) => void;
   onAccept: () => void;
   onRedo: () => void;
   onPrevious: () => void;
@@ -1744,23 +1983,47 @@ function GuidedCapturePanel({ currentChar, currentCharIndex, guidedCharacters, a
 }) {
   const acceptedCurrent = acceptedGlyphs[currentChar];
   const promptPointsApply = foregroundMethod === 'auto' || foregroundMethod === 'model';
+
   return (
-    <div className="grid min-w-0 grid-cols-1 gap-5">
-      <div className="rounded-xl border border-border bg-bg px-4 py-3">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <span className="text-xs uppercase tracking-[.08em] text-text-tertiary">Current character</span>
-            <strong className="block text-5xl leading-none">{currentChar}</strong>
-          </div>
-          <p className="max-w-[34ch] text-sm text-text-secondary">Photograph one dark glyph or silhouette on a contrasting background. Accepting stores the exact black-and-white preview that will be used for that character.</p>
+    <div className="grid min-w-0 grid-cols-1 gap-4">
+      <div className="flex min-w-0 flex-wrap items-center justify-between gap-2 rounded-2xl border border-border bg-bg p-3">
+        <div className="min-w-0">
+          <p className="font-mono text-[11px] font-semibold uppercase tracking-[.12em] text-text-tertiary">Step {currentCharIndex + 1} of {guidedCharacters.length}</p>
+          <strong className="mt-0.5 block text-[36px] font-bold leading-none tracking-[-0.04em]">Capture {currentChar}</strong>
+          <p className="mt-1 text-sm text-text-secondary">Use ink, a light-on-dark mark, or any distinct shape on a clear background.</p>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <button type="button" onClick={onPrevious} disabled={currentCharIndex === 0 || isProcessing} className="secondary-button">Previous</button>
+          <button type="button" onClick={onNext} disabled={currentCharIndex === guidedCharacters.length - 1 || isProcessing} className="secondary-button">Next</button>
         </div>
       </div>
 
-      <div className="grid min-w-0 grid-cols-1 gap-4 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
-        <div className="grid min-w-0 grid-cols-1 gap-2">
-          <span className="text-[13px] font-semibold text-text-primary">Source image</span>
-          {guidedPreview ? (
-            maskMethod === 'foreground' && promptPointsApply ? (
+      {!guidedPreview ? (
+        <div className="grid min-h-[170px] place-items-center rounded-[24px] border-2 border-dashed border-border bg-bg px-4 py-4 text-center">
+          <div className="grid max-w-[420px] gap-3">
+            <div className="flex flex-wrap justify-center gap-3">
+              <MobileCameraButton key={currentChar} onCapture={onFile} className="primary-button" />
+              <button type="button" onClick={() => fileRef.current?.click()} className="primary-button"><UploadIcon className="text-white" />Upload file</button>
+            </div>
+            <div>
+              <strong className="text-base">Add one image for {currentChar}</strong>
+              <p className="mt-1 text-sm text-text-secondary">The accepted preview becomes this character in the font.</p>
+            </div>
+            <p className="text-xs text-text-tertiary">JPEG, PNG, or WebP up to {Math.round(MAX_UPLOAD_BYTES / 1024 / 1024)} MB.</p>
+          </div>
+          <input ref={fileRef} type="file" accept="image/jpeg,image/png,image/webp" className="hidden" onChange={(e) => onFile(e.target.files?.[0] ?? null)} />
+        </div>
+      ) : (
+        <div className="grid min-w-0 grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(280px,0.82fr)]">
+          <div className="grid min-w-0 gap-2">
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-[13px] font-semibold text-text-primary">Source image</span>
+              <div className="flex gap-2">
+                <MobileCameraButton key={currentChar} onCapture={onFile} label="Retake" className="secondary-button shrink-0 whitespace-nowrap" />
+                <button type="button" onClick={() => fileRef.current?.click()} className="primary-button">Replace</button>
+              </div>
+            </div>
+            {maskMethod === 'foreground' && promptPointsApply ? (
               <PromptPointEditor
                 preview={guidedPreview}
                 currentChar={currentChar}
@@ -1771,126 +2034,141 @@ function GuidedCapturePanel({ currentChar, currentCharIndex, guidedCharacters, a
                 onClearPoints={onClearForegroundPoints}
               />
             ) : (
-              <div className="relative min-w-0 overflow-hidden rounded-xl border border-border bg-bg-subtle">
-                <img src={guidedPreview} alt={`Source photo for ${currentChar}`} className="h-[240px] w-full object-contain" />
+              <div className="relative min-w-0 overflow-hidden rounded-2xl border border-border bg-bg-subtle">
+                <img src={guidedPreview} alt={`Source photo for ${currentChar}`} className="h-[260px] w-full object-contain" />
               </div>
-            )
-          ) : (
-            <div className="grid place-items-center gap-3 rounded-xl border-2 border-dashed border-border bg-bg px-4 py-8">
-              <div className="flex flex-wrap justify-center gap-3">
-                <button type="button" onClick={() => cameraRef.current?.click()} className="secondary-button"><CameraIcon className="text-teal" />Take photo</button>
-                <button type="button" onClick={() => fileRef.current?.click()} className="secondary-button"><UploadIcon className="text-text-secondary" />Upload file</button>
-              </div>
-              <p className="text-center text-xs text-text-tertiary">Use a clear photo for the selected character only.</p>
-            </div>
-          )}
-          {guidedPreview && (
-            <div className="flex gap-2">
-              <button type="button" onClick={() => cameraRef.current?.click()} className="secondary-button">Retake</button>
-              <button type="button" onClick={() => fileRef.current?.click()} className="secondary-button">Replace</button>
-            </div>
-          )}
-          <input ref={cameraRef} type="file" accept="image/jpeg,image/png,image/webp" capture="environment" className="hidden" onChange={(e) => onFile(e.target.files?.[0] ?? null)} />
-          <input ref={fileRef} type="file" accept="image/jpeg,image/png,image/webp" className="hidden" onChange={(e) => onFile(e.target.files?.[0] ?? null)} />
-        </div>
-        <div className="grid min-w-0 grid-cols-1 gap-2">
-          <span className="text-[13px] font-semibold text-text-primary">Accepted preview / upload image</span>
-          <div className="relative grid min-h-[240px] min-w-0 place-items-center overflow-hidden rounded-xl border border-border bg-white">
-            {currentMask ? (
-              <MaskCanvasEditor key={currentMask.url} mask={currentMask} currentChar={currentChar} baseline={baseline} onEdited={onMaskEdited} onPendingChange={onMaskEditPending} />
+            )}
+            <input ref={fileRef} type="file" accept="image/jpeg,image/png,image/webp" className="hidden" onChange={(e) => onFile(e.target.files?.[0] ?? null)} />
+          </div>
+          <div className="grid min-w-0 gap-2">
+            {candidateOptions.length > 0 ? (
+              <CandidatePicker
+                currentChar={currentChar}
+                candidates={candidateOptions}
+                selectedId={selectedCandidateId}
+                failures={candidateFailures}
+                status={candidateStatus}
+                error={candidateError}
+                objectsPending={candidateObjectsPending}
+                onSelect={onCandidateSelect}
+              />
             ) : (
-              <span className="px-4 text-center text-sm text-text-tertiary">Mask preview appears after a source image is decoded.</span>
+              <>
+                <span className="text-[13px] font-semibold text-text-primary">Font mask</span>
+                <div className="relative grid min-h-[260px] min-w-0 place-items-center overflow-hidden rounded-2xl border border-border bg-white">
+                  {candidateStatus ? (
+                    <span className="px-4 text-center text-sm text-text-tertiary" role="status">{candidateStatus}</span>
+                  ) : currentMask ? (
+                    <MaskCanvasEditor key={currentMask.url} mask={currentMask} currentChar={currentChar} baseline={baseline} onEdited={onMaskEdited} onPendingChange={onMaskEditPending} />
+                  ) : (
+                    <span className="px-4 text-center text-sm text-text-tertiary">Preparing mask preview…</span>
+                  )}
+                </div>
+              </>
+            )}
+            {currentMask && candidateOptions.length === 0 && (
+              <div className="grid min-w-0 gap-1 [overflow-wrap:anywhere]">
+                <p className="min-w-0 text-xs text-text-tertiary [overflow-wrap:anywhere]">{currentMask.width}×{currentMask.height}px PNG, {(currentMask.foregroundRatio * 100).toFixed(1)}% foreground. Black pixels become font ink.</p>
+                <p className="min-w-0 text-xs text-text-secondary [overflow-wrap:anywhere]">Preview source: {describeMaskSource(currentMask)}.</p>
+                {currentMask.warnings.length > 0 && (
+                  <div className="min-w-0 rounded-md border border-orange-200 bg-amber-muted px-3 py-2 text-xs text-[#92400e] [overflow-wrap:anywhere]" role="status">
+                    <strong className="font-semibold">Segmentation warning{currentMask.warnings.length > 1 ? 's' : ''}:</strong>
+                    <ul className="mt-1 list-disc pl-4">{currentMask.warnings.map((warning) => <li key={warning}>{warning}</li>)}</ul>
+                  </div>
+                )}
+              </div>
             )}
           </div>
-          {currentMask && (
-            <div className="grid min-w-0 gap-1 [overflow-wrap:anywhere]">
-              <p className="min-w-0 text-xs text-text-tertiary [overflow-wrap:anywhere]">{currentMask.width}×{currentMask.height}px PNG, {(currentMask.foregroundRatio * 100).toFixed(1)}% foreground. Black pixels are character ink.</p>
-              <p className="min-w-0 text-xs text-text-secondary [overflow-wrap:anywhere]">
-                Preview source: {describeMaskSource(currentMask)}.
-              </p>
-              {currentMask.warnings.length > 0 && (
-                <div className="min-w-0 rounded-md border border-orange-200 bg-amber-muted px-3 py-2 text-xs text-[#92400e] [overflow-wrap:anywhere]" role="status">
-                  <strong className="font-semibold">Segmentation warning{currentMask.warnings.length > 1 ? 's' : ''}:</strong>
-                  <ul className="mt-1 list-disc pl-4">
-                    {currentMask.warnings.map((warning) => <li key={warning}>{warning}</li>)}
-                  </ul>
-                </div>
-              )}
-            </div>
-          )}
         </div>
-      </div>
+      )}
 
-      <div className="grid gap-3 rounded-xl border border-border bg-bg p-4">
-        <fieldset className="grid min-w-0 grid-cols-1 gap-2">
-          <legend className="text-[13px] font-semibold text-text-primary">Preview method</legend>
-          <label className="flex items-start gap-2 text-sm text-text-secondary">
-            <input type="radio" name="mask-method" checked={maskMethod === 'threshold'} onChange={() => onMaskMethod('threshold')} />
-            <span><strong className="text-text-primary">Threshold</strong><br />Fast local black/white extraction for dark ink or interior detail on a light background.</span>
-          </label>
-          <label className="flex items-start gap-2 text-sm text-text-secondary">
-            <input type="radio" name="mask-method" checked={maskMethod === 'foreground'} onChange={() => onMaskMethod('foreground')} />
-            <span><strong className="text-text-primary">Backend segmentation cutout</strong><br />Use the original source photo, selected rectangle, method, and output style to request a real backend mask. No browser-only model is simulated.</span>
-          </label>
-        </fieldset>
-
-        {maskMethod === 'threshold' ? (
-          <>
-            <fieldset className="grid min-w-0 grid-cols-1 gap-2">
-              <legend className="text-[13px] font-semibold text-text-primary">Ink detection</legend>
-              <label className="flex items-start gap-2 text-sm text-text-secondary">
-                <input type="radio" name="ink-mask-method" checked={inkMaskMethod === 'global'} onChange={() => onInkMaskMethod('global')} />
-                <span><strong className="text-text-primary">Global threshold</strong><br />Manual legacy black/white cutoff. This remains the default.</span>
-              </label>
-              <label className="flex items-start gap-2 text-sm text-text-secondary">
-                <input type="radio" name="ink-mask-method" checked={inkMaskMethod === 'adaptive'} onChange={() => onInkMaskMethod('adaptive')} />
-                <span><strong className="text-text-primary">Adaptive local threshold</strong><br />May help with uneven paper lighting. Review for paper-edge or texture artifacts and missing centers in thick strokes.</span>
-              </label>
-            </fieldset>
-            <label className="grid gap-1.5">
-              <span className="text-[13px] font-semibold text-text-primary">Threshold: {threshold}</span>
-              <input type="range" min="1" max="254" step="1" value={threshold} onChange={(e) => onThreshold(Number(e.target.value))} aria-label="Global threshold" disabled={inkMaskMethod === 'adaptive'} />
-            </label>
-            <label className="flex items-center gap-2 text-sm text-text-secondary">
-              <input type="checkbox" checked={invert} onChange={(e) => onInvert(e.target.checked)} />
-              Invert foreground (use when the object is lighter than the background)
-            </label>
-          </>
-        ) : (
-          <ObjectRectangleControls
-            method={foregroundMethod}
-            style={foregroundStyle}
-            rectangle={foregroundRectangle}
-            inkThreshold={inkThreshold}
-            onMethod={onForegroundMethod}
-            onStyle={onForegroundStyle}
-            onChange={onForegroundRectangle}
-            onInkThreshold={onInkThreshold}
-            onExtract={onExtractObject}
-            disabled={!guidedPreview || isProcessing}
-            status={foregroundStatus}
-          />
-        )}
-
-        <label className="grid gap-1.5">
-          <span className="text-[13px] font-semibold text-text-primary">Baseline from top: {baseline.toFixed(2)}</span>
-          <input type="range" min="0.05" max="0.95" step="0.01" value={baseline} onChange={(e) => onBaseline(Number(e.target.value))} />
-        </label>
-      </div>
-
-      <div className="flex flex-wrap gap-2">
-        <button type="button" onClick={onPrevious} disabled={currentCharIndex === 0 || isProcessing} className="secondary-button">Previous</button>
-        <button type="button" onClick={onAccept} disabled={!currentMask || isProcessing || maskEditPending} className="secondary-button">Accept {currentChar}</button>
+      <div className="flex flex-wrap items-center gap-2">
+        <button type="button" onClick={onAccept} disabled={!currentMask || isProcessing || maskEditPending} className="primary-button">Accept {currentChar}</button>
         <button type="button" onClick={onRedo} disabled={!acceptedCurrent || isProcessing} className="secondary-button">Redo {currentChar}</button>
-        <button type="button" onClick={onNext} disabled={currentCharIndex === guidedCharacters.length - 1 || isProcessing} className="secondary-button">Next</button>
+        <span className="text-xs text-text-tertiary">{acceptedCount}/{guidedCharacters.length} ready</span>
       </div>
       {maskEditPending && <p className="text-xs text-text-secondary" role="status">{maskEditError ?? 'Saving the current mask edit…'}</p>}
 
-      <div className="rounded-xl border border-border bg-bg p-4">
-        <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-          <strong className="text-sm">Accepted character grid</strong>
-          <span className="text-xs text-text-tertiary">{acceptedCount} accepted · {missingCount} missing</span>
-        </div>
+      {(guidedPreview || currentMask) && (
+        <details className="group rounded-2xl border border-border bg-bg p-3">
+          <summary className="cursor-pointer list-none text-sm font-semibold text-text-primary outline-none focus-visible:ring-2 focus-visible:ring-teal group-open:mb-3">
+            Advanced correction tools
+            <span className="sr-only">Refinement tools</span>
+            <span className="ml-2 font-normal text-text-tertiary">{maskMethod === 'threshold' ? 'threshold' : 'segmentation'} · baseline {baseline.toFixed(2)}</span>
+          </summary>
+          <div className="grid gap-3">
+            {candidateOptions.length > 0 && currentMask ? (
+              <div className="grid gap-2 rounded-xl border border-border bg-surface p-3">
+                <div>
+                  <strong className="text-[13px] text-text-primary">Manual mask cleanup</strong>
+                  <p className="mt-1 text-xs text-text-secondary">Only use this if none of the vector options are clean enough.</p>
+                </div>
+                <MaskCanvasEditor key={currentMask.url} mask={currentMask} currentChar={currentChar} baseline={baseline} onEdited={onMaskEdited} onPendingChange={onMaskEditPending} />
+              </div>
+            ) : null}
+            <fieldset className="grid min-w-0 grid-cols-1 gap-2">
+              <legend className="text-[13px] font-semibold text-text-primary">Preview method</legend>
+              <label className="flex items-start gap-2 text-sm text-text-secondary">
+                <input type="radio" name="mask-method" checked={maskMethod === 'threshold'} onChange={() => onMaskMethod('threshold')} />
+                <span><strong className="text-text-primary">Threshold</strong><br />Fast local black/white extraction for dark ink or interior detail on a light background.</span>
+              </label>
+              <label className="flex items-start gap-2 text-sm text-text-secondary">
+                <input type="radio" name="mask-method" checked={maskMethod === 'foreground'} onChange={() => onMaskMethod('foreground')} />
+                <span><strong className="text-text-primary">Backend segmentation cutout</strong><br />Use the source photo, selected rectangle, method, and output style to request a real backend mask. No browser-only model is simulated.</span>
+              </label>
+            </fieldset>
+
+            {maskMethod === 'threshold' ? (
+              <div className="grid gap-3 rounded-xl border border-border bg-surface p-3">
+                <fieldset className="grid min-w-0 grid-cols-1 gap-2">
+                  <legend className="text-[13px] font-semibold text-text-primary">Ink detection</legend>
+                  <label className="flex items-start gap-2 text-sm text-text-secondary">
+                    <input type="radio" name="ink-mask-method" checked={inkMaskMethod === 'global'} onChange={() => onInkMaskMethod('global')} />
+                    <span><strong className="text-text-primary">Global threshold</strong><br />Manual black/white cutoff. This remains the default.</span>
+                  </label>
+                  <label className="flex items-start gap-2 text-sm text-text-secondary">
+                    <input type="radio" name="ink-mask-method" checked={inkMaskMethod === 'adaptive'} onChange={() => onInkMaskMethod('adaptive')} />
+                    <span><strong className="text-text-primary">Adaptive local threshold</strong><br />May help with uneven paper lighting.</span>
+                  </label>
+                </fieldset>
+                <label className="grid gap-1.5">
+                  <span className="text-[13px] font-semibold text-text-primary">Threshold: {threshold}</span>
+                  <input type="range" min="1" max="254" step="1" value={threshold} onChange={(e) => onThreshold(Number(e.target.value))} aria-label="Global threshold" disabled={inkMaskMethod === 'adaptive'} />
+                </label>
+                <label className="flex items-center gap-2 text-sm text-text-secondary">
+                  <input type="checkbox" checked={invert} onChange={(e) => onInvert(e.target.checked)} />
+                  Invert foreground (use when the object is lighter than the background)
+                </label>
+              </div>
+            ) : (
+              <ObjectRectangleControls
+                method={foregroundMethod}
+                style={foregroundStyle}
+                rectangle={foregroundRectangle}
+                inkThreshold={inkThreshold}
+                onMethod={onForegroundMethod}
+                onStyle={onForegroundStyle}
+                onChange={onForegroundRectangle}
+                onInkThreshold={onInkThreshold}
+                onExtract={onExtractObject}
+                disabled={!guidedPreview || isProcessing}
+                status={foregroundStatus}
+              />
+            )}
+
+            <label className="grid gap-1.5 rounded-xl border border-border bg-surface p-3">
+              <span className="text-[13px] font-semibold text-text-primary">Baseline from top: {baseline.toFixed(2)}</span>
+              <input type="range" min="0.05" max="0.95" step="0.01" value={baseline} onChange={(e) => onBaseline(Number(e.target.value))} />
+            </label>
+          </div>
+        </details>
+      )}
+
+      <details className="group rounded-2xl border border-border bg-bg p-3" open>
+        <summary className="cursor-pointer list-none text-sm font-semibold text-text-primary outline-none focus-visible:ring-2 focus-visible:ring-teal group-open:mb-3">
+          Characters
+          <span className="ml-2 font-normal text-text-tertiary">{acceptedCount} accepted · {missingCount} missing</span>
+        </summary>
         <div className="grid grid-cols-8 gap-1 sm:grid-cols-12 md:grid-cols-16" aria-label="Guided character picker">
           {guidedCharacters.map((char) => {
             const glyph = acceptedGlyphs[char];
@@ -1908,8 +2186,79 @@ function GuidedCapturePanel({ currentChar, currentCharIndex, guidedCharacters, a
             );
           })}
         </div>
-      </div>
+      </details>
     </div>
+  );
+}
+
+
+function CandidatePicker({ currentChar, candidates, selectedId, failures, status, error, objectsPending, onSelect }: {
+  currentChar: string;
+  candidates: CaptureCandidateOption[];
+  selectedId: string | null;
+  failures: { method: string; message: string; stage: 'ink' | 'objects' }[];
+  status: string | null;
+  error: string | null;
+  objectsPending: boolean;
+  onSelect: (candidate: CaptureCandidateOption) => void;
+}) {
+  return (
+    <section className="grid min-w-0 gap-3" aria-label={`Letter options for ${currentChar}`} data-testid="candidate-picker">
+      <div className="flex min-w-0 items-start justify-between gap-3">
+        <div className="min-w-0">
+          <span className="text-[13px] font-semibold text-text-primary">Choose the letter shape</span>
+          <p className="mt-1 text-xs text-text-secondary">Smooth SVG previews are ready to compare. Accept the one that should become {currentChar}.</p>
+        </div>
+        {objectsPending ? <span className="shrink-0 rounded-full bg-teal-muted px-2.5 py-1 text-[11px] font-semibold text-teal" role="status">Trying object cutouts…</span> : null}
+      </div>
+      {status ? <p className="text-xs text-text-secondary" role="status">{status}</p> : null}
+      {error ? <p className="rounded-lg border border-amber-muted bg-amber-muted px-3 py-2 text-xs text-[#7c4a03]" role="status">{error}</p> : null}
+      <div className="grid min-w-0 gap-2 sm:grid-cols-2" role="listbox" aria-label="Extracted vector candidates">
+        {candidates.map((candidate) => {
+          const key = `${candidate.stage}:${candidate.id}`;
+          const selected = selectedId === key;
+          return (
+            <button
+              key={key}
+              type="button"
+              className={`candidate-card ${selected ? 'is-selected' : ''}`}
+              role="option"
+              aria-selected={selected}
+              data-testid={`candidate-option-${candidate.stage}-${candidate.id}`}
+              onClick={() => onSelect(candidate)}
+            >
+              <span className="candidate-card__preview"><img src={candidate.svgDataUrl} alt={`${candidate.label} vector preview for ${currentChar}`} /></span>
+              <span className="candidate-card__copy">
+                <strong>{candidate.label}</strong>
+                <span>{candidate.stage === 'ink' ? 'Smooth letter outline' : 'Isolated object outline'} · SVG</span>
+              </span>
+              {selected ? <span className="candidate-card__badge"><CheckIcon /> Selected</span> : null}
+              {candidate.warnings.length > 0 ? <span className="candidate-card__warning">{candidate.warnings[0]}</span> : null}
+            </button>
+          );
+        })}
+      </div>
+      <div className="flex flex-wrap gap-2">
+        {candidates.map((candidate) => (
+          <a
+            key={`${candidate.stage}:${candidate.id}:svg`}
+            className="secondary-button"
+            href={candidate.svgDataUrl}
+            download={`${currentChar}-candidate-${candidate.id}.svg`}
+          >
+            Download {candidate.label} SVG
+          </a>
+        ))}
+      </div>
+      {failures.length > 0 ? (
+        <details className="rounded-xl border border-border bg-bg px-3 py-2 text-xs text-text-secondary">
+          <summary className="font-semibold text-text-primary">Methods that did not work ({failures.length})</summary>
+          <ul className="mt-2 grid gap-1">
+            {failures.map((failure, index) => <li key={`${failure.stage}-${failure.method}-${index}`}>{failure.stage}: {failure.method} — {failure.message}</li>)}
+          </ul>
+        </details>
+      ) : null}
+    </section>
   );
 }
 
@@ -2458,7 +2807,7 @@ function ErrorMessage({ message }: { message: string }) {
 function StatusPanel({ state, job, acceptedCharacters, allowDelete, onDeleted }: { state: LocalState; job: JobResponse | null; acceptedCharacters: string[] | null; allowDelete: boolean; onDeleted: () => void }) {
   const [deletedJobId, setDeletedJobId] = useState<string | null>(null);
   if (job && deletedJobId === job.jobId) return (
-    <aside className="rounded-[22px] border border-border bg-surface p-7 text-sm text-text-secondary" role="status">
+    <aside className="studio-result-panel rounded-[22px] border border-border bg-surface p-5 text-sm text-text-secondary" role="status">
       Job access removed. File cleanup is queued; accepted glyphs in this tab remain available for editing. Another build will upload fresh inputs.
     </aside>
   );
@@ -2478,7 +2827,7 @@ function StatusPanel({ state, job, acceptedCharacters, allowDelete, onDeleted }:
   const badgeLabel = isFailed ? 'Failed' : isSuccess ? 'Complete' : isActive ? 'Processing' : 'Ready';
 
   return (
-    <aside className="grid min-w-0 content-start gap-5 rounded-[22px] border border-border bg-surface p-7" aria-live="polite">
+    <aside className="studio-result-panel grid min-w-0 content-start gap-4 rounded-[22px] border border-border bg-surface p-5" aria-live="polite">
       <div className="flex items-center justify-between">
         <span className="text-[13px] text-text-tertiary">Status</span>
         <span className={`inline-flex h-7 items-center gap-1.5 rounded-full px-3 font-mono text-xs font-semibold uppercase tracking-[.04em] ${badgeClass}`}>
@@ -2515,7 +2864,7 @@ function StatusPanel({ state, job, acceptedCharacters, allowDelete, onDeleted }:
       )}
 
       {!isActive && !isSuccess && !isFailed && (
-        <p className="text-[13px] text-text-tertiary">Choose a capture mode, then build with a configured Python worker.</p>
+        <p className="text-[13px] text-text-tertiary">Your font preview will appear here. Add a character and build your font.</p>
       )}
 
       {job?.progressLabel && <p className="rounded-lg border border-border bg-bg px-4 py-3 text-[13px] text-text-secondary">{job.progressLabel}</p>}
@@ -2549,12 +2898,10 @@ function StatusPanel({ state, job, acceptedCharacters, allowDelete, onDeleted }:
         </div>
       )}
 
-      {isSuccess && job && <GeneratedProof key={job.jobId} job={job} acceptedCharacters={acceptedCharacters} />}
+      {isSuccess && job && <GeneratedProof key={`proof-${job.jobId}`} job={job} acceptedCharacters={acceptedCharacters} />}
 
-      {allowDelete && job && (job.status === 'succeeded' || job.status === 'failed') && <DeleteJobButton key={job.jobId} jobId={job.jobId} onDeleted={(id) => { setDeletedJobId(id); onDeleted(); }} />}
-      <small className="text-xs text-text-tertiary">
-        {job ? `This job is retained until ${new Date(job.retentionExpiresAt).toLocaleString()}.` : 'Local/demo state is not a deletion guarantee. Configure backend retention before public use.'}
-      </small>
+      {allowDelete && job && (job.status === 'succeeded' || job.status === 'failed') && <DeleteJobButton key={`delete-${job.jobId}`} jobId={job.jobId} onDeleted={(id) => { setDeletedJobId(id); onDeleted(); }} />}
+      {job && <small className="text-xs text-text-tertiary">This job is retained until {new Date(job.retentionExpiresAt).toLocaleString()}.</small>}
     </aside>
   );
 }

@@ -14,7 +14,7 @@ def photo():
     return image
 
 
-@pytest.mark.parametrize('kwargs', [{'method':'unknown'}, {'style':'color'}, {'threshold':True}, {'threshold':128.5}, {'threshold':0}, {'threshold':255}])
+@pytest.mark.parametrize('kwargs', [{'method':'unknown'}, {'style':'color'}, {'threshold':True}, {'threshold':128.5}, {'threshold':0}, {'threshold':255}, {'ink_polarity':'bright'}])
 def test_invalid_options_reject_before_model(photo, kwargs, monkeypatch):
     monkeypatch.setattr(s, 'predict_slimsam', lambda *a, **k: pytest.fail('invalid request reached model'))
     with pytest.raises(ValueError):
@@ -27,7 +27,7 @@ def test_auto_fallback_is_visible_and_model_explicit_fails(photo, monkeypatch):
     mask = np.full(photo.shape[:2], 255, np.uint8)
     mask[25:50, 40:70] = 0
     monkeypatch.setattr(s, 'predict_slimsam', missing)
-    monkeypatch.setattr(s, 'extract_foreground', lambda *a: mask)
+    monkeypatch.setattr(s, 'extract_foreground_result', lambda *a: SimpleNamespace(mask=mask, method='grabcut', warnings=()))
     result = s.segment_image(photo, [.1,.1,.9,.9], points=[{'x':.5,'y':.5,'label':1}])
     assert result.method == 'grabcut' and result.model_id is None
     assert 'Weights missing' in result.warnings[0]
@@ -39,19 +39,44 @@ def test_busy_model_does_not_trigger_extra_cpu_fallback(photo, monkeypatch):
     def busy(*a, **k):
         raise s.SegmentationBusyError('busy')
     monkeypatch.setattr(s, 'predict_slimsam', busy)
-    monkeypatch.setattr(s, 'extract_foreground', lambda *a: pytest.fail('busy fallback'))
+    monkeypatch.setattr(s, 'extract_foreground_result', lambda *a: pytest.fail('busy fallback'))
     with pytest.raises(s.SegmentationBusyError):
         s.segment_image(photo, [.1,.1,.9,.9], points=[{'x':.5,'y':.5,'label':1}])
 
 
 def test_ink_style_intersects_cutout_without_filling_holes(photo, monkeypatch):
-    mask = np.zeros(photo.shape[:2], np.uint8)
+    mask = np.full(photo.shape[:2], 255, np.uint8)
+    mask[20:60, 30:90] = 0
     mask[35:40, 50:55] = 255
     monkeypatch.setattr(s, 'predict_slimsam', lambda *a, **k: mask)
     result = s.segment_image(photo, [.1,.1,.9,.9], method='model', style='ink', threshold=128, points=[{'x':.5,'y':.5,'label':1}])
     assert result.method == 'slimsam' and result.model_id.startswith(s.MODEL_REPO)
     assert result.mask[30,40] == 0 and result.mask[37,52] == 255
     assert result.mask[0,0] == 255
+
+
+def test_ink_style_can_keep_light_foreground_without_dark_ink_assumption(monkeypatch):
+    photo = np.zeros((80, 120, 3), np.uint8)
+    photo[20:60, 35:85] = 245
+    cutout = np.full(photo.shape[:2], 255, np.uint8)
+    cutout[18:62, 30:90] = 0
+    monkeypatch.setattr(s, 'extract_foreground_result', lambda *a: SimpleNamespace(mask=cutout, method='grabcut', warnings=()))
+
+    result = s.segment_image(photo, [.1, .1, .9, .9], method='grabcut', style='ink', ink_polarity='light', threshold=128)
+
+    assert result.mask[40, 60] == 0
+    assert result.mask[10, 10] == 255
+
+
+def test_ink_style_rejects_near_blank_polarity_mismatch(monkeypatch):
+    photo = np.zeros((120, 160, 3), np.uint8)
+    photo[45:75, 70:90] = 245
+    cutout = np.full(photo.shape[:2], 255, np.uint8)
+    cutout[45:75, 70:90] = 0
+    monkeypatch.setattr(s, 'extract_foreground_result', lambda *a: SimpleNamespace(mask=cutout, method='threshold', warnings=()))
+
+    with pytest.raises(ValueError, match='No ink detail remains'):
+        s.segment_image(photo, [.1, .1, .9, .9], method='grabcut', style='ink', threshold=128)
 
 
 def test_preprocessing_rgb_scale_and_normalized_padding():
@@ -150,15 +175,26 @@ def test_box_model_rejects_points_before_model(photo, monkeypatch):
         s.segment_image(photo, [.1, .1, .9, .9], method='box-model', points=())
 
 
+def test_box_model_rejects_masks_that_select_the_prompt_box(photo, monkeypatch):
+    import handwrite_font_maker.efficient_segmentation as efficient
+
+    mask = np.full(photo.shape[:2], 255, np.uint8)
+    mask[8:72, 12:108] = 0
+    monkeypatch.setattr(efficient, 'predict_efficientsam_box', lambda *_args: mask)
+
+    with pytest.raises(ValueError, match='entire box'):
+        s.segment_image(photo, [.1, .1, .9, .9], method='box-model')
+
+
 def test_auto_without_positive_point_still_uses_grabcut(photo, monkeypatch):
     monkeypatch.setattr(s, 'predict_slimsam', lambda *a, **k: pytest.fail('auto without positive point reached SlimSAM'))
     mask = np.full(photo.shape[:2], 255, np.uint8)
     mask[25:50, 40:70] = 0
-    monkeypatch.setattr(s, 'extract_foreground', lambda *a: mask)
+    monkeypatch.setattr(s, 'extract_foreground_result', lambda *a: SimpleNamespace(mask=mask, method='grabcut', warnings=()))
     result = s.segment_image(photo, [.1, .1, .9, .9], method='auto')
     assert result.method == 'grabcut'
     assert result.model_id is None
-    assert 'GrabCut' in result.warnings[0]
+    assert 'classical extraction' in result.warnings[0]
 
 
 def test_efficientsam_prediction_maps_box_prompt_and_releases_shared_lock(photo, monkeypatch):

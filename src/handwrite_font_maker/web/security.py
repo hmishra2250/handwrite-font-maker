@@ -10,6 +10,7 @@ from typing import Mapping
 class DeploymentMode(StrEnum):
     LOCAL = "local"
     INVITE_BETA = "invite_beta"
+    PRIVATE_ALPHA = "private_alpha"
     PRODUCTION = "production"
 
 
@@ -36,17 +37,19 @@ class RuntimeConfig:
     daily_preview_limit: int
     daily_build_limit: int
     active_job_limit: int
+    alpha_database_path: str | None = None
+    local_object_root: str | None = None
 
     @property
     def auth_required(self) -> bool:
-        return self.mode in {DeploymentMode.INVITE_BETA, DeploymentMode.PRODUCTION}
+        return self.mode in {DeploymentMode.PRIVATE_ALPHA, DeploymentMode.INVITE_BETA, DeploymentMode.PRODUCTION}
 
 
 def load_runtime_config(env: Mapping[str, str] | None = None) -> RuntimeConfig:
     source = os.environ if env is None else env
     explicit_mode = source.get("DEPLOYMENT_MODE")
     stripped_mode = explicit_mode.strip() if explicit_mode is not None else None
-    has_deployment_credentials = any(_present(source.get(name)) for name in ("DATABASE_URL", "SUPABASE_URL", "SUPABASE_SERVICE_ROLE_KEY", "SUPABASE_ANON_KEY", "INTERNAL_API_KEY"))
+    has_deployment_credentials = any(_present(source.get(name)) for name in ("DATABASE_URL", "SUPABASE_URL", "SUPABASE_SERVICE_ROLE_KEY", "SUPABASE_ANON_KEY", "INTERNAL_API_KEY", "ALPHA_DATABASE_PATH"))
     if (stripped_mode is None or stripped_mode == "") and has_deployment_credentials:
         raise RuntimeError("DEPLOYMENT_MODE must be explicit when deployment credentials are present; set DEPLOYMENT_MODE=local for local development.")
     raw_mode = stripped_mode.lower() if stripped_mode else "local"
@@ -55,13 +58,15 @@ def load_runtime_config(env: Mapping[str, str] | None = None) -> RuntimeConfig:
     except ValueError as exc:
         if raw_mode in {"paid", "billing", "subscriptions"}:
             raise RuntimeError("Paid deployment mode is unavailable until provider verification and a ledger exist.") from exc
-        raise RuntimeError("DEPLOYMENT_MODE must be local, invite_beta, or production.") from exc
+        raise RuntimeError("DEPLOYMENT_MODE must be local, private_alpha, invite_beta, or production.") from exc
 
     process_jobs_inline = _env_bool(source.get("PROCESS_JOBS_INLINE", "1"))
     if _env_bool(source.get("BILLING_ENABLED", "0")):
         raise RuntimeError("Billing is unavailable until provider verification and a project ledger exist.")
     config = RuntimeConfig(
         mode=mode,
+        alpha_database_path=_present(source.get("ALPHA_DATABASE_PATH")),
+        local_object_root=_present(source.get("LOCAL_OBJECT_ROOT")),
         database_url=_present(source.get("DATABASE_URL")),
         supabase_url=_present(source.get("SUPABASE_URL")),
         supabase_service_role_key=_present(source.get("SUPABASE_SERVICE_ROLE_KEY")),
@@ -81,6 +86,18 @@ def load_runtime_config(env: Mapping[str, str] | None = None) -> RuntimeConfig:
 
 def validate_runtime_config(config: RuntimeConfig) -> None:
     if not config.auth_required:
+        return
+    if config.mode == DeploymentMode.PRIVATE_ALPHA:
+        from pathlib import Path
+        for name, value in (("ALPHA_DATABASE_PATH", config.alpha_database_path), ("LOCAL_OBJECT_ROOT", config.local_object_root)):
+            if not value or not Path(value).is_absolute():
+                raise RuntimeError(f"private_alpha requires an absolute {name}.")
+        if config.database_url or config.supabase_url or config.supabase_service_role_key or config.supabase_anon_key:
+            raise RuntimeError("private_alpha uses SQLite/local storage; remove DATABASE_URL and Supabase credentials.")
+        if len(config.internal_api_key or "") < 32:
+            raise RuntimeError("private_alpha requires INTERNAL_API_KEY to be at least 32 characters.")
+        if config.process_jobs_inline:
+            raise RuntimeError("private_alpha requires PROCESS_JOBS_INLINE=0.")
         return
     missing = [
         name
@@ -117,6 +134,10 @@ def authenticate_request(headers: Mapping[str, str], config: RuntimeConfig) -> A
     token = _bearer_token(headers.get("authorization") or headers.get("Authorization"))
     if token is None:
         raise SecurityError(401, "UNAUTHORIZED", "Missing bearer access token.")
+    if config.mode == DeploymentMode.PRIVATE_ALPHA:
+        from .alpha_auth import AlphaAuthStore
+        user = AlphaAuthStore(config.alpha_database_path).verify(token)
+        return AuthContext(owner_id=user["id"], email=user["email"], access_token=token)
     return verify_supabase_access_token(token, config)
 
 

@@ -11,6 +11,6 @@ export default defineConfig({
     environment: 'jsdom',
     globals: true,
     setupFiles: './test/setup.ts',
-    exclude: ['e2e/**', 'node_modules/**']
+    exclude: ['.next/**', '.next-phone/**', '.next-mobile/**', '.next-alpha-e2e/**', '.next-e2e/**', 'e2e/**', 'e2e-alpha/**', 'e2e-mobile/**', 'node_modules/**']
   }
 });

@@ -1,0 +1,229 @@
+{
+  "kind": "illustrative-pricing-scenarios-not-observed-costs",
+  "currency": "USD",
+  "basis": "Tax-exclusive prices; all included project credits redeemed. Main scenarios do NOT establish cost at maximum preview/rebuild use. Round only after calculation. Fixed and incremental infrastructure must not double-count worker capacity.",
+  "assumptions": {
+    "fixed_monthly_infrastructure_budget_not_quote": 150,
+    "support_hourly_opportunity_cost": 30,
+    "base_MoR_percent": 5,
+    "modeled_crossborder_uplift_percent": 1.5,
+    "subscription_uplift_percent": 0.5,
+    "fixed_payment_fee": 0.5,
+    "refund_reserve_percent": 3,
+    "scenario_inputs": {
+      "low_touch": {
+        "incremental_infra_and_free_funnel_reserve_per_project": 0.25,
+        "support_minutes_per_project": 1.0
+      },
+      "working_case": {
+        "incremental_infra_and_free_funnel_reserve_per_project": 0.65,
+        "support_minutes_per_project": 3.0
+      },
+      "stress": {
+        "incremental_infra_and_free_funnel_reserve_per_project": 1.5,
+        "support_minutes_per_project": 8.0
+      }
+    },
+    "excludes": [
+      "sales-tax effects on processing fee",
+      "FX/PayPal/payout/dispute fees",
+      "income tax",
+      "CAC",
+      "development compensation",
+      "unmeasured provider-specific costs"
+    ]
+  },
+  "rows": [
+    {
+      "plan": "single",
+      "price": 12.0,
+      "projects": 1,
+      "scenario": "low_touch",
+      "fee": 1.28,
+      "refund_reserve": 0.36,
+      "service_cost_per_project": 0.75,
+      "contribution_before_CAC_and_fixed": 9.61,
+      "contribution_pct": 80.08
+    },
+    {
+      "plan": "single",
+      "price": 12.0,
+      "projects": 1,
+      "scenario": "working_case",
+      "fee": 1.28,
+      "refund_reserve": 0.36,
+      "service_cost_per_project": 2.15,
+      "contribution_before_CAC_and_fixed": 8.21,
+      "contribution_pct": 68.42
+    },
+    {
+      "plan": "single",
+      "price": 12.0,
+      "projects": 1,
+      "scenario": "stress",
+      "fee": 1.28,
+      "refund_reserve": 0.36,
+      "service_cost_per_project": 5.5,
+      "contribution_before_CAC_and_fixed": 4.86,
+      "contribution_pct": 40.5
+    },
+    {
+      "plan": "three_pack",
+      "price": 29.0,
+      "projects": 3,
+      "scenario": "low_touch",
+      "fee": 2.39,
+      "refund_reserve": 0.87,
+      "service_cost_per_project": 0.75,
+      "contribution_before_CAC_and_fixed": 23.5,
+      "contribution_pct": 81.02
+    },
+    {
+      "plan": "three_pack",
+      "price": 29.0,
+      "projects": 3,
+      "scenario": "working_case",
+      "fee": 2.39,
+      "refund_reserve": 0.87,
+      "service_cost_per_project": 2.15,
+      "contribution_before_CAC_and_fixed": 19.3,
+      "contribution_pct": 66.53
+    },
+    {
+      "plan": "three_pack",
+      "price": 29.0,
+      "projects": 3,
+      "scenario": "stress",
+      "fee": 2.39,
+      "refund_reserve": 0.87,
+      "service_cost_per_project": 5.5,
+      "contribution_before_CAC_and_fixed": 9.25,
+      "contribution_pct": 31.88
+    },
+    {
+      "plan": "creator_deferred",
+      "price": 24.0,
+      "projects": 3,
+      "scenario": "low_touch",
+      "fee": 2.18,
+      "refund_reserve": 0.72,
+      "service_cost_per_project": 0.75,
+      "contribution_before_CAC_and_fixed": 18.85,
+      "contribution_pct": 78.54
+    },
+    {
+      "plan": "creator_deferred",
+      "price": 24.0,
+      "projects": 3,
+      "scenario": "working_case",
+      "fee": 2.18,
+      "refund_reserve": 0.72,
+      "service_cost_per_project": 2.15,
+      "contribution_before_CAC_and_fixed": 14.65,
+      "contribution_pct": 61.04
+    },
+    {
+      "plan": "creator_deferred",
+      "price": 24.0,
+      "projects": 3,
+      "scenario": "stress",
+      "fee": 2.18,
+      "refund_reserve": 0.72,
+      "service_cost_per_project": 5.5,
+      "contribution_before_CAC_and_fixed": 4.6,
+      "contribution_pct": 19.17
+    },
+    {
+      "plan": "old_launch_test_not_recommended",
+      "price": 4.99,
+      "projects": 1,
+      "scenario": "low_touch",
+      "fee": 0.82,
+      "refund_reserve": 0.15,
+      "service_cost_per_project": 0.75,
+      "contribution_before_CAC_and_fixed": 3.27,
+      "contribution_pct": 65.45
+    },
+    {
+      "plan": "old_launch_test_not_recommended",
+      "price": 4.99,
+      "projects": 1,
+      "scenario": "working_case",
+      "fee": 0.82,
+      "refund_reserve": 0.15,
+      "service_cost_per_project": 2.15,
+      "contribution_before_CAC_and_fixed": 1.87,
+      "contribution_pct": 37.39
+    },
+    {
+      "plan": "old_launch_test_not_recommended",
+      "price": 4.99,
+      "projects": 1,
+      "scenario": "stress",
+      "fee": 0.82,
+      "refund_reserve": 0.15,
+      "service_cost_per_project": 5.5,
+      "contribution_before_CAC_and_fixed": -1.48,
+      "contribution_pct": -29.74
+    }
+  ],
+  "fixed_allocation_single_project": [
+    {
+      "paid_projects": 25,
+      "fixed_cost_per_project": 6.0,
+      "modeled_cost_single_including_fixed": 9.79,
+      "remaining_single_before_CAC": 2.21
+    },
+    {
+      "paid_projects": 100,
+      "fixed_cost_per_project": 1.5,
+      "modeled_cost_single_including_fixed": 5.29,
+      "remaining_single_before_CAC": 6.71
+    },
+    {
+      "paid_projects": 250,
+      "fixed_cost_per_project": 0.6,
+      "modeled_cost_single_including_fixed": 4.39,
+      "remaining_single_before_CAC": 7.61
+    },
+    {
+      "paid_projects": 1000,
+      "fixed_cost_per_project": 0.15,
+      "modeled_cost_single_including_fixed": 3.94,
+      "remaining_single_before_CAC": 8.06
+    }
+  ],
+  "payment_sensitivity_single_working_case": {
+    "hypothetical_sales_tax_percent": 20,
+    "extra_processing_fee_on_tax": 0.16,
+    "hypothetical_non_US_bank_payout_percent": 1,
+    "approximate_payout_charge_on_price_less_processing": 0.11,
+    "contribution_after_these_two_extras": 7.95,
+    "note": "Sensitivity only: payout base and refund timing depend on settlement. Taxes collected are not product revenue. PayPal and FX remain excluded."
+  },
+  "quota_exhaustion_sensitivity": {
+    "hypothetical_cost_per_preview": 0.02,
+    "previews_per_project": 200,
+    "hypothetical_cost_per_build": 0.1,
+    "builds_per_project": 11,
+    "other_incremental_infra_per_project": 0.2,
+    "support_minutes_per_project": 8,
+    "incremental_infra_per_project": 5.3,
+    "service_cost_per_project": 9.3,
+    "rows": [
+      {
+        "plan": "single",
+        "contribution_before_CAC_and_fixed": 1.06
+      },
+      {
+        "plan": "three_pack",
+        "contribution_before_CAC_and_fixed": -2.16
+      },
+      {
+        "plan": "creator_deferred",
+        "contribution_before_CAC_and_fixed": -6.8
+      }
+    ],
+    "note": "Separate stress scenario: demonstrates why actual deployment measurements at quota exhaustion are a launch gate, not a claim that these are actual unit costs."
+  }
+}

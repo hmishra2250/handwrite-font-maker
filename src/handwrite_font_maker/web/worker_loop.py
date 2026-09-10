@@ -17,10 +17,12 @@ from .supabase_store import LocalObjectStore, SupabaseStorage
 
 
 def object_store():
+    if os.environ.get("DEPLOYMENT_MODE", "local") == "private_alpha":
+        return LocalObjectStore(Path(os.environ.get("LOCAL_OBJECT_ROOT", "/tmp/handwrite-alpha-objects")))
     if os.environ.get("SUPABASE_URL") and os.environ.get("SUPABASE_SERVICE_ROLE_KEY"):
         return SupabaseStorage()
     if os.environ.get("DEPLOYMENT_MODE", "local") != "local":
-        raise RuntimeError("Beta workers require private Supabase Storage")
+        raise RuntimeError("Beta/prod workers require private Supabase Storage")
     return LocalObjectStore(Path(os.environ.get("LOCAL_OBJECT_ROOT", "/tmp/handwrite-alpha-objects")))
 
 
@@ -33,7 +35,7 @@ def _stop_group(process: subprocess.Popen) -> None:
     process.wait()
 
 
-def run_once(store: PostgresJobStore, *, timeout: float | None = None) -> bool:
+def run_once(store, *, timeout: float | None = None) -> bool:
     job = store.next_queued()
     if job is None:
         return False
@@ -72,11 +74,17 @@ def main() -> None:
     parser.add_argument("--execute", nargs=3, metavar=("JOB", "ATTEMPT", "LEASE"), help=argparse.SUPPRESS)
     args = parser.parse_args()
     database_url = os.environ.get("DATABASE_URL")
-    if not database_url:
-        parser.error("DATABASE_URL is required for the durable worker")
-    from .security import load_runtime_config
-    load_runtime_config()  # Fail closed in beta/prod before claiming work.
-    store = PostgresJobStore(database_url)
+    from .security import DeploymentMode, load_runtime_config
+
+    config = load_runtime_config()  # Fail closed before claiming work.
+    if config.mode == DeploymentMode.PRIVATE_ALPHA:
+        from .sqlite_store import SQLiteJobStore
+
+        store = SQLiteJobStore(config.alpha_database_path or "")
+    else:
+        if not database_url:
+            parser.error("DATABASE_URL is required for the durable worker")
+        store = PostgresJobStore(database_url)
     if args.execute:
         # The lease is revalidated by the first save before any object read or build.
         from .worker import process_job

@@ -1,5 +1,7 @@
 # Pricing, packaging and go-to-market decisions
 
+> **Historical recommendation, superseded 10 September 2026:** use [PRICING-STRATEGY.md](PRICING-STRATEGY.md) for current proposed prices, packaging and economics. The old prices below are retained as decision history, not live offers.
+
 **10 September 2026 — recommended experiment, not validated revenue.** The owner delegated packaging/GTM decisions. This supersedes the earlier plan's simple 'one font / two rebuilds' sketch. See [market evidence](research/market.md), [technical evidence](research/technology.md), and [delivery plan](PRODUCT-PLAN.md).
 
 ## Sell projects, not failures

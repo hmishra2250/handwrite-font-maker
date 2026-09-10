@@ -32,3 +32,20 @@ web/test-results/
 
 # Root Playwright runtime results
 /test-results/
+# Private alpha local state and credentials
+.env.alpha
+.alpha/
+
+# Isolated LAN phone preview build output
+web/.next-phone/
+
+# Production-mode temporary mobile test server
+web/.next-mobile/
+
+# Operator snapshots contain private account/object data.
+backups/
+web/playwright-report/
+
+# Isolated browser-test builds must not share dev/preview caches.
+web/.next-e2e/
+web/.next-alpha-e2e/

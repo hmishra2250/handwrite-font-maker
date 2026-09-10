@@ -13,6 +13,7 @@ from pathlib import Path
 from urllib.parse import unquote, urlparse
 
 from ..segmentation import ModelUnavailableError, SegmentationBusyError
+from .capture_trace import start_capture_trace
 from .contracts import (
     FontRequest,
     HardErrorCode,
@@ -28,7 +29,7 @@ from .contracts import (
 )
 from .job_store import JobRecord, JsonJobStore, PostgresJobStore
 from .project_store import JsonProjectStore, PostgresProjectStore, ProjectStoreError
-from .security import AuthContext, SecurityError, authenticate_request, load_runtime_config
+from .security import AuthContext, DeploymentMode, SecurityError, authenticate_request, load_runtime_config
 from .supabase_store import LocalObjectStore, SupabaseStorage
 from .tenant_store import ObjectAccessError, OwnershipError, PostgresTenantStore, QuotaExceeded, TenantLimits
 from .worker import _validate_guided_mask, _validate_input_image, process_job
@@ -52,9 +53,13 @@ def _cors_origin() -> str:
 
 
 def _json(handler: BaseHTTPRequestHandler, status: int, payload: object) -> None:
+    trace = getattr(handler, "_capture_trace", None)
+    if trace is not None:
+        trace.response(status, payload)
     body = json.dumps(payload).encode("utf-8")
     handler.send_response(status)
     handler.send_header("content-type", "application/json")
+    handler.send_header("cache-control", "no-store")
     handler.send_header("content-length", str(len(body)))
     origin = _cors_origin()
     if origin:
@@ -82,6 +87,9 @@ class Handler(BaseHTTPRequestHandler):
 
     def do_GET(self) -> None:  # noqa: N802
         parsed = urlparse(self.path)
+        from .alpha_http import handle_alpha_route
+        if handle_alpha_route(self, parsed.path, "GET"):
+            return
         if parsed.path == "/healthz":
             _json(self, 200, {"ok": True, "service": "handwrite-font-api"})
             return
@@ -107,6 +115,9 @@ class Handler(BaseHTTPRequestHandler):
 
     def do_DELETE(self) -> None:  # noqa: N802
         parsed = urlparse(self.path)
+        from .alpha_http import handle_alpha_route
+        if handle_alpha_route(self, parsed.path, "DELETE"):
+            return
         if parsed.path.startswith("/jobs/"):
             job_id = unquote(parsed.path.removeprefix("/jobs/"))
             self._delete_job(job_id)
@@ -119,6 +130,9 @@ class Handler(BaseHTTPRequestHandler):
 
     def do_PUT(self) -> None:  # noqa: N802
         parsed = urlparse(self.path)
+        from .alpha_http import handle_alpha_route
+        if handle_alpha_route(self, parsed.path, "PUT"):
+            return
         if parsed.path.startswith("/objects/"):
             object_key = unquote(parsed.path.removeprefix("/objects/"))
             self._store_object(object_key)
@@ -152,7 +166,10 @@ class Handler(BaseHTTPRequestHandler):
 
     def do_POST(self) -> None:  # noqa: N802
         parsed = urlparse(self.path)
-        if parsed.path in {"/api/uploads", "/uploads", "/jobs", "/projects", "/api/projects", "/feedback", "/events", "/api/capture/page", "/capture/page", "/api/capture/foreground", "/capture/foreground"}:
+        from .alpha_http import handle_alpha_route
+        if handle_alpha_route(self, parsed.path, "POST"):
+            return
+        if parsed.path in {"/api/uploads", "/uploads", "/jobs", "/projects", "/api/projects", "/feedback", "/events", "/api/capture/page", "/capture/page", "/api/capture/foreground", "/capture/foreground", "/api/capture/candidates", "/capture/candidates"}:
             try:
                 self._request_context()
             except SecurityError as exc:
@@ -179,6 +196,10 @@ class Handler(BaseHTTPRequestHandler):
             return
         if parsed.path in {"/api/capture/page", "/capture/page"}:
             self._capture_page(body)
+            return
+        if parsed.path in {"/api/capture/candidates", "/capture/candidates"}:
+            from .candidate_http import handle_candidates
+            handle_candidates(self, body)
             return
         if parsed.path in {"/api/capture/foreground", "/capture/foreground"}:
             self._capture_foreground(body)
@@ -224,9 +245,16 @@ class Handler(BaseHTTPRequestHandler):
             checks: dict[str, object] = {
                 "mode": config.mode.value,
                 "inlineProcessing": config.process_jobs_inline,
-                "storage": "supabase" if config.auth_required else "local",
+                "storage": "supabase" if config.auth_required and config.mode != DeploymentMode.PRIVATE_ALPHA else "local",
             }
-            if config.database_url:
+            if config.mode == DeploymentMode.PRIVATE_ALPHA:
+                from .sqlite_store import SQLiteTenantStore
+                from .alpha_auth import AlphaAuthStore
+                AlphaAuthStore(config.alpha_database_path)
+                schema = SQLiteTenantStore(config.alpha_database_path).ready_check()
+                checks["schema"] = {key: schema[key] for key in ("ok", "store", "missingTables") if key in schema}
+                ok = bool(schema.get("ok"))
+            elif config.database_url:
                 schema = PostgresTenantStore(config.database_url).ready_check()
                 checks["schema"] = schema
                 ok = bool(schema.get("ok"))
@@ -338,6 +366,7 @@ class Handler(BaseHTTPRequestHandler):
         content_type = mimetypes.guess_type(object_key)[0] or mimetypes.guess_type(str(path))[0] or "application/octet-stream"
         self.send_response(200)
         self.send_header("content-type", content_type)
+        self.send_header("cache-control", "private, no-store")
         self.send_header("content-length", str(len(body)))
         origin = _cors_origin()
         if origin:
@@ -555,6 +584,12 @@ class Handler(BaseHTTPRequestHandler):
 
     def _capture_foreground(self, body: dict[str, object]) -> None:
         try:
+            self._run_capture_foreground(body)
+        finally:
+            self._capture_trace = None
+
+    def _run_capture_foreground(self, body: dict[str, object]) -> None:
+        try:
             config, auth = self._request_context()
         except SecurityError as exc:
             _error(self, exc.status, exc.code, exc.message)
@@ -572,6 +607,7 @@ class Handler(BaseHTTPRequestHandler):
         except (QuotaExceeded, ObjectAccessError) as exc:
             _error(self, exc.status, exc.code, exc.message)
             return
+        self._capture_trace = start_capture_trace(auth.owner_id, body)
         foreground_slot = _foreground_slot()
         if not foreground_slot.acquire(blocking=False):
             _segmentation_error(self, "SEGMENTATION_BUSY", "Foreground capture is temporarily busy. Retry shortly.", retryable=True)
@@ -586,6 +622,8 @@ class Handler(BaseHTTPRequestHandler):
                 from ..rectify import load_bgr
 
                 image_bgr = load_bgr(image_path)
+                if self._capture_trace is not None:
+                    self._capture_trace.source(image_path)
                 cutout = _extract_foreground(
                     image_bgr,
                     rectangle,
@@ -750,7 +788,7 @@ def _serialize_cutout(cutout) -> tuple[object, str, str | None, list[str]]:
         method = "grabcut"
         model_id = None
         warnings_raw = ()
-    if method not in {"grabcut", "slimsam", "efficientsam"}:
+    if method not in {"threshold", "grabcut", "slimsam", "efficientsam"}:
         raise ValueError(HardErrorCode.GLYPH_EXTRACTION_FAILED.value)
     if model_id is not None and not isinstance(model_id, str):
         raise ValueError(HardErrorCode.GLYPH_EXTRACTION_FAILED.value)
@@ -836,24 +874,33 @@ def _path_id(path: str, prefix: str) -> str:
 
 
 def _project_store(config, path: Path, object_root: Path, job_store_path: Path):
+    if getattr(config, "mode", None) == DeploymentMode.PRIVATE_ALPHA:
+        from .sqlite_store import SQLiteProjectStore
+        return SQLiteProjectStore(config.alpha_database_path, bucket=config.storage_bucket)
     if getattr(config, "auth_required", False):
         return PostgresProjectStore(config.database_url, bucket=config.storage_bucket)
     return JsonProjectStore(path, object_root=object_root, job_store_path=job_store_path)
 
 
 def _job_store(store_path: Path):
+    if os.environ.get("DEPLOYMENT_MODE", "").strip().lower() == "private_alpha":
+        from .sqlite_store import SQLiteJobStore
+        return SQLiteJobStore(os.environ.get("ALPHA_DATABASE_PATH"))
     database_url = os.environ.get("DATABASE_URL")
     return PostgresJobStore(database_url) if database_url else JsonJobStore(store_path)
 
 
 def _object_store(object_root: Path):
     config = load_runtime_config()
-    if config.auth_required:
+    if config.auth_required and config.mode != DeploymentMode.PRIVATE_ALPHA:
         return SupabaseStorage(bucket=config.storage_bucket)
     return LocalObjectStore(object_root)
 
 
-def _tenant_store(config) -> PostgresTenantStore:
+def _tenant_store(config):
+    if getattr(config, "mode", None) == DeploymentMode.PRIVATE_ALPHA:
+        from .sqlite_store import SQLiteTenantStore
+        return SQLiteTenantStore(config.alpha_database_path)
     return PostgresTenantStore(config.database_url)
 
 
