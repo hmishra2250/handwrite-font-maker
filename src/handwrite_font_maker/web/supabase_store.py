@@ -7,12 +7,15 @@ from urllib.parse import quote
 
 from .contracts import is_safe_object_key
 
+MAX_OBJECT_DOWNLOAD_BYTES = 64 * 1024 * 1024
+
 
 class ObjectStore(Protocol):
     def signed_upload_url(self, object_key: str) -> str: ...
     def signed_download_url(self, object_key: str, expires_in: int = 1800) -> str: ...
     def download_to_path(self, object_key: str, destination: Path) -> None: ...
     def upload_from_path(self, object_key: str, source: Path, content_type: str) -> None: ...
+    def delete_object(self, object_key: str) -> None: ...
 
 
 class SupabaseStorage:
@@ -64,14 +67,31 @@ class SupabaseStorage:
 
     def download_to_path(self, object_key: str, destination: Path) -> None:
         import requests
+        import time
 
         if not is_safe_object_key(object_key):
             raise ValueError("Unsafe object key")
         encoded = quote(object_key, safe="/")
-        response = requests.get(f"{self.url}/storage/v1/object/{self.bucket}/{encoded}", headers=self._headers, timeout=120)
-        response.raise_for_status()
-        destination.parent.mkdir(parents=True, exist_ok=True)
-        destination.write_bytes(response.content)
+        deadline = time.monotonic() + 120
+        response = requests.get(f"{self.url}/storage/v1/object/{self.bucket}/{encoded}", headers=self._headers, timeout=(10, 30), stream=True)
+        try:
+            response.raise_for_status()
+            destination.parent.mkdir(parents=True, exist_ok=True)
+            total = 0
+            with destination.open("wb") as handle:
+                for chunk in response.iter_content(chunk_size=1024 * 1024):
+                    if time.monotonic() > deadline:
+                        destination.unlink(missing_ok=True)
+                        raise RuntimeError("Supabase object download timed out.")
+                    if not chunk:
+                        continue
+                    total += len(chunk)
+                    if total > MAX_OBJECT_DOWNLOAD_BYTES:
+                        destination.unlink(missing_ok=True)
+                        raise RuntimeError("Supabase object download exceeded size limit.")
+                    handle.write(chunk)
+        finally:
+            response.close()
 
     def upload_from_path(self, object_key: str, source: Path, content_type: str) -> None:
         import requests
@@ -82,10 +102,30 @@ class SupabaseStorage:
         with source.open("rb") as handle:
             response = requests.post(
                 f"{self.url}/storage/v1/object/{self.bucket}/{encoded}",
-                params={"upsert": "true"},
+                params={"upsert": "false"},
                 headers={**self._headers, "content-type": content_type},
                 data=handle,
                 timeout=120,
+            )
+        response.raise_for_status()
+
+    def delete_object(self, object_key: str) -> None:
+        import requests
+
+        if not is_safe_object_key(object_key):
+            raise ValueError("Unsafe object key")
+        response = requests.delete(
+            f"{self.url}/storage/v1/object/{self.bucket}",
+            headers={**self._headers, "content-type": "application/json"},
+            json={"prefixes": [object_key]},
+            timeout=60,
+        )
+        if response.status_code in {404, 405}:
+            response = requests.post(
+                f"{self.url}/storage/v1/object/{self.bucket}/remove",
+                headers={**self._headers, "content-type": "application/json"},
+                json={"prefixes": [object_key]},
+                timeout=60,
             )
         response.raise_for_status()
 
@@ -120,3 +160,6 @@ class LocalObjectStore:
         target = self._path(object_key)
         target.parent.mkdir(parents=True, exist_ok=True)
         target.write_bytes(source.read_bytes())
+
+    def delete_object(self, object_key: str) -> None:
+        self._path(object_key).unlink(missing_ok=True)

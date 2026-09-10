@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import threading
 import urllib.error
+from types import SimpleNamespace
 import urllib.request
 from http.server import ThreadingHTTPServer
 from pathlib import Path
@@ -33,9 +34,11 @@ def _fake_outputs(output_dir: Path, font_name: str) -> dict[str, object]:
     manifest.write_text("{}", encoding="utf-8")
     otf = output_dir / f"{font_name}.otf"
     ttf = output_dir / f"{font_name}.ttf"
+    bundle = output_dir / f"{font_name}-download.zip"
     otf.write_bytes(b"otf")
     ttf.write_bytes(b"ttf")
-    return {"manifest": str(manifest), "otf": str(otf), "ttf": str(ttf), "warnings": []}
+    bundle.write_bytes(b"zip")
+    return {"manifest": str(manifest), "otf": str(otf), "ttf": str(ttf), "download_bundle": str(bundle), "warnings": []}
 
 
 def test_template_capture_round_trips_and_worker_passes_alignment(monkeypatch, tmp_path: Path):
@@ -87,6 +90,8 @@ def test_guided_capture_validates_each_mask_and_worker_passes_glyph_paths(monkey
         assert [g["char"] for g in glyphs] == ["A", "B"]
         assert all(Path(g["image_path"]).exists() for g in glyphs)
         assert [g["baseline"] for g in glyphs] == [0.7, 0.8]
+        assert [g["scale"] for g in glyphs] == [1.0, 1.25]
+        assert [g["spacing"] for g in glyphs] == [0.0, 0.1]
         return _fake_outputs(Path(kwargs["output_dir"]), str(kwargs["font_name"]))
 
     monkeypatch.setattr("handwrite_font_maker.web.worker._build_font_from_masks", fake_build_font_from_masks)
@@ -102,7 +107,7 @@ def test_guided_capture_validates_each_mask_and_worker_passes_glyph_paths(monkey
             "format": "mask-v1",
             "glyphs": [
                 {"char": "A", "inputPhoto": {"objectKey": a_key, "contentType": "image/png", "sizeBytes": a_size}, "baseline": 0.7},
-                {"char": "B", "inputPhoto": {"objectKey": b_key, "contentType": "image/png", "sizeBytes": b_size}, "baseline": 0.8},
+                {"char": "B", "inputPhoto": {"objectKey": b_key, "contentType": "image/png", "sizeBytes": b_size}, "baseline": 0.8, "scale": 1.25, "spacing": 0.1},
             ],
         },
     )
@@ -111,6 +116,12 @@ def test_guided_capture_validates_each_mask_and_worker_passes_glyph_paths(monkey
     assert result is not None
     assert result["status"] == "succeeded"
     assert calls["font_name"] == "GuidedFont"
+    raw_store = json.loads(store_path.read_text(encoding="utf-8"))
+    capture = next(iter(raw_store.values()))["capture"]
+    assert [glyph["scale"] for glyph in capture["glyphs"]] == [1.0, 1.25]
+    assert [glyph["spacing"] for glyph in capture["glyphs"]] == [0.0, 0.1]
+    bundle = next(artifact for artifact in result["artifacts"] if artifact["kind"] == "download_bundle")
+    assert bundle["contentType"] == "application/zip"
 
 
 def test_guided_capture_rejects_duplicate_label_and_bad_baseline(tmp_path: Path):
@@ -121,6 +132,8 @@ def test_guided_capture_rejects_duplicate_label_and_bad_baseline(tmp_path: Path)
             {"char": "A", "inputPhoto": {**photo, "objectKey": "jobs/j/input/B.png"}, "baseline": 0.7},
         ],
         [{"char": "A", "inputPhoto": photo, "baseline": 1}],
+        [{"char": "A", "inputPhoto": photo, "baseline": 0.8, "scale": 0.49}],
+        [{"char": "A", "inputPhoto": photo, "baseline": 0.8, "spacing": 0.251}],
     ):
         try:
             create_job(
@@ -226,13 +239,14 @@ def test_capture_foreground_endpoint_returns_png_data_url(monkeypatch, tmp_path:
     size = _png(tmp_path / "objects" / object_key, size=(120, 80))
     seen: dict[str, object] = {}
 
-    def fake_extract(image_bgr, rectangle):
+    def fake_extract(image_bgr, rectangle, *, method, style, threshold, points):
         seen["shape"] = image_bgr.shape
         seen["rectangle"] = rectangle
+        seen["options"] = {"method": method, "style": style, "threshold": threshold, "points": points}
         mask = Image.new("L", (32, 24), 255)
         draw = ImageDraw.Draw(mask)
         draw.rectangle((8, 6, 22, 18), fill=0)
-        return __import__("numpy").asarray(mask)
+        return SimpleNamespace(mask=__import__("numpy").asarray(mask), method="grabcut", model_id=None, warnings=())
 
     monkeypatch.setattr("handwrite_font_maker.web.server._extract_foreground", fake_extract)
     server, base = _start_server(tmp_path)
@@ -242,9 +256,12 @@ def test_capture_foreground_endpoint_returns_png_data_url(monkeypatch, tmp_path:
         server.shutdown()
     assert status == 200
     assert payload["method"] == "grabcut"
+    assert payload["modelId"] is None
+    assert payload["warnings"] == []
     assert payload["width"] == 32
     assert payload["height"] == 24
     assert seen["rectangle"] == (0.1, 0.2, 0.9, 0.8)
+    assert seen["options"] == {"method": "auto", "style": "silhouette", "threshold": 128, "points": None}
     prefix = "data:image/png;base64,"
     assert payload["maskDataUrl"].startswith(prefix)
     decoded = base64.b64decode(payload["maskDataUrl"][len(prefix):])
@@ -252,6 +269,158 @@ def test_capture_foreground_endpoint_returns_png_data_url(monkeypatch, tmp_path:
         assert image.mode == "L"
         assert image.size == (32, 24)
 
+
+def test_capture_foreground_auto_reports_grabcut_fallback_without_weights(monkeypatch, tmp_path: Path):
+    object_key = "jobs/job_foreground_auto/input/original.png"
+    size = _png(tmp_path / "objects" / object_key, size=(96, 96))
+    monkeypatch.setenv("HANDWRITE_MODEL_DIR", str(tmp_path / "missing-model"))
+    server, base = _start_server(tmp_path)
+    try:
+        status, payload = _post_json(
+            base + "/capture/foreground",
+            {
+                "inputPhoto": {"objectKey": object_key, "contentType": "image/png", "sizeBytes": size},
+                "rectangle": [0.1, 0.1, 0.7, 0.7],
+                "method": "auto",
+            },
+        )
+    finally:
+        server.shutdown()
+    assert status == 200
+    assert payload["method"] == "grabcut"
+    assert payload["modelId"] is None
+    assert payload["warnings"]
+    assert "grabcut" in payload["warnings"][0].lower()
+    assert payload["maskDataUrl"].startswith("data:image/png;base64,")
+
+
+def test_capture_foreground_serializes_model_cutout_metadata(monkeypatch, tmp_path: Path):
+    object_key = "jobs/job_foreground_model/input/original.png"
+    size = _png(tmp_path / "objects" / object_key, size=(120, 80))
+    seen: dict[str, object] = {}
+
+    def fake_extract(_image_bgr, rectangle, *, method, style, threshold, points):
+        import numpy as np
+
+        seen["rectangle"] = rectangle
+        seen["options"] = {"method": method, "style": style, "threshold": threshold, "points": points}
+        mask = np.full((18, 20), 255, dtype=np.uint8)
+        mask[4:14, 6:12] = 0
+        return SimpleNamespace(mask=mask, method="slimsam", model_id="slimsam-test", warnings=("low confidence",))
+
+    monkeypatch.setattr("handwrite_font_maker.web.server._extract_foreground", fake_extract)
+    server, base = _start_server(tmp_path)
+    try:
+        status, payload = _post_json(
+            base + "/api/capture/foreground",
+            {
+                "inputPhoto": {"objectKey": object_key, "contentType": "image/png", "sizeBytes": size},
+                "rectangle": [0.15, 0.2, 0.85, 0.75],
+                "method": "model",
+                "style": "ink",
+                "threshold": 93,
+                "points": [
+                    {"x": 0.2, "y": 0.3, "label": 1},
+                    {"x": 0.95, "y": 0.95, "label": 0},
+                ],
+            },
+        )
+    finally:
+        server.shutdown()
+    assert status == 200
+    assert payload["method"] == "slimsam"
+    assert payload["modelId"] == "slimsam-test"
+    assert payload["warnings"] == ["low confidence"]
+    assert payload["width"] == 20
+    assert payload["height"] == 18
+    assert seen["rectangle"] == (0.15, 0.2, 0.85, 0.75)
+    assert seen["options"] == {
+        "method": "model",
+        "style": "ink",
+        "threshold": 93,
+        "points": [{"x": 0.2, "y": 0.3, "label": 1}, {"x": 0.95, "y": 0.95, "label": 0}],
+    }
+
+
+
+def test_capture_foreground_box_model_serializes_efficientsam_metadata(monkeypatch, tmp_path: Path):
+    object_key = "jobs/job_foreground_box_model/input/original.png"
+    size = _png(tmp_path / "objects" / object_key, size=(120, 80))
+    seen: dict[str, object] = {}
+
+    def fake_extract(_image_bgr, rectangle, *, method, style, threshold, points):
+        import numpy as np
+
+        seen["rectangle"] = rectangle
+        seen["options"] = {"method": method, "style": style, "threshold": threshold, "points": points}
+        mask = np.full((18, 20), 255, dtype=np.uint8)
+        mask[4:14, 6:12] = 0
+        return SimpleNamespace(mask=mask, method="efficientsam", model_id="yunyangx/EfficientSAM@rev:ti-box", warnings=())
+
+    monkeypatch.setattr("handwrite_font_maker.web.server._extract_foreground", fake_extract)
+    server, base = _start_server(tmp_path)
+    try:
+        status, payload = _post_json(
+            base + "/api/capture/foreground",
+            {
+                "inputPhoto": {"objectKey": object_key, "contentType": "image/png", "sizeBytes": size},
+                "rectangle": [0.15, 0.2, 0.85, 0.75],
+                "method": "box-model",
+                "style": "ink",
+                "threshold": 94,
+            },
+        )
+    finally:
+        server.shutdown()
+    assert status == 200
+    assert payload["method"] == "efficientsam"
+    assert payload["modelId"] == "yunyangx/EfficientSAM@rev:ti-box"
+    assert payload["warnings"] == []
+    assert seen["rectangle"] == (0.15, 0.2, 0.85, 0.75)
+    assert seen["options"] == {"method": "box-model", "style": "ink", "threshold": 94, "points": None}
+
+
+def test_capture_foreground_box_model_rejects_points_before_download(monkeypatch, tmp_path: Path):
+    def fail_if_called(_object_root):
+        raise AssertionError("box-model requests with points should be rejected before object download")
+
+    monkeypatch.setattr("handwrite_font_maker.web.server._object_store", fail_if_called)
+    server, base = _start_server(tmp_path)
+    try:
+        status, payload = _post_json(
+            base + "/api/capture/foreground",
+            {
+                "inputPhoto": {"objectKey": "jobs/job_box_points/input/original.png", "contentType": "image/png", "sizeBytes": 1},
+                "rectangle": [0.1, 0.1, 0.9, 0.9],
+                "method": "box-model",
+                "points": [{"x": 0.5, "y": 0.5, "label": 1}],
+            },
+        )
+    finally:
+        server.shutdown()
+    assert status == 422
+    assert payload["error"]["code"] == "GLYPH_EXTRACTION_FAILED"
+
+
+def test_capture_foreground_box_model_missing_weights_is_503(monkeypatch, tmp_path: Path):
+    object_key = "jobs/job_box_missing_real/input/original.png"
+    size = _png(tmp_path / "objects" / object_key, size=(96, 96))
+    monkeypatch.setenv("HANDWRITE_EFFICIENTSAM_MODEL_DIR", str(tmp_path / "missing-efficient"))
+    server, base = _start_server(tmp_path)
+    try:
+        status, payload = _post_json(
+            base + "/capture/foreground",
+            {
+                "inputPhoto": {"objectKey": object_key, "contentType": "image/png", "sizeBytes": size},
+                "rectangle": [0.1, 0.1, 0.9, 0.9],
+                "method": "box-model",
+            },
+        )
+    finally:
+        server.shutdown()
+    assert status == 503
+    assert payload["error"]["code"] == "MODEL_UNAVAILABLE"
+    assert payload["error"]["retryable"] is False
 
 def test_capture_foreground_rejects_invalid_rectangle_and_empty_mask(monkeypatch, tmp_path: Path):
     object_key = "jobs/job_foreground_bad/input/original.png"
@@ -264,7 +433,10 @@ def test_capture_foreground_rejects_invalid_rectangle_and_empty_mask(monkeypatch
     finally:
         server.shutdown()
 
-    monkeypatch.setattr("handwrite_font_maker.web.server._extract_foreground", lambda *_args: __import__("numpy").full((16, 16), 255, dtype=__import__("numpy").uint8))
+    monkeypatch.setattr(
+        "handwrite_font_maker.web.server._extract_foreground",
+        lambda *_args, **_kwargs: __import__("numpy").full((16, 16), 255, dtype=__import__("numpy").uint8),
+    )
     server, base = _start_server(tmp_path)
     try:
         status, payload = _post_json(base + "/api/capture/foreground", {"inputPhoto": {"objectKey": object_key, "contentType": "image/png", "sizeBytes": size}, "rectangle": [0.1, 0.1, 0.9, 0.9]})
@@ -272,6 +444,146 @@ def test_capture_foreground_rejects_invalid_rectangle_and_empty_mask(monkeypatch
         server.shutdown()
     assert status == 422
     assert payload["error"]["code"] == "GLYPH_EXTRACTION_FAILED"
+
+
+def test_capture_foreground_rejects_invalid_options_before_download(monkeypatch, tmp_path: Path):
+    def fail_if_called(_object_root):
+        raise AssertionError("invalid foreground options should be rejected before object download")
+
+    monkeypatch.setattr("handwrite_font_maker.web.server._object_store", fail_if_called)
+    base_payload = {
+        "inputPhoto": {"objectKey": "jobs/job_options/input/original.png", "contentType": "image/png", "sizeBytes": 1},
+        "rectangle": [0.1, 0.1, 0.9, 0.9],
+    }
+    server, base = _start_server(tmp_path)
+    try:
+        for override in (
+            {"method": "slimsam"},
+            {"style": "transparent"},
+            {"threshold": 128.0},
+            {"threshold": True},
+            {"threshold": 0},
+            {"threshold": 255},
+            {"points": [{"x": 0.2, "y": 0.2, "label": 2}]},
+            {"points": [{"x": 0.2, "y": 0.2, "label": 1.0}]},
+            {"points": [{"x": 0.2, "y": 0.2, "label": True}]},
+            {"points": [{"x": -0.1, "y": 0.2, "label": 0}]},
+            {"points": [{"x": 0.05, "y": 0.2, "label": 1}]},
+            {"points": [{"x": 0.2, "y": 0.2, "label": 0}] * 17},
+            {"points": [{"x": 0.2, "y": 0.2}]},
+            {"points": [{"x": 0.2, "y": 0.2, "label": 1, "box": [0.1, 0.1, 0.3, 0.3]}]},
+        ):
+            status, payload = _post_json(base + "/api/capture/foreground", {**base_payload, **override})
+            assert status == 422
+            assert payload["error"]["code"] == "GLYPH_EXTRACTION_FAILED"
+    finally:
+        server.shutdown()
+
+
+def test_capture_foreground_model_requires_positive_point_before_download(monkeypatch, tmp_path: Path):
+    def fail_if_called(_object_root):
+        raise AssertionError("model requests without a positive point should be rejected before object download")
+
+    monkeypatch.setattr("handwrite_font_maker.web.server._object_store", fail_if_called)
+    base_payload = {
+        "inputPhoto": {"objectKey": "jobs/job_required_point/input/original.png", "contentType": "image/png", "sizeBytes": 1},
+        "rectangle": [0.1, 0.1, 0.9, 0.9],
+        "method": "model",
+    }
+    server, base = _start_server(tmp_path)
+    try:
+        for override in ({}, {"points": []}, {"points": [{"x": 0.2, "y": 0.2, "label": 0}]}):
+            status, payload = _post_json(base + "/api/capture/foreground", {**base_payload, **override})
+            assert status == 422
+            assert payload["error"]["code"] == "GLYPH_EXTRACTION_FAILED"
+    finally:
+        server.shutdown()
+
+
+def test_capture_foreground_model_missing_weights_is_real_503_after_point_validation(monkeypatch, tmp_path: Path):
+    object_key = "jobs/job_model_missing_real/input/original.png"
+    size = _png(tmp_path / "objects" / object_key, size=(96, 96))
+    monkeypatch.setenv("HANDWRITE_MODEL_DIR", str(tmp_path / "missing-model"))
+    server, base = _start_server(tmp_path)
+    try:
+        status, payload = _post_json(
+            base + "/capture/foreground",
+            {
+                "inputPhoto": {"objectKey": object_key, "contentType": "image/png", "sizeBytes": size},
+                "rectangle": [0.1, 0.1, 0.9, 0.9],
+                "method": "model",
+                "points": [{"x": 0.5, "y": 0.5, "label": 1}],
+            },
+        )
+    finally:
+        server.shutdown()
+    assert status == 503
+    assert payload["error"]["code"] == "MODEL_UNAVAILABLE"
+    assert payload["error"]["retryable"] is False
+
+
+def test_capture_foreground_model_unavailable_is_503_without_fallback(monkeypatch, tmp_path: Path):
+    from handwrite_font_maker.segmentation import ModelUnavailableError
+
+    object_key = "jobs/job_model_missing/input/original.png"
+    size = _png(tmp_path / "objects" / object_key, size=(90, 90))
+    calls = 0
+
+    def fake_extract(_image_bgr, _rectangle, *, method, points, **_kwargs):
+        nonlocal calls
+        calls += 1
+        assert method == "model"
+        assert points == [{"x": 0.5, "y": 0.5, "label": 1}]
+        raise ModelUnavailableError("weights missing")
+
+    monkeypatch.setattr("handwrite_font_maker.web.server._extract_foreground", fake_extract)
+    server, base = _start_server(tmp_path)
+    try:
+        status, payload = _post_json(
+            base + "/capture/foreground",
+            {
+                "inputPhoto": {"objectKey": object_key, "contentType": "image/png", "sizeBytes": size},
+                "rectangle": [0.1, 0.1, 0.9, 0.9],
+                "method": "model",
+                "points": [{"x": 0.5, "y": 0.5, "label": 1}],
+            },
+        )
+    finally:
+        server.shutdown()
+    assert status == 503
+    assert calls == 1
+    assert payload["error"]["code"] == "MODEL_UNAVAILABLE"
+    assert payload["error"]["retryable"] is False
+    assert "grabcut" in payload["error"]["message"].lower()
+
+
+def test_capture_foreground_busy_is_retryable_503(monkeypatch, tmp_path: Path):
+    from handwrite_font_maker.segmentation import SegmentationBusyError
+
+    object_key = "jobs/job_model_busy/input/original.png"
+    size = _png(tmp_path / "objects" / object_key, size=(90, 90))
+
+    def fake_extract(_image_bgr, _rectangle, **_kwargs):
+        raise SegmentationBusyError("busy")
+
+    monkeypatch.setattr("handwrite_font_maker.web.server._extract_foreground", fake_extract)
+    server, base = _start_server(tmp_path)
+    try:
+        status, payload = _post_json(
+            base + "/api/capture/foreground",
+            {
+                "inputPhoto": {"objectKey": object_key, "contentType": "image/png", "sizeBytes": size},
+                "rectangle": [0.1, 0.1, 0.9, 0.9],
+            },
+        )
+    finally:
+        server.shutdown()
+    assert status == 503
+    assert payload["error"] == {
+        "code": "SEGMENTATION_BUSY",
+        "message": "Segmentation is temporarily busy. Retry shortly.",
+        "retryable": True,
+    }
 
 
 def test_server_guided_cumulative_cap_uses_actual_downloaded_bytes_not_declared(monkeypatch, tmp_path: Path):

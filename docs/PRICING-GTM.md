@@ -41,6 +41,14 @@ The one-off at $9.99 tolerates more support and is the strongest launch default.
 
 Payment fee examples use published [Stripe US standard pricing](https://stripe.com/pricing) as a benchmark only. Merchant domicile, onboarding, taxes, currency conversion, cross-border fees and disputes must be verified for the actual account. Do not assume a US audience implies US merchant fees or account eligibility.
 
+## ML economics update: measured local capability, not a cloud bill
+
+Both optional learned paths now run on CPU without a paid external inference API. Four-run isolated probes on the shared Mac measured warm medians ~0.71s for EfficientSAM, ~1.88s for SlimSAM fp32 and ~1.98s for SlimSAM int8; RSS peaks were ~1.39/2.71/3.62GB. Do not turn these into cloud prices or assume quantization is cheaper without deployment measurements. Benchmarks and limitations: [ML runbook](ML-SEGMENTATION.md).
+
+Keep **$9.99 per project** as the first launch hypothesis; do not charge $3–$5 *in compute* per font by design. An accepted mask is reused by subsequent builds, so rebuilding a font must not call a segmentation model again. Model attempts and exports are different meters. Before public launch, measure the cost of an entire session including abandoned previews, retries, worker idle time and support; set a visible preview/capture allowance from that distribution. Local brush edits cost no server inference. Do not sell unlimited model attempts or advertise a fixed AI allowance before server-side limits exist.
+
+Use `session COGS = model attempt count × measured per-attempt infrastructure cost + build cost + storage/egress + payment fees + support + refunds`. Price and package changes should follow measured contribution at full utilization, not download size or synthetic accuracy. Billing remains unimplemented; this is a commercial decision record, not a live offer.
+
 ## Acquisition sequence
 
 1. **Quality before reach:** 10–15 adult testers, then ≥20 independent real sessions; measure capture, proof, installation, support and willingness to pay. Include different phones, skin/hands in frame, dark/white surfaces, printing scales, missing characters and uneven light. Small samples identify failures, not market size.
@@ -67,3 +75,21 @@ Compare $9.99 standard against a bounded $4.99 launch offer with otherwise ident
 `allowable CPC = target CAC × click-to-paid conversion`. Example: target CAC $4 and 3% conversion permits $0.12 CPC. If observed bids/conversion cannot fit, improve conversion/organic acquisition or price—not wishful ROAS.
 
 Pause a campaign when its capped experiment ends or actual contribution cannot support acquisition. Don't scale until cost, support and refund distributions are measured. Never promise the owner quick revenue merely because the conversion pipeline works.
+
+
+## Invite-beta economics boundary (2026-09-10)
+
+The deployable beta adds resource quotas, not purchased credits. A guided character
+can consume a source upload, a preview, and a separate accepted-mask upload; price
+and limit the **whole project**, not one HTTP request. Local inference avoids a
+per-call model-provider bill, but paid hosting, idle capacity, storage/egress,
+support, refunds, and payment fees remain real costs. Allocate fixed monthly cost
+across actual paying projects before claiming a margin. No new cloud cost or paid
+conversion was measured in this deployment pass.
+
+Checkout/subscriptions remain unavailable until stable project/revision identity,
+webhook signature/idempotency, credit reservation, refunds, and provider test-mode
+acceptance are implemented and verified. The nature-photo probes support reviewed
+leaf/fern ornament glyphs; river/delta extraction failed the current quality bar.
+Do not advertise automatic river alphabets or photographic color fonts from these
+results. Keep acquisition as an invited quality cohort before paid campaigns.

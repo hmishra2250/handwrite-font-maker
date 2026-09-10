@@ -9,7 +9,7 @@ services:
       POSTGRES_DB: handwrite_fonts
     volumes:
       - pgdata:/var/lib/postgresql/data
-      - ./supabase/migrations/0001_jobs.sql:/docker-entrypoint-initdb.d/0001_jobs.sql
+      - ./supabase/migrations:/docker-entrypoint-initdb.d:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U handwrite -d handwrite_fonts"]
       interval: 3s
@@ -25,7 +25,25 @@ services:
       HOST: 0.0.0.0
       DATABASE_URL: postgresql://handwrite:handwrite@postgres:5432/handwrite_fonts
       LOCAL_OBJECT_ROOT: /data/objects
-      PROCESS_JOBS_INLINE: "1"
+      DEPLOYMENT_MODE: local
+      PROCESS_JOBS_INLINE: "0"
+    volumes:
+      - objects:/data/objects
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  worker:
+    build:
+      context: .
+      dockerfile: Dockerfile.api
+    command: python -m handwrite_font_maker.web.worker_loop
+    init: true
+    environment:
+      DEPLOYMENT_MODE: local
+      DATABASE_URL: postgresql://handwrite:handwrite@postgres:5432/handwrite_fonts
+      LOCAL_OBJECT_ROOT: /data/objects
+      JOB_TIMEOUT_SECONDS: "600"
     volumes:
       - objects:/data/objects
     depends_on:

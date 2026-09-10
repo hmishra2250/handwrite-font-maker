@@ -88,7 +88,9 @@ def _failures_for_font(path: Path, manifest: dict | None) -> list[str]:
                 failures.append(f"{path.name}: glyph {char!r} has an empty bounding box")
             if bbox[0] < -20 or bbox[2] > glyph.width + 20:
                 failures.append(f"{path.name}: glyph {char!r} outline exceeds horizontal advance")
-            if bbox[3] > expected_ascent + 80 or bbox[1] < -expected_descent - 220:
+            scale_extra = max(0.0, float(glyph_data.get("scale", 1.0)) - 1.0)
+            vertical_scale_tolerance = int(round(expected_em * scale_extra))
+            if bbox[3] > expected_ascent + 80 + vertical_scale_tolerance or bbox[1] < -expected_descent - 220 - vertical_scale_tolerance:
                 failures.append(f"{path.name}: glyph {char!r} outline vertical bounds are unreasonable {bbox}")
             state = glyph.validate()
             if state not in (0,):

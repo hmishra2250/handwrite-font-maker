@@ -14,6 +14,10 @@ MAX_IMAGE_PIXELS = 40_000_000
 MAX_GUIDED_MASK_SIDE = 1024
 MAX_GUIDED_GLYPHS = 94
 MAX_GUIDED_TOTAL_BYTES = MAX_UPLOAD_BYTES
+GUIDED_GLYPH_SCALE_MIN = 0.5
+GUIDED_GLYPH_SCALE_MAX = 1.5
+GUIDED_GLYPH_SPACING_MIN = -0.05
+GUIDED_GLYPH_SPACING_MAX = 0.25
 JOB_RETENTION_HOURS = 24
 
 
@@ -91,6 +95,8 @@ class GuidedGlyphCapture:
     char: str
     input_photo: InputPhoto
     baseline: float
+    scale: float = 1.0
+    spacing: float = 0.0
 
 
 @dataclass(frozen=True)
@@ -215,7 +221,7 @@ def capture_to_json(capture: CaptureConfig | None) -> dict[str, object] | None:
         "mode": "guided",
         "format": capture.format,
         "glyphs": [
-            {"char": glyph.char, "inputPhoto": input_photo_to_json(glyph.input_photo), "baseline": glyph.baseline}
+            {"char": glyph.char, "inputPhoto": input_photo_to_json(glyph.input_photo), "baseline": glyph.baseline, "scale": glyph.scale, "spacing": glyph.spacing}
             for glyph in capture.glyphs
         ],
     }
@@ -306,15 +312,27 @@ def _parse_guided_capture(payload: dict[str, object], *, outer_input_photo: Inpu
         baseline = float(baseline_raw)
         if not math.isfinite(baseline) or not 0.0 < baseline < 1.0:
             raise ValueError(HardErrorCode.GLYPH_EXTRACTION_FAILED.value)
+        scale = _guided_glyph_metric(raw_glyph, "scale", 1.0, GUIDED_GLYPH_SCALE_MIN, GUIDED_GLYPH_SCALE_MAX)
+        spacing = _guided_glyph_metric(raw_glyph, "spacing", 0.0, GUIDED_GLYPH_SPACING_MIN, GUIDED_GLYPH_SPACING_MAX)
         input_photo = parse_input_photo(raw_glyph.get("inputPhoto"), require_png=True)
         total_bytes += input_photo.size_bytes
         if total_bytes > MAX_GUIDED_TOTAL_BYTES:
             raise ValueError(HardErrorCode.UPLOAD_OBJECT_TOO_LARGE.value)
         seen.add(char)
-        glyphs.append(GuidedGlyphCapture(char=char, input_photo=input_photo, baseline=baseline))
+        glyphs.append(GuidedGlyphCapture(char=char, input_photo=input_photo, baseline=baseline, scale=scale, spacing=spacing))
     if outer_input_photo is not None and glyphs[0].input_photo.object_key != outer_input_photo.object_key:
         raise ValueError(HardErrorCode.UPLOAD_OBJECT_MISSING.value)
     return GuidedCapture(glyphs=tuple(glyphs))
+
+
+def _guided_glyph_metric(raw_glyph: dict[str, object], key: str, default: float, minimum: float, maximum: float) -> float:
+    raw = raw_glyph.get(key, default)
+    if isinstance(raw, bool) or not isinstance(raw, int | float):
+        raise ValueError(HardErrorCode.GLYPH_EXTRACTION_FAILED.value)
+    value = float(raw)
+    if not math.isfinite(value) or not minimum <= value <= maximum:
+        raise ValueError(HardErrorCode.GLYPH_EXTRACTION_FAILED.value)
+    return value
 
 
 def hard_error_message(code: HardErrorCode) -> str:

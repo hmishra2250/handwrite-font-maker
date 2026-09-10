@@ -221,3 +221,21 @@ def test_quiet_markerless_blank_cell_has_no_guide_ink_in_extraction_crop(tmp_pat
     )
     assert result.empty
     assert result.coverage < 0.015
+
+
+@pytest.mark.parametrize('mode', ['RGBA', 'LA', 'P'])
+def test_load_bgr_composites_transparency_on_white(tmp_path, mode):
+    """Invisible black pixels in internet PNGs are background, not black ink."""
+    rgba = Image.new('RGBA', (20, 20), (0, 0, 0, 0))
+    rgba.putpixel((10, 10), (0, 0, 0, 255))
+    rgba.putpixel((11, 10), (0, 0, 0, 128))
+    if mode == 'P':
+        image = rgba.quantize(colors=4)
+    else:
+        image = rgba.convert(mode)
+    path = tmp_path / f'transparent-{mode}.png'
+    image.save(path)
+    bgr = load_bgr(path)
+    assert tuple(bgr[0, 0]) == (255, 255, 255)
+    assert tuple(bgr[10, 10]) == (0, 0, 0)
+    assert tuple(bgr[10, 11]) == (127, 127, 127)

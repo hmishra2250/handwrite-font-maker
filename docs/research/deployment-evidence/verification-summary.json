@@ -1,0 +1,48 @@
+{
+  "date": "2026-09-10",
+  "python": {
+    "passed": 155,
+    "failed": 0,
+    "skipped": 0,
+    "seconds": 117.43,
+    "realPostgres": true
+  },
+  "web": {
+    "unitPassed": 90,
+    "chromiumPassed": 14,
+    "typecheck": "passed",
+    "build": "passed",
+    "lintErrors": 0,
+    "lintWarnings": 6,
+    "npmAuditVulnerabilities": 0
+  },
+  "realModelBrowserCanaries": [
+    "GrabCut",
+    "EfficientSAM-Ti",
+    "SlimSAM-fp32"
+  ],
+  "nature": {
+    "sourcedImages": 8,
+    "executedCases": 6,
+    "acceptedGlyphs": [
+      "L",
+      "B",
+      "F"
+    ],
+    "rejectedCases": [
+      "river_meander",
+      "delta_oasis",
+      "braided_river_badcase"
+    ],
+    "accuracyGroundTruth": false
+  },
+  "unverified": [
+    "Docker API/web image runtime (existing VM disk full)",
+    "remote CI",
+    "hosted Supabase Auth/Storage",
+    "public deployment",
+    "backup restore/load",
+    "Office compatibility",
+    "paid billing"
+  ]
+}

@@ -1,0 +1,625 @@
+{
+  "kind": "segmentation-benchmark-v1",
+  "scope": "Deterministic synthetic fixture benchmark for engineering comparison; synthetic is not real-world quality proof.",
+  "mask_convention": "uint8 grayscale mask: 0/black = foreground, 255/white = background",
+  "rectangle_convention": "normalized left, top, right, bottom in source coordinates",
+  "segmenter_contract": "Callable accepting image_bgr (np.ndarray uint8 HxWx3), normalized rectangle (left, top, right, bottom), and optionally prompt_points ([{x: normalized float, y: normalized float, label: 1 keep | 0 exclude}]); returns np.ndarray uint8 HxW mask with black foreground/white background",
+  "baseline": "grabcut",
+  "notes": [
+    "Default baseline is the existing OpenCV GrabCut foreground extractor.",
+    "The harness does not keep only the largest component, fill holes, or denoise runner output before scoring.",
+    "SlimSAM runners use genuine pinned local weights when handwrite_font_maker.segmentation and its optional runtime are installed.",
+    "SlimSAM receives deterministic oracle/reference-assisted normalized keep/exclude points; GrabCut receives only the normalized rectangle, so interaction budgets differ and are reported explicitly."
+  ],
+  "fixtures": [
+    {
+      "name": "thin_strokes",
+      "description": "3px and 2px glyph-like strokes on plain paper.",
+      "rectangle": [
+        0.135417,
+        0.052083,
+        0.869792,
+        0.921875
+      ],
+      "reference_topology": {
+        "components": 2,
+        "holes": 1
+      },
+      "reference_foreground_pixels": 1076,
+      "source_notes": "Synthetic ink strokes; exercises fine-stroke recall.",
+      "prompt_points": [
+        {
+          "x": 0.479167,
+          "y": 0.15625,
+          "label": 1
+        },
+        {
+          "x": 0.458333,
+          "y": 0.671875,
+          "label": 1
+        },
+        {
+          "x": 0.489583,
+          "y": 0.432292,
+          "label": 0
+        }
+      ],
+      "prompt_scope": "Oracle/reference-assisted normalized keep/exclude points for equal point-prompt budget; not unassisted segmentation.",
+      "artifacts": {
+        "source_png": "fixtures/thin_strokes/source.png",
+        "reference_mask_png": "fixtures/thin_strokes/reference-mask.png"
+      }
+    },
+    {
+      "name": "ring_hole",
+      "description": "Filled ring with a true white counter/hole.",
+      "rectangle": [
+        0.130208,
+        0.052083,
+        0.875,
+        0.953125
+      ],
+      "reference_topology": {
+        "components": 1,
+        "holes": 1
+      },
+      "reference_foreground_pixels": 9209,
+      "source_notes": "Synthetic object silhouette; hole preservation matters for O-like glyphs.",
+      "prompt_points": [
+        {
+          "x": 0.447917,
+          "y": 0.760417,
+          "label": 1
+        },
+        {
+          "x": 0.5,
+          "y": 0.473958,
+          "label": 0
+        }
+      ],
+      "prompt_scope": "Oracle/reference-assisted normalized keep/exclude points for equal point-prompt budget; not unassisted segmentation.",
+      "artifacts": {
+        "source_png": "fixtures/ring_hole/source.png",
+        "reference_mask_png": "fixtures/ring_hole/reference-mask.png"
+      }
+    },
+    {
+      "name": "detached_dot_leaves",
+      "description": "Multi-component glyph with an i-dot-like detached part.",
+      "rectangle": [
+        0.21875,
+        0.041667,
+        0.84375,
+        0.947917
+      ],
+      "reference_topology": {
+        "components": 2,
+        "holes": 0
+      },
+      "reference_foreground_pixels": 3527,
+      "source_notes": "Synthetic leaves/dot; no largest-component filtering is allowed.",
+      "prompt_points": [
+        {
+          "x": 0.5,
+          "y": 0.208333,
+          "label": 1
+        },
+        {
+          "x": 0.609375,
+          "y": 0.494792,
+          "label": 1
+        }
+      ],
+      "prompt_scope": "Oracle/reference-assisted normalized keep/exclude points for equal point-prompt budget; not unassisted segmentation.",
+      "artifacts": {
+        "source_png": "fixtures/detached_dot_leaves/source.png",
+        "reference_mask_png": "fixtures/detached_dot_leaves/reference-mask.png"
+      }
+    },
+    {
+      "name": "low_contrast_clutter",
+      "description": "Low-contrast glyph/object over deterministic background clutter.",
+      "rectangle": [
+        0.166667,
+        0.135417,
+        0.8125,
+        0.994792
+      ],
+      "reference_topology": {
+        "components": 1,
+        "holes": 1
+      },
+      "reference_foreground_pixels": 6013,
+      "source_notes": "Synthetic hard case; exposes sensitivity to similarly colored backgrounds.",
+      "prompt_points": [
+        {
+          "x": 0.411458,
+          "y": 0.598958,
+          "label": 1
+        },
+        {
+          "x": 0.489583,
+          "y": 0.447917,
+          "label": 0
+        }
+      ],
+      "prompt_scope": "Oracle/reference-assisted normalized keep/exclude points for equal point-prompt budget; not unassisted segmentation.",
+      "artifacts": {
+        "source_png": "fixtures/low_contrast_clutter/source.png",
+        "reference_mask_png": "fixtures/low_contrast_clutter/reference-mask.png"
+      }
+    },
+    {
+      "name": "source_detail_veins",
+      "description": "Fine source-detail strokes inside a pale object; target is detail, not only area.",
+      "rectangle": [
+        0.109375,
+        0.109375,
+        0.895833,
+        1.0
+      ],
+      "reference_topology": {
+        "components": 2,
+        "holes": 2
+      },
+      "reference_foreground_pixels": 1458,
+      "source_notes": "Synthetic detail mask; a silhouette-only method should score poorly here.",
+      "prompt_points": [
+        {
+          "x": 0.5,
+          "y": 0.765625,
+          "label": 1
+        },
+        {
+          "x": 0.786458,
+          "y": 0.192708,
+          "label": 1
+        },
+        {
+          "x": 0.46875,
+          "y": 0.734375,
+          "label": 0
+        }
+      ],
+      "prompt_scope": "Oracle/reference-assisted normalized keep/exclude points for equal point-prompt budget; not unassisted segmentation.",
+      "artifacts": {
+        "source_png": "fixtures/source_detail_veins/source.png",
+        "reference_mask_png": "fixtures/source_detail_veins/reference-mask.png"
+      }
+    }
+  ],
+  "results": [
+    {
+      "fixture": "thin_strokes",
+      "segmenter": "grabcut",
+      "status": "ok",
+      "seconds": 0.023179,
+      "metrics": {
+        "iou": 1.0,
+        "boundary": {
+          "precision": 1.0,
+          "recall": 1.0,
+          "f1": 1.0
+        },
+        "foreground_pixels": {
+          "predicted": 1076,
+          "reference": 1076
+        },
+        "false_positive_pixels": 0,
+        "false_negative_pixels": 0,
+        "topology": {
+          "predicted": {
+            "components": 2,
+            "holes": 1
+          },
+          "reference": {
+            "components": 2,
+            "holes": 1
+          },
+          "components_preserved": true,
+          "holes_preserved": true,
+          "component_delta": 0,
+          "hole_delta": 0
+        }
+      },
+      "artifact": "fixtures/thin_strokes/grabcut-mask.png"
+    },
+    {
+      "fixture": "thin_strokes",
+      "segmenter": "efficientsam-ti-box",
+      "status": "ok",
+      "seconds": 1.551362,
+      "metrics": {
+        "iou": 0.799406,
+        "boundary": {
+          "precision": 1.0,
+          "recall": 1.0,
+          "f1": 1.0
+        },
+        "foreground_pixels": {
+          "predicted": 1346,
+          "reference": 1076
+        },
+        "false_positive_pixels": 270,
+        "false_negative_pixels": 0,
+        "topology": {
+          "predicted": {
+            "components": 2,
+            "holes": 1
+          },
+          "reference": {
+            "components": 2,
+            "holes": 1
+          },
+          "components_preserved": true,
+          "holes_preserved": true,
+          "component_delta": 0,
+          "hole_delta": 0
+        }
+      },
+      "artifact": "fixtures/thin_strokes/efficientsam-ti-box-mask.png"
+    },
+    {
+      "fixture": "ring_hole",
+      "segmenter": "grabcut",
+      "status": "ok",
+      "seconds": 0.03819,
+      "metrics": {
+        "iou": 1.0,
+        "boundary": {
+          "precision": 1.0,
+          "recall": 1.0,
+          "f1": 1.0
+        },
+        "foreground_pixels": {
+          "predicted": 9209,
+          "reference": 9209
+        },
+        "false_positive_pixels": 0,
+        "false_negative_pixels": 0,
+        "topology": {
+          "predicted": {
+            "components": 1,
+            "holes": 1
+          },
+          "reference": {
+            "components": 1,
+            "holes": 1
+          },
+          "components_preserved": true,
+          "holes_preserved": true,
+          "component_delta": 0,
+          "hole_delta": 0
+        }
+      },
+      "artifact": "fixtures/ring_hole/grabcut-mask.png"
+    },
+    {
+      "fixture": "ring_hole",
+      "segmenter": "efficientsam-ti-box",
+      "status": "ok",
+      "seconds": 1.258459,
+      "metrics": {
+        "iou": 0.991536,
+        "boundary": {
+          "precision": 1.0,
+          "recall": 1.0,
+          "f1": 1.0
+        },
+        "foreground_pixels": {
+          "predicted": 9143,
+          "reference": 9209
+        },
+        "false_positive_pixels": 6,
+        "false_negative_pixels": 72,
+        "topology": {
+          "predicted": {
+            "components": 1,
+            "holes": 1
+          },
+          "reference": {
+            "components": 1,
+            "holes": 1
+          },
+          "components_preserved": true,
+          "holes_preserved": true,
+          "component_delta": 0,
+          "hole_delta": 0
+        }
+      },
+      "artifact": "fixtures/ring_hole/efficientsam-ti-box-mask.png"
+    },
+    {
+      "fixture": "detached_dot_leaves",
+      "segmenter": "grabcut",
+      "status": "ok",
+      "seconds": 0.023067,
+      "metrics": {
+        "iou": 1.0,
+        "boundary": {
+          "precision": 1.0,
+          "recall": 1.0,
+          "f1": 1.0
+        },
+        "foreground_pixels": {
+          "predicted": 3527,
+          "reference": 3527
+        },
+        "false_positive_pixels": 0,
+        "false_negative_pixels": 0,
+        "topology": {
+          "predicted": {
+            "components": 2,
+            "holes": 0
+          },
+          "reference": {
+            "components": 2,
+            "holes": 0
+          },
+          "components_preserved": true,
+          "holes_preserved": true,
+          "component_delta": 0,
+          "hole_delta": 0
+        }
+      },
+      "artifact": "fixtures/detached_dot_leaves/grabcut-mask.png"
+    },
+    {
+      "fixture": "detached_dot_leaves",
+      "segmenter": "efficientsam-ti-box",
+      "status": "ok",
+      "seconds": 1.41912,
+      "metrics": {
+        "iou": 0.998583,
+        "boundary": {
+          "precision": 1.0,
+          "recall": 1.0,
+          "f1": 1.0
+        },
+        "foreground_pixels": {
+          "predicted": 3526,
+          "reference": 3527
+        },
+        "false_positive_pixels": 2,
+        "false_negative_pixels": 3,
+        "topology": {
+          "predicted": {
+            "components": 2,
+            "holes": 0
+          },
+          "reference": {
+            "components": 2,
+            "holes": 0
+          },
+          "components_preserved": true,
+          "holes_preserved": true,
+          "component_delta": 0,
+          "hole_delta": 0
+        }
+      },
+      "artifact": "fixtures/detached_dot_leaves/efficientsam-ti-box-mask.png"
+    },
+    {
+      "fixture": "low_contrast_clutter",
+      "segmenter": "grabcut",
+      "status": "ok",
+      "seconds": 0.223758,
+      "metrics": {
+        "iou": 0.470906,
+        "boundary": {
+          "precision": 0.693133,
+          "recall": 0.445667,
+          "f1": 0.542512
+        },
+        "foreground_pixels": {
+          "predicted": 12769,
+          "reference": 6013
+        },
+        "false_positive_pixels": 6756,
+        "false_negative_pixels": 0,
+        "topology": {
+          "predicted": {
+            "components": 1,
+            "holes": 0
+          },
+          "reference": {
+            "components": 1,
+            "holes": 1
+          },
+          "components_preserved": true,
+          "holes_preserved": false,
+          "component_delta": 0,
+          "hole_delta": -1
+        }
+      },
+      "artifact": "fixtures/low_contrast_clutter/grabcut-mask.png"
+    },
+    {
+      "fixture": "low_contrast_clutter",
+      "segmenter": "efficientsam-ti-box",
+      "status": "ok",
+      "seconds": 1.444094,
+      "metrics": {
+        "iou": 0.735481,
+        "boundary": {
+          "precision": 0.585487,
+          "recall": 0.801926,
+          "f1": 0.676824
+        },
+        "foreground_pixels": {
+          "predicted": 8152,
+          "reference": 6013
+        },
+        "false_positive_pixels": 2149,
+        "false_negative_pixels": 10,
+        "topology": {
+          "predicted": {
+            "components": 21,
+            "holes": 20
+          },
+          "reference": {
+            "components": 1,
+            "holes": 1
+          },
+          "components_preserved": false,
+          "holes_preserved": false,
+          "component_delta": 20,
+          "hole_delta": 19
+        }
+      },
+      "artifact": "fixtures/low_contrast_clutter/efficientsam-ti-box-mask.png"
+    },
+    {
+      "fixture": "source_detail_veins",
+      "segmenter": "grabcut",
+      "status": "ok",
+      "seconds": 0.035541,
+      "metrics": {
+        "iou": 0.128481,
+        "boundary": {
+          "precision": 0.873754,
+          "recall": 0.516061,
+          "f1": 0.648879
+        },
+        "foreground_pixels": {
+          "predicted": 11348,
+          "reference": 1458
+        },
+        "false_positive_pixels": 9890,
+        "false_negative_pixels": 0,
+        "topology": {
+          "predicted": {
+            "components": 2,
+            "holes": 0
+          },
+          "reference": {
+            "components": 2,
+            "holes": 2
+          },
+          "components_preserved": true,
+          "holes_preserved": false,
+          "component_delta": 0,
+          "hole_delta": -2
+        }
+      },
+      "artifact": "fixtures/source_detail_veins/grabcut-mask.png"
+    },
+    {
+      "fixture": "source_detail_veins",
+      "segmenter": "efficientsam-ti-box",
+      "status": "ok",
+      "seconds": 1.277302,
+      "metrics": {
+        "iou": 0.126223,
+        "boundary": {
+          "precision": 0.87585,
+          "recall": 0.514665,
+          "f1": 0.648349
+        },
+        "foreground_pixels": {
+          "predicted": 11319,
+          "reference": 1458
+        },
+        "false_positive_pixels": 9887,
+        "false_negative_pixels": 26,
+        "topology": {
+          "predicted": {
+            "components": 2,
+            "holes": 0
+          },
+          "reference": {
+            "components": 2,
+            "holes": 2
+          },
+          "components_preserved": true,
+          "holes_preserved": false,
+          "component_delta": 0,
+          "hole_delta": -2
+        }
+      },
+      "artifact": "fixtures/source_detail_veins/efficientsam-ti-box-mask.png"
+    }
+  ],
+  "summary": {
+    "efficientsam-ti-box": {
+      "fixtures": 5,
+      "successful": 5,
+      "failed": 0,
+      "mean_iou": 0.730246,
+      "mean_boundary_f1": 0.865035,
+      "topology_exact_count": 3,
+      "mean_seconds": 1.390067
+    },
+    "grabcut": {
+      "fixtures": 5,
+      "successful": 5,
+      "failed": 0,
+      "mean_iou": 0.719877,
+      "mean_boundary_f1": 0.838278,
+      "topology_exact_count": 3,
+      "mean_seconds": 0.068747
+    }
+  },
+  "artifacts": {
+    "report_json": "benchmark-report.json",
+    "comparison_png": "comparison.png"
+  },
+  "qualitative_real_probe": {
+    "source": "output/real-cutout-probe/fruits.jpg",
+    "scope": "Qualitative optional existing photo only; no labeled ground truth and no accuracy claim.",
+    "rectangle": [
+      0.13,
+      0.08,
+      0.69,
+      0.99
+    ],
+    "prompt_points": [
+      {
+        "x": 0.43,
+        "y": 0.54,
+        "label": 1
+      }
+    ],
+    "prompt_scope": "Manual normalized keep point on the selected object; qualitative only, no ground-truth accuracy score.",
+    "results": [
+      {
+        "segmenter": "grabcut",
+        "status": "ok",
+        "seconds": 0.861165,
+        "topology": {
+          "components": 1,
+          "holes": 3
+        },
+        "foreground_pixels": 83719,
+        "artifact": "real-photo-probe-grabcut.png"
+      },
+      {
+        "segmenter": "efficientsam-ti-box",
+        "status": "ok",
+        "seconds": 0.983311,
+        "topology": {
+          "components": 1,
+          "holes": 0
+        },
+        "foreground_pixels": 80765,
+        "artifact": "real-photo-probe-efficientsam-ti-box.png"
+      }
+    ]
+  },
+  "candidate_provenance": {
+    "repository": "yunyangx/EfficientSAM",
+    "revision": "d8dbb1eee73bfb3392aa6f6e8944aeb13f3f4036",
+    "weights": {
+      "efficientsam_ti_encoder.onnx": [
+        24799761,
+        "84ed466ffcc5c1f8d08409bc34a23bb364ab2c15e402cb12d4335a42be0e0951"
+      ],
+      "efficientsam_ti_decoder.onnx": [
+        16565728,
+        "a62f8fa5ea080447c0689418d69e58f1e83e0b7adf9c142e2bd9bcc8045c0b11"
+      ]
+    },
+    "prompting": "true box only; ignores reference-assisted point prompts supplied by harness",
+    "preprocessing": "raw RGB float0..1; graph resizes and normalizes internally; decoder returns original-size logits"
+  }
+}

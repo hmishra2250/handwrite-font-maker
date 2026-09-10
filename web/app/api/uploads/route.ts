@@ -1,37 +1,45 @@
+import { readBoundedJson } from '@/lib/read-json';
 import { NextResponse } from 'next/server';
 import { randomUUID } from 'node:crypto';
-import { isLiveMode, isLocalMode, isSupportedImage, MAX_UPLOAD_BYTES, retentionExpiry, workerBaseUrl, type UploadRequest, type UploadResponse } from '@/lib/contracts';
+import { isLiveMode, isLocalMode, isSupportedImage, MAX_UPLOAD_BYTES, retentionExpiry, type UploadRequest, type UploadResponse } from '@/lib/contracts';
+import { applyAuthCookies, authenticatedWorkerHeaders, enforceMutationOrigin, protectedWorkerBaseUrl, requireAuthenticatedRequest, sanitizeProtectedWorkerError } from '@/lib/server-auth';
 import { getSupabaseAdmin, storageBucket } from '@/lib/supabase-server';
 
 export async function POST(request: Request) {
-  const body = (await request.json().catch(() => null)) as UploadRequest | null;
+  const originError = enforceMutationOrigin(request);
+  if (originError) return originError;
+  const authResult = await requireAuthenticatedRequest(request);
+  if (!authResult.ok) return authResult.response;
+  const auth = authResult.auth;
+  const json = (body: unknown, init?: ResponseInit) => applyAuthCookies(NextResponse.json(body, init), auth);
+  const body = (await readBoundedJson(request)) as UploadRequest | null;
   if (!body?.filename || !body.contentType || !body.sizeBytes) {
-    return NextResponse.json({ error: { code: 'UPLOAD_OBJECT_MISSING', message: 'filename, contentType, and sizeBytes are required.' } }, { status: 400 });
+    return json({ error: { code: 'UPLOAD_OBJECT_MISSING', message: 'filename, contentType, and sizeBytes are required.' } }, { status: 400 });
   }
   if (!isSupportedImage(body.contentType)) {
-    return NextResponse.json({ error: { code: 'UNSUPPORTED_IMAGE_TYPE', message: 'Upload a JPEG, PNG, or WebP image.' } }, { status: 415 });
+    return json({ error: { code: 'UNSUPPORTED_IMAGE_TYPE', message: 'Upload a JPEG, PNG, or WebP image.' } }, { status: 415 });
   }
   if (body.sizeBytes > MAX_UPLOAD_BYTES) {
-    return NextResponse.json({ error: { code: 'UPLOAD_OBJECT_TOO_LARGE', message: `Upload must be ${MAX_UPLOAD_BYTES} bytes or smaller.` } }, { status: 413 });
+    return json({ error: { code: 'UPLOAD_OBJECT_TOO_LARGE', message: `Upload must be ${MAX_UPLOAD_BYTES} bytes or smaller.` } }, { status: 413 });
   }
 
   /* --- Local mode: proxy upload-slot creation to the Python backend.
          The browser PUTs bytes to a same-origin object proxy so Docker-only hostnames are not exposed. --- */
-  if (isLocalMode()) {
-    const base = workerBaseUrl();
+  if (auth.protected || isLocalMode()) {
+    const base = protectedWorkerBaseUrl(auth);
     const upstream = await fetch(new URL('/uploads', base), {
       method: 'POST',
-      headers: { 'content-type': 'application/json' },
+      headers: authenticatedWorkerHeaders(auth, { 'content-type': 'application/json' }),
       body: JSON.stringify(body),
       cache: 'no-store',
     });
     const payload = (await upstream.json().catch(() => null)) as Record<string, unknown> | null;
     if (!upstream.ok) {
-      return NextResponse.json(payload ?? { error: { code: 'INTERNAL_ERROR', message: 'Worker upload-slot creation failed.' } }, { status: upstream.status });
+      return json(sanitizeProtectedWorkerError(auth, payload ?? { error: { code: 'INTERNAL_ERROR' } }, 'Upload slot creation failed.'), { status: upstream.status });
     }
     const objectKeyValue = payload?.objectKey ?? payload?.object_key;
     if (typeof objectKeyValue !== 'string' || objectKeyValue.length < 1) {
-      return NextResponse.json({ error: { code: 'UPLOAD_OBJECT_MISSING', message: 'Worker upload-slot response did not include an object key.' } }, { status: 502 });
+      return json({ error: { code: 'UPLOAD_OBJECT_MISSING', message: 'Worker upload-slot response did not include an object key.' } }, { status: 502 });
     }
     const response: UploadResponse = {
       mode: 'local',
@@ -41,7 +49,7 @@ export async function POST(request: Request) {
       expiresAt: typeof payload?.expiresAt === 'string' ? payload.expiresAt : retentionExpiry(1),
       maxUploadBytes: MAX_UPLOAD_BYTES,
     };
-    return NextResponse.json(response);
+    return applyAuthCookies(NextResponse.json(response), auth);
   }
 
   const extension = body.filename.split('.').pop()?.toLowerCase()?.replace(/[^a-z0-9]/g, '') || 'jpg';

@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
-import { isLiveMode, isLocalMode, workerBaseUrl } from '@/lib/contracts';
+import { isLiveMode, isLocalMode } from '@/lib/contracts';
 import { demoBackendUnavailable, demoMarkerFailure } from '@/lib/mock-jobs';
+import { applyAuthCookies, authenticatedWorkerHeaders, enforceMutationOrigin, protectedWorkerBaseUrl, requireAuthenticatedRequest, sanitizeProtectedWorkerError } from '@/lib/server-auth';
 
 /**
  * Rewrite `local://download/<key>` artifact URLs into same-origin object
@@ -28,22 +29,53 @@ function rewriteLocalArtifactUrls(payload: Record<string, unknown>): Record<stri
 
 export async function GET(_request: Request, { params }: { params: Promise<{ jobId: string }> }) {
   const { jobId } = await params;
+  const authResult = await requireAuthenticatedRequest(_request);
+  if (!authResult.ok) return authResult.response;
+  const auth = authResult.auth;
+  const json = (body: unknown, init?: ResponseInit) => applyAuthCookies(NextResponse.json(body, init), auth);
 
   /* --- Local or Live mode: proxy to the Python backend --- */
-  if (isLocalMode() || isLiveMode()) {
-    const base = workerBaseUrl();
+  if (auth.protected || isLocalMode() || isLiveMode()) {
+    const base = protectedWorkerBaseUrl(auth);
     if (!base) {
-      return NextResponse.json({ error: { code: 'INTERNAL_ERROR', message: 'Worker API URL is not configured.' } }, { status: 500 });
+      return json({ error: { code: 'INTERNAL_ERROR', message: 'Worker API URL is not configured.' } }, { status: 500 });
     }
-    const upstream = await fetch(new URL(`/jobs/${encodeURIComponent(jobId)}`, base), { cache: 'no-store' });
+    const upstream = await fetch(new URL(`/jobs/${encodeURIComponent(jobId)}`, base), { headers: authenticatedWorkerHeaders(auth), cache: 'no-store' });
     let payload: Record<string, unknown> = await upstream.json().catch(() => ({ error: { code: 'INTERNAL_ERROR', message: 'Worker returned a non-JSON response.' } }));
-    if (isLocalMode() && upstream.ok) {
+    if ((auth.protected || isLocalMode()) && upstream.ok) {
       payload = rewriteLocalArtifactUrls(payload);
     }
-    return NextResponse.json(payload, { status: upstream.status });
+    const safePayload = upstream.ok ? payload : sanitizeProtectedWorkerError(auth, payload, 'Job lookup failed.');
+    return applyAuthCookies(NextResponse.json(safePayload, { status: upstream.status }), auth);
   }
 
   /* --- Demo mode: canned responses --- */
   const payload = jobId.includes('fail') ? demoMarkerFailure : { ...demoBackendUnavailable, jobId };
   return NextResponse.json(payload);
+}
+
+export async function DELETE(request: Request, { params }: { params: Promise<{ jobId: string }> }) {
+  const originError = enforceMutationOrigin(request);
+  if (originError) return originError;
+  const authResult = await requireAuthenticatedRequest(request);
+  if (!authResult.ok) return authResult.response;
+  const auth = authResult.auth;
+  const json = (body: unknown, init?: ResponseInit) => applyAuthCookies(NextResponse.json(body, init), auth);
+  const { jobId } = await params;
+
+  if (!(auth.protected || isLocalMode() || isLiveMode())) {
+    return json({ error: { code: 'INTERNAL_ERROR', message: 'Job deletion requires a configured Python worker.' } }, { status: 503 });
+  }
+  const base = protectedWorkerBaseUrl(auth);
+  if (!base) {
+    return json({ error: { code: 'INTERNAL_ERROR', message: 'Worker API URL is not configured.' } }, { status: 500 });
+  }
+  const upstream = await fetch(new URL(`/jobs/${encodeURIComponent(jobId)}`, base), {
+    method: 'DELETE',
+    headers: authenticatedWorkerHeaders(auth),
+    cache: 'no-store',
+  });
+  const payload: unknown = upstream.status === 204 ? { ok: true } : await upstream.json().catch(() => ({ error: { code: 'INTERNAL_ERROR', message: 'Worker returned a non-JSON response.' } }));
+  const safePayload = upstream.ok ? payload : sanitizeProtectedWorkerError(auth, payload, 'Job deletion failed.');
+  return applyAuthCookies(NextResponse.json(safePayload, { status: upstream.status === 204 ? 200 : upstream.status }), auth);
 }

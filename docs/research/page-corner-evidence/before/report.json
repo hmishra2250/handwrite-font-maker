@@ -1,0 +1,2061 @@
+{
+  "scope": "24 original frames + 24 oracle-centered derived crops; three correlated already-seen clips, NOT 48 independent captures or untouched heldout data.",
+  "source": {
+    "source_url": "https://zenodo.org/records/1230218",
+    "download_url": "https://zenodo.org/records/1230218/files/sampleDataset.tar.gz?download=1",
+    "archive_sha256": "90d1a64f476ffe290ebbddf4337e108d471b9c25420551223f447db972844a9a",
+    "license": "CC BY 4.0",
+    "license_url": "https://creativecommons.org/licenses/by/4.0/",
+    "attribution": "Burie, Chazalon, Coustaty, Eskenazi, Luqman, Mehri, Nayef, Ogier, Prum, Rusinol. ICDAR2015 Competition on Smartphone Document Capture and OCR (SmartDoc). ICDAR 2015."
+  },
+  "crop_policy": "Reference bbox expanded 28% per side, clipped to image. Oracle crop removes clutter and changes apparent page area; does not replicate moving a camera.",
+  "minimum_page_area_ratio": 0.18,
+  "summary": {
+    "original": {
+      "frames": 24,
+      "detected": 1,
+      "rejected": 23,
+      "mean_iou_all_frames_rejections_zero": 0.014262205783269156,
+      "wrong_suggestion_iou_below_090": 1
+    },
+    "oracle-centered-crop": {
+      "frames": 24,
+      "detected": 16,
+      "rejected": 8,
+      "mean_iou_all_frames_rejections_zero": 0.6328108553175461,
+      "wrong_suggestion_iou_below_090": 3
+    }
+  },
+  "samples": [
+    {
+      "sample_id": "datasheet001-0001",
+      "source_group": "datasheet001",
+      "variant": "original",
+      "source_sha256": "7c5677c5599b3ec697d8cd98fba7b190b084924e72a7dc2406d70c6a68b66ec3",
+      "crop_box": null,
+      "image_size": [
+        1920,
+        1080
+      ],
+      "reference_corners": [
+        [
+          737.3770141601562,
+          201.38299560546875
+        ],
+        [
+          1180.7099609375,
+          199.1269989013672
+        ],
+        [
+          1259.02001953125,
+          791.9420166015625
+        ],
+        [
+          716.625,
+          805.6090087890625
+        ]
+      ],
+      "reference_area_ratio": 0.14236995045610995,
+      "status": "rejected",
+      "error": "Could not find a full A4 page outline. Move closer so the paper fills more of the photo. Re-shoot flat on a contrasting background with all four paper edges visible, or supply manual corners."
+    },
+    {
+      "sample_id": "datasheet001-0001",
+      "source_group": "datasheet001",
+      "variant": "oracle-centered-crop",
+      "source_sha256": "7c5677c5599b3ec697d8cd98fba7b190b084924e72a7dc2406d70c6a68b66ec3",
+      "crop_box": [
+        564,
+        29,
+        1412,
+        977
+      ],
+      "image_size": [
+        848,
+        948
+      ],
+      "reference_corners": [
+        [
+          173.37701416015625,
+          172.38299560546875
+        ],
+        [
+          616.7099609375,
+          170.1269989013672
+        ],
+        [
+          695.02001953125,
+          762.9420166015625
+        ],
+        [
+          152.625,
+          776.6090087890625
+        ]
+      ],
+      "reference_area_ratio": 0.3672308251554783,
+      "status": "detected",
+      "predicted_corners": [
+        [
+          173.0,
+          172.0
+        ],
+        [
+          619.0,
+          169.0
+        ],
+        [
+          693.0,
+          759.0
+        ],
+        [
+          149.0,
+          771.0
+        ]
+      ],
+      "metrics": {
+        "polygon_iou": 0.9837576161233291,
+        "corner_rmse_px_cyclic": 4.213810920715332,
+        "corner_rmse_image_diagonal": 0.0033129246249935093
+      }
+    },
+    {
+      "sample_id": "datasheet001-0031",
+      "source_group": "datasheet001",
+      "variant": "original",
+      "source_sha256": "5eae8526554ba8453ca3643bb3d15a7fef159cd0de6fdc7510cb84fc3ecf231b",
+      "crop_box": null,
+      "image_size": [
+        1920,
+        1080
+      ],
+      "reference_corners": [
+        [
+          759.4329833984375,
+          196.00100708007812
+        ],
+        [
+          1200.280029296875,
+          196.69900512695312
+        ],
+        [
+          1274.18994140625,
+          786.0269775390625
+        ],
+        [
+          733.239013671875,
+          792.7030029296875
+        ]
+      ],
+      "reference_area_ratio": 0.14042330569003686,
+      "status": "rejected",
+      "error": "Could not find a full A4 page outline. Move closer so the paper fills more of the photo. Re-shoot flat on a contrasting background with all four paper edges visible, or supply manual corners."
+    },
+    {
+      "sample_id": "datasheet001-0031",
+      "source_group": "datasheet001",
+      "variant": "oracle-centered-crop",
+      "source_sha256": "5eae8526554ba8453ca3643bb3d15a7fef159cd0de6fdc7510cb84fc3ecf231b",
+      "crop_box": [
+        581,
+        28,
+        1427,
+        961
+      ],
+      "image_size": [
+        846,
+        933
+      ],
+      "reference_corners": [
+        [
+          178.4329833984375,
+          168.00100708007812
+        ],
+        [
+          619.280029296875,
+          168.69900512695312
+        ],
+        [
+          693.18994140625,
+          758.0269775390625
+        ],
+        [
+          152.239013671875,
+          764.7030029296875
+        ]
+      ],
+      "reference_area_ratio": 0.36890298546195627,
+      "status": "detected",
+      "predicted_corners": [
+        [
+          178.0,
+          168.0
+        ],
+        [
+          622.0,
+          167.0
+        ],
+        [
+          694.0,
+          752.0
+        ],
+        [
+          149.0,
+          760.0
+        ]
+      ],
+      "metrics": {
+        "polygon_iou": 0.9804557184013059,
+        "corner_rmse_px_cyclic": 4.473880767822266,
+        "corner_rmse_image_diagonal": 0.003552260023520631
+      }
+    },
+    {
+      "sample_id": "datasheet001-0061",
+      "source_group": "datasheet001",
+      "variant": "original",
+      "source_sha256": "3debbab927c565edf4b371dce3283f8ea068a62752921c4f72a7270ebe1a90de",
+      "crop_box": null,
+      "image_size": [
+        1920,
+        1080
+      ],
+      "reference_corners": [
+        [
+          683.291015625,
+          208.3489990234375
+        ],
+        [
+          1112.25,
+          192.69400024414062
+        ],
+        [
+          1164.0999755859375,
+          759.64501953125
+        ],
+        [
+          635.9000244140625,
+          777.9619750976562
+        ]
+      ],
+      "reference_area_ratio": 0.1311757166756568,
+      "status": "rejected",
+      "error": "Could not find a full A4 page outline. Move closer so the paper fills more of the photo. Re-shoot flat on a contrasting background with all four paper edges visible, or supply manual corners."
+    },
+    {
+      "sample_id": "datasheet001-0061",
+      "source_group": "datasheet001",
+      "variant": "oracle-centered-crop",
+      "source_sha256": "3debbab927c565edf4b371dce3283f8ea068a62752921c4f72a7270ebe1a90de",
+      "crop_box": [
+        488,
+        28,
+        1313,
+        943
+      ],
+      "image_size": [
+        825,
+        915
+      ],
+      "reference_corners": [
+        [
+          195.291015625,
+          180.3489990234375
+        ],
+        [
+          624.25,
+          164.69400024414062
+        ],
+        [
+          676.0999755859375,
+          731.64501953125
+        ],
+        [
+          147.9000244140625,
+          749.9619750976562
+        ]
+      ],
+      "reference_area_ratio": 0.36033246047178935,
+      "status": "rejected",
+      "error": "Could not find a full A4 page outline. Move closer so the paper fills more of the photo. Re-shoot flat on a contrasting background with all four paper edges visible, or supply manual corners."
+    },
+    {
+      "sample_id": "datasheet001-0092",
+      "source_group": "datasheet001",
+      "variant": "original",
+      "source_sha256": "d7e5871078c1c2bbf9d449eb5fe08a8a5032b21e35ca46c93e02d68685212d44",
+      "crop_box": null,
+      "image_size": [
+        1920,
+        1080
+      ],
+      "reference_corners": [
+        [
+          633.208984375,
+          171.82000732421875
+        ],
+        [
+          1049.9100341796875,
+          169.74000549316406
+        ],
+        [
+          1090.0699462890625,
+          693.3259887695312
+        ],
+        [
+          574.1859741210938,
+          702.0349731445312
+        ]
+      ],
+      "reference_area_ratio": 0.11846010170264856,
+      "status": "rejected",
+      "error": "Could not find a full A4 page outline. Move closer so the paper fills more of the photo. Re-shoot flat on a contrasting background with all four paper edges visible, or supply manual corners."
+    },
+    {
+      "sample_id": "datasheet001-0092",
+      "source_group": "datasheet001",
+      "variant": "oracle-centered-crop",
+      "source_sha256": "d7e5871078c1c2bbf9d449eb5fe08a8a5032b21e35ca46c93e02d68685212d44",
+      "crop_box": [
+        429,
+        20,
+        1236,
+        853
+      ],
+      "image_size": [
+        807,
+        833
+      ],
+      "reference_corners": [
+        [
+          204.208984375,
+          151.82000732421875
+        ],
+        [
+          620.9100341796875,
+          149.74000549316406
+        ],
+        [
+          661.0699462890625,
+          673.3259887695312
+        ],
+        [
+          145.18597412109375,
+          682.0349731445312
+        ]
+      ],
+      "reference_area_ratio": 0.36540841896700993,
+      "status": "rejected",
+      "error": "Could not find a full A4 page outline. Move closer so the paper fills more of the photo. Re-shoot flat on a contrasting background with all four paper edges visible, or supply manual corners."
+    },
+    {
+      "sample_id": "datasheet001-0122",
+      "source_group": "datasheet001",
+      "variant": "original",
+      "source_sha256": "b4721a85681b7bb6cc953403d2bf0e7a38800a72c5a6659291c3febdec1e182d",
+      "crop_box": null,
+      "image_size": [
+        1920,
+        1080
+      ],
+      "reference_corners": [
+        [
+          762.1329956054688,
+          139.7790069580078
+        ],
+        [
+          1181.1199951171875,
+          134.23399353027344
+        ],
+        [
+          1312.5799560546875,
+          666.802978515625
+        ],
+        [
+          807.1329956054688,
+          698.1209716796875
+        ]
+      ],
+      "reference_area_ratio": 0.12236930626755947,
+      "status": "rejected",
+      "error": "Could not find a full A4 page outline. Move closer so the paper fills more of the photo. Re-shoot flat on a contrasting background with all four paper edges visible, or supply manual corners."
+    },
+    {
+      "sample_id": "datasheet001-0122",
+      "source_group": "datasheet001",
+      "variant": "oracle-centered-crop",
+      "source_sha256": "b4721a85681b7bb6cc953403d2bf0e7a38800a72c5a6659291c3febdec1e182d",
+      "crop_box": [
+        608,
+        0,
+        1468,
+        858
+      ],
+      "image_size": [
+        860,
+        858
+      ],
+      "reference_corners": [
+        [
+          154.13299560546875,
+          139.7790069580078
+        ],
+        [
+          573.1199951171875,
+          134.23399353027344
+        ],
+        [
+          704.5799560546875,
+          666.802978515625
+        ],
+        [
+          199.13299560546875,
+          698.1209716796875
+        ]
+      ],
+      "reference_area_ratio": 0.343883820507957,
+      "status": "detected",
+      "predicted_corners": [
+        [
+          155.0,
+          140.0
+        ],
+        [
+          579.0,
+          137.0
+        ],
+        [
+          703.0,
+          664.0
+        ],
+        [
+          196.0,
+          695.0
+        ]
+      ],
+      "metrics": {
+        "polygon_iou": 0.9840305144706002,
+        "corner_rmse_px_cyclic": 4.270095348358154,
+        "corner_rmse_image_diagonal": 0.0035150306532436932
+      }
+    },
+    {
+      "sample_id": "datasheet001-0153",
+      "source_group": "datasheet001",
+      "variant": "original",
+      "source_sha256": "19349f8bdfb2870e0509e7d18d6ded7748359c9ec4b94829b042087acb824a01",
+      "crop_box": null,
+      "image_size": [
+        1920,
+        1080
+      ],
+      "reference_corners": [
+        [
+          756.7260131835938,
+          211.12100219726562
+        ],
+        [
+          1193.5,
+          204.13499450683594
+        ],
+        [
+          1268.699951171875,
+          808.0479736328125
+        ],
+        [
+          756.5579833984375,
+          826.8909912109375
+        ]
+      ],
+      "reference_area_ratio": 0.13977076454025056,
+      "status": "rejected",
+      "error": "Could not find a full A4 page outline. Move closer so the paper fills more of the photo. Re-shoot flat on a contrasting background with all four paper edges visible, or supply manual corners."
+    },
+    {
+      "sample_id": "datasheet001-0153",
+      "source_group": "datasheet001",
+      "variant": "oracle-centered-crop",
+      "source_sha256": "19349f8bdfb2870e0509e7d18d6ded7748359c9ec4b94829b042087acb824a01",
+      "crop_box": [
+        613,
+        29,
+        1414,
+        1003
+      ],
+      "image_size": [
+        801,
+        974
+      ],
+      "reference_corners": [
+        [
+          143.72601318359375,
+          182.12100219726562
+        ],
+        [
+          580.5,
+          175.13499450683594
+        ],
+        [
+          655.699951171875,
+          779.0479736328125
+        ],
+        [
+          143.5579833984375,
+          797.8909912109375
+        ]
+      ],
+      "reference_area_ratio": 0.3714923303656153,
+      "status": "rejected",
+      "error": "Could not find a full A4 page outline. Move closer so the paper fills more of the photo. Re-shoot flat on a contrasting background with all four paper edges visible, or supply manual corners."
+    },
+    {
+      "sample_id": "datasheet001-0183",
+      "source_group": "datasheet001",
+      "variant": "original",
+      "source_sha256": "dd5ab3615710f9565d91ed6c68a89247f4c550fe437801c97aba9864d3dd1a9b",
+      "crop_box": null,
+      "image_size": [
+        1920,
+        1080
+      ],
+      "reference_corners": [
+        [
+          737.1519775390625,
+          200.27000427246094
+        ],
+        [
+          1150.5999755859375,
+          193.75900268554688
+        ],
+        [
+          1225.02001953125,
+          726.1229858398438
+        ],
+        [
+          721.5969848632812,
+          742.697998046875
+        ]
+      ],
+      "reference_area_ratio": 0.11897238971183514,
+      "status": "rejected",
+      "error": "Could not find a full A4 page outline. Move closer so the paper fills more of the photo. Re-shoot flat on a contrasting background with all four paper edges visible, or supply manual corners."
+    },
+    {
+      "sample_id": "datasheet001-0183",
+      "source_group": "datasheet001",
+      "variant": "oracle-centered-crop",
+      "source_sha256": "dd5ab3615710f9565d91ed6c68a89247f4c550fe437801c97aba9864d3dd1a9b",
+      "crop_box": [
+        580,
+        40,
+        1367,
+        898
+      ],
+      "image_size": [
+        787,
+        858
+      ],
+      "reference_corners": [
+        [
+          157.1519775390625,
+          160.27000427246094
+        ],
+        [
+          570.5999755859375,
+          153.75900268554688
+        ],
+        [
+          645.02001953125,
+          686.1229858398438
+        ],
+        [
+          141.59698486328125,
+          702.697998046875
+        ]
+      ],
+      "reference_area_ratio": 0.36535003140553424,
+      "status": "rejected",
+      "error": "Could not find a full A4 page outline. Move closer so the paper fills more of the photo. Re-shoot flat on a contrasting background with all four paper edges visible, or supply manual corners."
+    },
+    {
+      "sample_id": "datasheet001-0214",
+      "source_group": "datasheet001",
+      "variant": "original",
+      "source_sha256": "e7e3ee962c2d8b5eb032f0e2b99562fbe1b3b1a557aa7b8bf7fe982850893c4a",
+      "crop_box": null,
+      "image_size": [
+        1920,
+        1080
+      ],
+      "reference_corners": [
+        [
+          738.822021484375,
+          282.57501220703125
+        ],
+        [
+          1144.7099609375,
+          280.91900634765625
+        ],
+        [
+          1200.050048828125,
+          831.6640014648438
+        ],
+        [
+          707.9819946289062,
+          839.3759765625
+        ]
+      ],
+      "reference_area_ratio": 0.1199311642384176,
+      "status": "rejected",
+      "error": "Could not find a full A4 page outline. Move closer so the paper fills more of the photo. Re-shoot flat on a contrasting background with all four paper edges visible, or supply manual corners."
+    },
+    {
+      "sample_id": "datasheet001-0214",
+      "source_group": "datasheet001",
+      "variant": "oracle-centered-crop",
+      "source_sha256": "e7e3ee962c2d8b5eb032f0e2b99562fbe1b3b1a557aa7b8bf7fe982850893c4a",
+      "crop_box": [
+        570,
+        124,
+        1339,
+        997
+      ],
+      "image_size": [
+        769,
+        873
+      ],
+      "reference_corners": [
+        [
+          168.822021484375,
+          158.57501220703125
+        ],
+        [
+          574.7099609375,
+          156.91900634765625
+        ],
+        [
+          630.050048828125,
+          707.6640014648438
+        ],
+        [
+          137.98199462890625,
+          715.3759765625
+        ]
+      ],
+      "reference_area_ratio": 0.370438784343456,
+      "status": "rejected",
+      "error": "Could not find a full A4 page outline. Move closer so the paper fills more of the photo. Re-shoot flat on a contrasting background with all four paper edges visible, or supply manual corners."
+    },
+    {
+      "sample_id": "letter001-0001",
+      "source_group": "letter001",
+      "variant": "original",
+      "source_sha256": "15b51c6414038cb5a98243c56f8c813cd1bdc9e9edef05a7d9e76fb316962333",
+      "crop_box": null,
+      "image_size": [
+        1920,
+        1080
+      ],
+      "reference_corners": [
+        [
+          698.301025390625,
+          223.968994140625
+        ],
+        [
+          1127.1099853515625,
+          225.6479949951172
+        ],
+        [
+          1216.8900146484375,
+          799.2639770507812
+        ],
+        [
+          703.8380126953125,
+          821.8670043945312
+        ]
+      ],
+      "reference_area_ratio": 0.13327036451976318,
+      "status": "rejected",
+      "error": "Could not find a full A4 page outline. Move closer so the paper fills more of the photo. Re-shoot flat on a contrasting background with all four paper edges visible, or supply manual corners."
+    },
+    {
+      "sample_id": "letter001-0001",
+      "source_group": "letter001",
+      "variant": "oracle-centered-crop",
+      "source_sha256": "15b51c6414038cb5a98243c56f8c813cd1bdc9e9edef05a7d9e76fb316962333",
+      "crop_box": [
+        553,
+        56,
+        1364,
+        991
+      ],
+      "image_size": [
+        811,
+        935
+      ],
+      "reference_corners": [
+        [
+          145.301025390625,
+          167.968994140625
+        ],
+        [
+          574.1099853515625,
+          169.6479949951172
+        ],
+        [
+          663.8900146484375,
+          743.2639770507812
+        ],
+        [
+          150.8380126953125,
+          765.8670043945312
+        ]
+      ],
+      "reference_area_ratio": 0.3644400560055664,
+      "status": "detected",
+      "predicted_corners": [
+        [
+          8.0,
+          120.0
+        ],
+        [
+          572.0,
+          169.0
+        ],
+        [
+          661.0,
+          740.0
+        ],
+        [
+          151.0,
+          764.0
+        ]
+      ],
+      "metrics": {
+        "polygon_iou": 0.8361910458894796,
+        "corner_rmse_px_cyclic": 72.7667236328125,
+        "corner_rmse_image_diagonal": 0.05879103318489576
+      }
+    },
+    {
+      "sample_id": "letter001-0026",
+      "source_group": "letter001",
+      "variant": "original",
+      "source_sha256": "5d2facc8abc3c38a6cfa7edbb2a36cb2c80fc65664e408ecd829016dac08d677",
+      "crop_box": null,
+      "image_size": [
+        1920,
+        1080
+      ],
+      "reference_corners": [
+        [
+          610.072998046875,
+          247.72799682617188
+        ],
+        [
+          1029.9200439453125,
+          233.50599670410156
+        ],
+        [
+          1115.6500244140625,
+          773.7739868164062
+        ],
+        [
+          608.7150268554688,
+          809.5189819335938
+        ]
+      ],
+      "reference_area_ratio": 0.12364779668814954,
+      "status": "rejected",
+      "error": "Could not find a full A4 page outline. Move closer so the paper fills more of the photo. Re-shoot flat on a contrasting background with all four paper edges visible, or supply manual corners."
+    },
+    {
+      "sample_id": "letter001-0026",
+      "source_group": "letter001",
+      "variant": "oracle-centered-crop",
+      "source_sha256": "5d2facc8abc3c38a6cfa7edbb2a36cb2c80fc65664e408ecd829016dac08d677",
+      "crop_box": [
+        466,
+        72,
+        1259,
+        972
+      ],
+      "image_size": [
+        793,
+        900
+      ],
+      "reference_corners": [
+        [
+          144.072998046875,
+          175.72799682617188
+        ],
+        [
+          563.9200439453125,
+          161.50599670410156
+        ],
+        [
+          649.6500244140625,
+          701.7739868164062
+        ],
+        [
+          142.71502685546875,
+          737.5189819335938
+        ]
+      ],
+      "reference_area_ratio": 0.3592490839464017,
+      "status": "rejected",
+      "error": "Could not find a full A4 page outline. Move closer so the paper fills more of the photo. Re-shoot flat on a contrasting background with all four paper edges visible, or supply manual corners."
+    },
+    {
+      "sample_id": "letter001-0051",
+      "source_group": "letter001",
+      "variant": "original",
+      "source_sha256": "90a5ca18851603cf524f760e8f791f81aa89061f33ad8b7323d0ca74427a5a3e",
+      "crop_box": null,
+      "image_size": [
+        1920,
+        1080
+      ],
+      "reference_corners": [
+        [
+          621.1019897460938,
+          288.7080078125
+        ],
+        [
+          1013.739990234375,
+          244.5590057373047
+        ],
+        [
+          1151.8299560546875,
+          723.9580078125
+        ],
+        [
+          673.1929931640625,
+          797.5679931640625
+        ]
+      ],
+      "reference_area_ratio": 0.10651051690833126,
+      "status": "detected",
+      "predicted_corners": [
+        [
+          9.600000381469727,
+          37.20000076293945
+        ],
+        [
+          1012.800048828125,
+          243.60000610351562
+        ],
+        [
+          1147.2000732421875,
+          720.0
+        ],
+        [
+          49.20000076293945,
+          468.0
+        ]
+      ],
+      "metrics": {
+        "polygon_iou": 0.34229293879845973,
+        "corner_rmse_px_cyclic": 483.5318603515625,
+        "corner_rmse_image_diagonal": 0.21949715672018003
+      }
+    },
+    {
+      "sample_id": "letter001-0051",
+      "source_group": "letter001",
+      "variant": "oracle-centered-crop",
+      "source_sha256": "90a5ca18851603cf524f760e8f791f81aa89061f33ad8b7323d0ca74427a5a3e",
+      "crop_box": [
+        472,
+        89,
+        1302,
+        954
+      ],
+      "image_size": [
+        830,
+        865
+      ],
+      "reference_corners": [
+        [
+          149.10198974609375,
+          199.7080078125
+        ],
+        [
+          541.739990234375,
+          155.5590057373047
+        ],
+        [
+          679.8299560546875,
+          634.9580078125
+        ],
+        [
+          201.1929931640625,
+          708.5679931640625
+        ]
+      ],
+      "reference_area_ratio": 0.30762616875982407,
+      "status": "rejected",
+      "error": "Could not find a full A4 page outline. Move closer so the paper fills more of the photo. Re-shoot flat on a contrasting background with all four paper edges visible, or supply manual corners."
+    },
+    {
+      "sample_id": "letter001-0076",
+      "source_group": "letter001",
+      "variant": "original",
+      "source_sha256": "196dc23fe3795a788ea06d630fd87e67e6545b2f95d51cc3fed3e4ab029e8727",
+      "crop_box": null,
+      "image_size": [
+        1920,
+        1080
+      ],
+      "reference_corners": [
+        [
+          666.4539794921875,
+          310.875
+        ],
+        [
+          1048.199951171875,
+          249.36099243164062
+        ],
+        [
+          1245.47998046875,
+          708.0070190429688
+        ],
+        [
+          787.7570190429688,
+          810.8519897460938
+        ]
+      ],
+      "reference_area_ratio": 0.10333432538608049,
+      "status": "rejected",
+      "error": "Could not find a full A4 page outline. Move closer so the paper fills more of the photo. Re-shoot flat on a contrasting background with all four paper edges visible, or supply manual corners."
+    },
+    {
+      "sample_id": "letter001-0076",
+      "source_group": "letter001",
+      "variant": "oracle-centered-crop",
+      "source_sha256": "196dc23fe3795a788ea06d630fd87e67e6545b2f95d51cc3fed3e4ab029e8727",
+      "crop_box": [
+        504,
+        92,
+        1409,
+        970
+      ],
+      "image_size": [
+        905,
+        878
+      ],
+      "reference_corners": [
+        [
+          162.4539794921875,
+          218.875
+        ],
+        [
+          544.199951171875,
+          157.36099243164062
+        ],
+        [
+          741.47998046875,
+          616.0070190429688
+        ],
+        [
+          283.75701904296875,
+          718.8519897460938
+        ]
+      ],
+      "reference_area_ratio": 0.26966618900385925,
+      "status": "detected",
+      "predicted_corners": [
+        [
+          163.0,
+          218.0
+        ],
+        [
+          548.0,
+          158.0
+        ],
+        [
+          740.0,
+          613.0
+        ],
+        [
+          283.0,
+          717.0
+        ]
+      ],
+      "metrics": {
+        "polygon_iou": 0.9890862600650514,
+        "corner_rmse_px_cyclic": 2.790515899658203,
+        "corner_rmse_image_diagonal": 0.002213086390561405
+      }
+    },
+    {
+      "sample_id": "letter001-0101",
+      "source_group": "letter001",
+      "variant": "original",
+      "source_sha256": "ce07bc22e5bfe8e8b4430ec6cf30da372cbc3cee56807a9fcefe7ccbb037bde4",
+      "crop_box": null,
+      "image_size": [
+        1920,
+        1080
+      ],
+      "reference_corners": [
+        [
+          674.9849853515625,
+          289.9840087890625
+        ],
+        [
+          1069.2900390625,
+          280.1679992675781
+        ],
+        [
+          1157.239990234375,
+          784.1010131835938
+        ],
+        [
+          673.9169921875,
+          811.197998046875
+        ]
+      ],
+      "reference_area_ratio": 0.10885716150521878,
+      "status": "rejected",
+      "error": "Could not find a full A4 page outline. Move closer so the paper fills more of the photo. Re-shoot flat on a contrasting background with all four paper edges visible, or supply manual corners."
+    },
+    {
+      "sample_id": "letter001-0101",
+      "source_group": "letter001",
+      "variant": "oracle-centered-crop",
+      "source_sha256": "ce07bc22e5bfe8e8b4430ec6cf30da372cbc3cee56807a9fcefe7ccbb037bde4",
+      "crop_box": [
+        538,
+        131,
+        1294,
+        961
+      ],
+      "image_size": [
+        756,
+        830
+      ],
+      "reference_corners": [
+        [
+          136.9849853515625,
+          158.9840087890625
+        ],
+        [
+          531.2900390625,
+          149.16799926757812
+        ],
+        [
+          619.239990234375,
+          653.1010131835938
+        ],
+        [
+          135.9169921875,
+          680.197998046875
+        ]
+      ],
+      "reference_area_ratio": 0.35973450962137704,
+      "status": "rejected",
+      "error": "Could not find a full A4 page outline. Move closer so the paper fills more of the photo. Re-shoot flat on a contrasting background with all four paper edges visible, or supply manual corners."
+    },
+    {
+      "sample_id": "letter001-0126",
+      "source_group": "letter001",
+      "variant": "original",
+      "source_sha256": "e4f5619be5c7baee2583a1c6bbdad08b8d5abd9fda36b5bfe201a64b4ebf132c",
+      "crop_box": null,
+      "image_size": [
+        1920,
+        1080
+      ],
+      "reference_corners": [
+        [
+          721.219970703125,
+          193.96200561523438
+        ],
+        [
+          1113.9200439453125,
+          202.80099487304688
+        ],
+        [
+          1145.4100341796875,
+          707.7470092773438
+        ],
+        [
+          673.802978515625,
+          702.4530029296875
+        ]
+      ],
+      "reference_area_ratio": 0.10563101974519848,
+      "status": "rejected",
+      "error": "Could not find a full A4 page outline. Move closer so the paper fills more of the photo. Re-shoot flat on a contrasting background with all four paper edges visible, or supply manual corners."
+    },
+    {
+      "sample_id": "letter001-0126",
+      "source_group": "letter001",
+      "variant": "oracle-centered-crop",
+      "source_sha256": "e4f5619be5c7baee2583a1c6bbdad08b8d5abd9fda36b5bfe201a64b4ebf132c",
+      "crop_box": [
+        541,
+        50,
+        1279,
+        853
+      ],
+      "image_size": [
+        738,
+        803
+      ],
+      "reference_corners": [
+        [
+          180.219970703125,
+          143.96200561523438
+        ],
+        [
+          572.9200439453125,
+          152.80099487304688
+        ],
+        [
+          604.4100341796875,
+          657.7470092773438
+        ],
+        [
+          132.802978515625,
+          652.4530029296875
+        ]
+      ],
+      "reference_area_ratio": 0.36961071210542373,
+      "status": "detected",
+      "predicted_corners": [
+        [
+          28.0,
+          31.0
+        ],
+        [
+          572.0,
+          154.0
+        ],
+        [
+          602.0,
+          655.0
+        ],
+        [
+          133.0,
+          652.0
+        ]
+      ],
+      "metrics": {
+        "polygon_iou": 0.7726522680719649,
+        "corner_rmse_px_cyclic": 94.79875946044922,
+        "corner_rmse_image_diagonal": 0.08692186003287651
+      }
+    },
+    {
+      "sample_id": "letter001-0151",
+      "source_group": "letter001",
+      "variant": "original",
+      "source_sha256": "0272749ad63dc4c8d4066d9e9854ab8bd66b4cdb7d779a2351a889aacb87d561",
+      "crop_box": null,
+      "image_size": [
+        1920,
+        1080
+      ],
+      "reference_corners": [
+        [
+          654.8510131835938,
+          277.0469970703125
+        ],
+        [
+          1032.489990234375,
+          228.01300048828125
+        ],
+        [
+          1172.4300537109375,
+          709.5440063476562
+        ],
+        [
+          732.1400146484375,
+          786.3800048828125
+        ]
+      ],
+      "reference_area_ratio": 0.101007794312811,
+      "status": "rejected",
+      "error": "Could not find a full A4 page outline. Move closer so the paper fills more of the photo. Re-shoot flat on a contrasting background with all four paper edges visible, or supply manual corners."
+    },
+    {
+      "sample_id": "letter001-0151",
+      "source_group": "letter001",
+      "variant": "oracle-centered-crop",
+      "source_sha256": "0272749ad63dc4c8d4066d9e9854ab8bd66b4cdb7d779a2351a889aacb87d561",
+      "crop_box": [
+        509,
+        71,
+        1319,
+        944
+      ],
+      "image_size": [
+        810,
+        873
+      ],
+      "reference_corners": [
+        [
+          145.85101318359375,
+          206.0469970703125
+        ],
+        [
+          523.489990234375,
+          157.01300048828125
+        ],
+        [
+          663.4300537109375,
+          638.5440063476562
+        ],
+        [
+          223.1400146484375,
+          715.3800048828125
+        ]
+      ],
+      "reference_area_ratio": 0.29619696843161075,
+      "status": "detected",
+      "predicted_corners": [
+        [
+          143.0,
+          204.0
+        ],
+        [
+          522.0,
+          157.0
+        ],
+        [
+          661.0,
+          636.0
+        ],
+        [
+          222.0,
+          713.0
+        ]
+      ],
+      "metrics": {
+        "polygon_iou": 0.9842614975025293,
+        "corner_rmse_px_cyclic": 2.9103219509124756,
+        "corner_rmse_image_diagonal": 0.002443812344028017
+      }
+    },
+    {
+      "sample_id": "letter001-0176",
+      "source_group": "letter001",
+      "variant": "original",
+      "source_sha256": "ddb0160cf9407ddda202630b407db5f55c10ee90c3a25098b745b4e125dff16b",
+      "crop_box": null,
+      "image_size": [
+        1920,
+        1080
+      ],
+      "reference_corners": [
+        [
+          641.7009887695312,
+          296.1789855957031
+        ],
+        [
+          1032.3599853515625,
+          247.4320068359375
+        ],
+        [
+          1177.949951171875,
+          746.9879760742188
+        ],
+        [
+          715.4879760742188,
+          825.8489990234375
+        ]
+      ],
+      "reference_area_ratio": 0.10923617440915548,
+      "status": "rejected",
+      "error": "Could not find a full A4 page outline. Move closer so the paper fills more of the photo. Re-shoot flat on a contrasting background with all four paper edges visible, or supply manual corners."
+    },
+    {
+      "sample_id": "letter001-0176",
+      "source_group": "letter001",
+      "variant": "oracle-centered-crop",
+      "source_sha256": "ddb0160cf9407ddda202630b407db5f55c10ee90c3a25098b745b4e125dff16b",
+      "crop_box": [
+        491,
+        85,
+        1330,
+        989
+      ],
+      "image_size": [
+        839,
+        904
+      ],
+      "reference_corners": [
+        [
+          150.70098876953125,
+          211.17898559570312
+        ],
+        [
+          541.3599853515625,
+          162.4320068359375
+        ],
+        [
+          686.949951171875,
+          661.9879760742188
+        ],
+        [
+          224.48797607421875,
+          740.8489990234375
+        ]
+      ],
+      "reference_area_ratio": 0.2986490070021528,
+      "status": "detected",
+      "predicted_corners": [
+        [
+          152.0,
+          211.0
+        ],
+        [
+          540.0,
+          162.0
+        ],
+        [
+          685.0,
+          659.0
+        ],
+        [
+          225.0,
+          739.0
+        ]
+      ],
+      "metrics": {
+        "polygon_iou": 0.9893141560574368,
+        "corner_rmse_px_cyclic": 2.245380401611328,
+        "corner_rmse_image_diagonal": 0.0018205632113348477
+      }
+    },
+    {
+      "sample_id": "magazine001-0001",
+      "source_group": "magazine001",
+      "variant": "original",
+      "source_sha256": "568757f162f2d872e139ba26a727dcea5bfc88e3051d22899785125d4c0bea38",
+      "crop_box": null,
+      "image_size": [
+        1920,
+        1080
+      ],
+      "reference_corners": [
+        [
+          725.4400024414062,
+          286.5660095214844
+        ],
+        [
+          1111.969970703125,
+          248.83700561523438
+        ],
+        [
+          1117.02001953125,
+          771.3670043945312
+        ],
+        [
+          643.3690185546875,
+          788.6539916992188
+        ]
+      ],
+      "reference_area_ratio": 0.10574839709591388,
+      "status": "rejected",
+      "error": "Could not find a full A4 page outline. Move closer so the paper fills more of the photo. Re-shoot flat on a contrasting background with all four paper edges visible, or supply manual corners."
+    },
+    {
+      "sample_id": "magazine001-0001",
+      "source_group": "magazine001",
+      "variant": "oracle-centered-crop",
+      "source_sha256": "568757f162f2d872e139ba26a727dcea5bfc88e3051d22899785125d4c0bea38",
+      "crop_box": [
+        510,
+        97,
+        1251,
+        941
+      ],
+      "image_size": [
+        741,
+        844
+      ],
+      "reference_corners": [
+        [
+          215.44000244140625,
+          189.56600952148438
+        ],
+        [
+          601.969970703125,
+          151.83700561523438
+        ],
+        [
+          607.02001953125,
+          674.3670043945312
+        ],
+        [
+          133.3690185546875,
+          691.6539916992188
+        ]
+      ],
+      "reference_area_ratio": 0.3506211604308368,
+      "status": "detected",
+      "predicted_corners": [
+        [
+          216.0,
+          190.0
+        ],
+        [
+          603.0,
+          152.0
+        ],
+        [
+          605.0,
+          672.0
+        ],
+        [
+          136.0,
+          692.0
+        ]
+      ],
+      "metrics": {
+        "polygon_iou": 0.9912651284898888,
+        "corner_rmse_px_cyclic": 2.1397690773010254,
+        "corner_rmse_image_diagonal": 0.0019051868148055138
+      }
+    },
+    {
+      "sample_id": "magazine001-0029",
+      "source_group": "magazine001",
+      "variant": "original",
+      "source_sha256": "74b3d1d350854c5e981218dd4e51ad92da4b44c2d710b951cf1813a8ed9576a9",
+      "crop_box": null,
+      "image_size": [
+        1920,
+        1080
+      ],
+      "reference_corners": [
+        [
+          683.072021484375,
+          282.7590026855469
+        ],
+        [
+          1076.0999755859375,
+          277.2799987792969
+        ],
+        [
+          1117.5,
+          785.7119750976562
+        ],
+        [
+          633.2620239257812,
+          793.9920043945312
+        ]
+      ],
+      "reference_area_ratio": 0.10783198692094573,
+      "status": "rejected",
+      "error": "Could not find a full A4 page outline. Move closer so the paper fills more of the photo. Re-shoot flat on a contrasting background with all four paper edges visible, or supply manual corners."
+    },
+    {
+      "sample_id": "magazine001-0029",
+      "source_group": "magazine001",
+      "variant": "oracle-centered-crop",
+      "source_sha256": "74b3d1d350854c5e981218dd4e51ad92da4b44c2d710b951cf1813a8ed9576a9",
+      "crop_box": [
+        497,
+        132,
+        1255,
+        940
+      ],
+      "image_size": [
+        758,
+        808
+      ],
+      "reference_corners": [
+        [
+          186.072021484375,
+          150.75900268554688
+        ],
+        [
+          579.0999755859375,
+          145.27999877929688
+        ],
+        [
+          620.5,
+          653.7119750976562
+        ],
+        [
+          136.26202392578125,
+          661.9920043945312
+        ]
+      ],
+      "reference_area_ratio": 0.3650833487017573,
+      "status": "detected",
+      "predicted_corners": [
+        [
+          111.0,
+          122.0
+        ],
+        [
+          579.0,
+          145.0
+        ],
+        [
+          619.0,
+          651.0
+        ],
+        [
+          136.0,
+          662.0
+        ]
+      ],
+      "metrics": {
+        "polygon_iou": 0.89216175757624,
+        "corner_rmse_px_cyclic": 40.22639465332031,
+        "corner_rmse_image_diagonal": 0.03630890042556779
+      }
+    },
+    {
+      "sample_id": "magazine001-0057",
+      "source_group": "magazine001",
+      "variant": "original",
+      "source_sha256": "a0c16990d958d9feee588fb9daf128a894d5c9b418e92f01cad8aece35cf5804",
+      "crop_box": null,
+      "image_size": [
+        1920,
+        1080
+      ],
+      "reference_corners": [
+        [
+          747.0659790039062,
+          259.7130126953125
+        ],
+        [
+          1118.9200439453125,
+          319.2770080566406
+        ],
+        [
+          1186.489990234375,
+          792.6719970703125
+        ],
+        [
+          721.7960205078125,
+          752.6170043945312
+        ]
+      ],
+      "reference_area_ratio": 0.09694994589591924,
+      "status": "rejected",
+      "error": "Could not find a full A4 page outline. Move closer so the paper fills more of the photo. Re-shoot flat on a contrasting background with all four paper edges visible, or supply manual corners."
+    },
+    {
+      "sample_id": "magazine001-0057",
+      "source_group": "magazine001",
+      "variant": "oracle-centered-crop",
+      "source_sha256": "a0c16990d958d9feee588fb9daf128a894d5c9b418e92f01cad8aece35cf5804",
+      "crop_box": [
+        591,
+        110,
+        1318,
+        943
+      ],
+      "image_size": [
+        727,
+        833
+      ],
+      "reference_corners": [
+        [
+          156.06597900390625,
+          149.7130126953125
+        ],
+        [
+          527.9200439453125,
+          209.27700805664062
+        ],
+        [
+          595.489990234375,
+          682.6719970703125
+        ],
+        [
+          130.7960205078125,
+          642.6170043945312
+        ]
+      ],
+      "reference_area_ratio": 0.3319656464672991,
+      "status": "detected",
+      "predicted_corners": [
+        [
+          127.0,
+          146.0
+        ],
+        [
+          527.0,
+          209.0
+        ],
+        [
+          593.0,
+          681.0
+        ],
+        [
+          135.0,
+          644.0
+        ]
+      ],
+      "metrics": {
+        "polygon_iou": 0.9633713716445496,
+        "corner_rmse_px_cyclic": 14.900691986083984,
+        "corner_rmse_image_diagonal": 0.01347710367732578
+      }
+    },
+    {
+      "sample_id": "magazine001-0085",
+      "source_group": "magazine001",
+      "variant": "original",
+      "source_sha256": "f0ee4997f736153902d1530d413eb4b7bdebc83253ac0ca170100423ccf41054",
+      "crop_box": null,
+      "image_size": [
+        1920,
+        1080
+      ],
+      "reference_corners": [
+        [
+          804.3489990234375,
+          296.8559875488281
+        ],
+        [
+          1182.2900390625,
+          336.9230041503906
+        ],
+        [
+          1186.5999755859375,
+          789.2130126953125
+        ],
+        [
+          701.0969848632812,
+          735.4349975585938
+        ]
+      ],
+      "reference_area_ratio": 0.09385859841310584,
+      "status": "rejected",
+      "error": "Could not find a full A4 page outline. Move closer so the paper fills more of the photo. Re-shoot flat on a contrasting background with all four paper edges visible, or supply manual corners."
+    },
+    {
+      "sample_id": "magazine001-0085",
+      "source_group": "magazine001",
+      "variant": "oracle-centered-crop",
+      "source_sha256": "f0ee4997f736153902d1530d413eb4b7bdebc83253ac0ca170100423ccf41054",
+      "crop_box": [
+        565,
+        158,
+        1324,
+        929
+      ],
+      "image_size": [
+        759,
+        771
+      ],
+      "reference_corners": [
+        [
+          239.3489990234375,
+          138.85598754882812
+        ],
+        [
+          617.2900390625,
+          178.92300415039062
+        ],
+        [
+          621.5999755859375,
+          631.2130126953125
+        ],
+        [
+          136.09698486328125,
+          577.4349975585938
+        ]
+      ],
+      "reference_area_ratio": 0.3325851813164914,
+      "status": "detected",
+      "predicted_corners": [
+        [
+          241.0,
+          139.0
+        ],
+        [
+          621.0,
+          182.0
+        ],
+        [
+          621.0,
+          629.0
+        ],
+        [
+          139.0,
+          576.0
+        ]
+      ],
+      "metrics": {
+        "polygon_iou": 0.9841376461525618,
+        "corner_rmse_px_cyclic": 3.229642629623413,
+        "corner_rmse_image_diagonal": 0.0029851398257671603
+      }
+    },
+    {
+      "sample_id": "magazine001-0113",
+      "source_group": "magazine001",
+      "variant": "original",
+      "source_sha256": "7b39a247bdf3cabf1d2e27a60f64c0b67ceb8683dcad16e23b59e5d7cb9ba43b",
+      "crop_box": null,
+      "image_size": [
+        1920,
+        1080
+      ],
+      "reference_corners": [
+        [
+          796.7109985351562,
+          230.72900390625
+        ],
+        [
+          1178.97998046875,
+          255.4429931640625
+        ],
+        [
+          1163.3900146484375,
+          764.3270263671875
+        ],
+        [
+          704.625,
+          726.2509765625
+        ]
+      ],
+      "reference_area_ratio": 0.10265969513248427,
+      "status": "rejected",
+      "error": "Could not find a full A4 page outline. Move closer so the paper fills more of the photo. Re-shoot flat on a contrasting background with all four paper edges visible, or supply manual corners."
+    },
+    {
+      "sample_id": "magazine001-0113",
+      "source_group": "magazine001",
+      "variant": "oracle-centered-crop",
+      "source_sha256": "7b39a247bdf3cabf1d2e27a60f64c0b67ceb8683dcad16e23b59e5d7cb9ba43b",
+      "crop_box": [
+        571,
+        81,
+        1313,
+        915
+      ],
+      "image_size": [
+        742,
+        834
+      ],
+      "reference_corners": [
+        [
+          225.71099853515625,
+          149.72900390625
+        ],
+        [
+          607.97998046875,
+          174.4429931640625
+        ],
+        [
+          592.3900146484375,
+          683.3270263671875
+        ],
+        [
+          133.625,
+          645.2509765625
+        ]
+      ],
+      "reference_area_ratio": 0.34399727198303787,
+      "status": "detected",
+      "predicted_corners": [
+        [
+          226.0,
+          150.0
+        ],
+        [
+          611.0,
+          176.0
+        ],
+        [
+          590.0,
+          682.0
+        ],
+        [
+          133.0,
+          645.0
+        ]
+      ],
+      "metrics": {
+        "polygon_iou": 0.9931742816643657,
+        "corner_rmse_px_cyclic": 2.215204954147339,
+        "corner_rmse_image_diagonal": 0.001984421760858673
+      }
+    },
+    {
+      "sample_id": "magazine001-0141",
+      "source_group": "magazine001",
+      "variant": "original",
+      "source_sha256": "d3263a607dcb42d7fb6cc164510273d1e7b026e2551117dd397fa012b7269de7",
+      "crop_box": null,
+      "image_size": [
+        1920,
+        1080
+      ],
+      "reference_corners": [
+        [
+          784.2639770507812,
+          215.79299926757812
+        ],
+        [
+          1188.77001953125,
+          202.8769989013672
+        ],
+        [
+          1268.6600341796875,
+          749.0599975585938
+        ],
+        [
+          791.9420166015625,
+          770.791015625
+        ]
+      ],
+      "reference_area_ratio": 0.11735884173642464,
+      "status": "rejected",
+      "error": "Could not find a full A4 page outline. Move closer so the paper fills more of the photo. Re-shoot flat on a contrasting background with all four paper edges visible, or supply manual corners."
+    },
+    {
+      "sample_id": "magazine001-0141",
+      "source_group": "magazine001",
+      "variant": "oracle-centered-crop",
+      "source_sha256": "d3263a607dcb42d7fb6cc164510273d1e7b026e2551117dd397fa012b7269de7",
+      "crop_box": [
+        648,
+        43,
+        1406,
+        931
+      ],
+      "image_size": [
+        758,
+        888
+      ],
+      "reference_corners": [
+        [
+          136.26397705078125,
+          172.79299926757812
+        ],
+        [
+          540.77001953125,
+          159.8769989013672
+        ],
+        [
+          620.6600341796875,
+          706.0599975585938
+        ],
+        [
+          143.9420166015625,
+          727.791015625
+        ]
+      ],
+      "reference_area_ratio": 0.3615418928199062,
+      "status": "detected",
+      "predicted_corners": [
+        [
+          104.0,
+          151.0
+        ],
+        [
+          540.0,
+          159.0
+        ],
+        [
+          619.0,
+          705.0
+        ],
+        [
+          148.0,
+          727.0
+        ]
+      ],
+      "metrics": {
+        "polygon_iou": 0.9462690806799539,
+        "corner_rmse_px_cyclic": 19.610158920288086,
+        "corner_rmse_image_diagonal": 0.016796391151825386
+      }
+    },
+    {
+      "sample_id": "magazine001-0169",
+      "source_group": "magazine001",
+      "variant": "original",
+      "source_sha256": "ce9d06c6ebe045d0cb973efa023aa97ada62b8cdfb403b9c353ac94074d5c202",
+      "crop_box": null,
+      "image_size": [
+        1920,
+        1080
+      ],
+      "reference_corners": [
+        [
+          935.7020263671875,
+          199.322998046875
+        ],
+        [
+          1318.1099853515625,
+          238.03199768066406
+        ],
+        [
+          1309.27001953125,
+          747.135986328125
+        ],
+        [
+          860.3049926757812,
+          692.0029907226562
+        ]
+      ],
+      "reference_area_ratio": 0.10136490979774043,
+      "status": "rejected",
+      "error": "Could not find a full A4 page outline. Move closer so the paper fills more of the photo. Re-shoot flat on a contrasting background with all four paper edges visible, or supply manual corners."
+    },
+    {
+      "sample_id": "magazine001-0169",
+      "source_group": "magazine001",
+      "variant": "oracle-centered-crop",
+      "source_sha256": "ce9d06c6ebe045d0cb973efa023aa97ada62b8cdfb403b9c353ac94074d5c202",
+      "crop_box": [
+        732,
+        45,
+        1448,
+        902
+      ],
+      "image_size": [
+        716,
+        857
+      ],
+      "reference_corners": [
+        [
+          203.7020263671875,
+          154.322998046875
+        ],
+        [
+          586.1099853515625,
+          193.03199768066406
+        ],
+        [
+          577.27001953125,
+          702.135986328125
+        ],
+        [
+          128.30499267578125,
+          647.0029907226562
+        ]
+      ],
+      "reference_area_ratio": 0.3425459035295831,
+      "status": "detected",
+      "predicted_corners": [
+        [
+          199.0,
+          146.0
+        ],
+        [
+          585.0,
+          191.0
+        ],
+        [
+          576.0,
+          700.0
+        ],
+        [
+          125.0,
+          648.0
+        ]
+      ],
+      "metrics": {
+        "polygon_iou": 0.9760040816689877,
+        "corner_rmse_px_cyclic": 5.358050346374512,
+        "corner_rmse_image_diagonal": 0.004797945161707619
+      }
+    },
+    {
+      "sample_id": "magazine001-0198",
+      "source_group": "magazine001",
+      "variant": "original",
+      "source_sha256": "a50eba5463f517ce1aeb425e0a26e495bcdf2279eaa2280ff9ce42c631ee0ee8",
+      "crop_box": null,
+      "image_size": [
+        1920,
+        1080
+      ],
+      "reference_corners": [
+        [
+          832.1669921875,
+          242.5760040283203
+        ],
+        [
+          1218.489990234375,
+          251.96600341796875
+        ],
+        [
+          1307.68994140625,
+          756.2459716796875
+        ],
+        [
+          844.1680297851562,
+          760.60498046875
+        ]
+      ],
+      "reference_area_ratio": 0.10468447525316892,
+      "status": "rejected",
+      "error": "Could not find a full A4 page outline. Move closer so the paper fills more of the photo. Re-shoot flat on a contrasting background with all four paper edges visible, or supply manual corners."
+    },
+    {
+      "sample_id": "magazine001-0198",
+      "source_group": "magazine001",
+      "variant": "oracle-centered-crop",
+      "source_sha256": "a50eba5463f517ce1aeb425e0a26e495bcdf2279eaa2280ff9ce42c631ee0ee8",
+      "crop_box": [
+        699,
+        97,
+        1442,
+        907
+      ],
+      "image_size": [
+        743,
+        810
+      ],
+      "reference_corners": [
+        [
+          133.1669921875,
+          145.5760040283203
+        ],
+        [
+          519.489990234375,
+          154.96600341796875
+        ],
+        [
+          608.68994140625,
+          659.2459716796875
+        ],
+        [
+          145.16802978515625,
+          663.60498046875
+        ]
+      ],
+      "reference_area_ratio": 0.36068944367175293,
+      "status": "detected",
+      "predicted_corners": [
+        [
+          70.0,
+          144.0
+        ],
+        [
+          518.0,
+          153.0
+        ],
+        [
+          606.0,
+          658.0
+        ],
+        [
+          144.0,
+          663.0
+        ]
+      ],
+      "metrics": {
+        "polygon_iou": 0.9213281031628636,
+        "corner_rmse_px_cyclic": 31.658950805664062,
+        "corner_rmse_image_diagonal": 0.028802903451126575
+      }
+    }
+  ]
+}

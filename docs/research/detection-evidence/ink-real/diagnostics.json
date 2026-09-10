@@ -1,0 +1,55 @@
+{
+  "noGroundTruth": true,
+  "diagnostics": [
+    {
+      "source": "output/detection-sources/handwriting/commons-001-Cesare-Borgia-handwritten-letter-2.jpg",
+      "noGroundTruth": true,
+      "width": 230,
+      "height": 360,
+      "globalForegroundRatio": 0.09654589371980676,
+      "adaptiveForegroundRatio": 0.14634057971014494,
+      "differingPixelRatio": 0.049842995169082124,
+      "panel": "output/detection-panels/ink-mask/commons-001-Cesare-Borgia-handwritten-letter-2-panel.png"
+    },
+    {
+      "source": "output/detection-sources/handwriting/commons-002-William-Burnett-Letter-May-24-1726---NARA---193049.jpg",
+      "noGroundTruth": true,
+      "width": 360,
+      "height": 264,
+      "globalForegroundRatio": 0.11549873737373738,
+      "adaptiveForegroundRatio": 0.142371632996633,
+      "differingPixelRatio": 0.027125420875420875,
+      "panel": "output/detection-panels/ink-mask/commons-002-William-Burnett-Letter-May-24-1726---NARA---193049-panel.png"
+    },
+    {
+      "source": "output/detection-sources/handwriting/commons-003-Annie-Fields-to-Sarah-Watson-Dana-26-March-1867-afcfff9e-1414-44c2-84c3-98c42497f8ef-.jpg",
+      "noGroundTruth": true,
+      "width": 360,
+      "height": 291,
+      "globalForegroundRatio": 0.0404639175257732,
+      "adaptiveForegroundRatio": 0.05598510882016037,
+      "differingPixelRatio": 0.015521191294387171,
+      "panel": "output/detection-panels/ink-mask/commons-003-Annie-Fields-to-Sarah-Watson-Dana-26-March-1867-afcfff9e-1414-44c2-84c3-98c42497f8ef--panel.png"
+    },
+    {
+      "source": "output/detection-sources/handwriting/commons-004-J-zef-Che-mo-ski-list-1859.jpg",
+      "noGroundTruth": true,
+      "width": 264,
+      "height": 360,
+      "globalForegroundRatio": 0.06876052188552188,
+      "adaptiveForegroundRatio": 0.08872053872053873,
+      "differingPixelRatio": 0.019960016835016834,
+      "panel": "output/detection-panels/ink-mask/commons-004-J-zef-Che-mo-ski-list-1859-panel.png"
+    },
+    {
+      "source": "output/detection-sources/handwriting/commons-005-George-Washington-Letter-to-Mrs.-Carroll-November-22-1789---DPLA---2a7955d332258a03f27b386.gif",
+      "noGroundTruth": true,
+      "width": 287,
+      "height": 360,
+      "globalForegroundRatio": 0.07686798296554394,
+      "adaptiveForegroundRatio": 0.12508710801393727,
+      "differingPixelRatio": 0.04821912504839334,
+      "panel": "output/detection-panels/ink-mask/commons-005-George-Washington-Letter-to-Mrs.-Carroll-November-22-1789---DPLA---2a7955d332258a03f27b386-panel.png"
+    }
+  ]
+}

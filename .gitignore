@@ -23,3 +23,12 @@ web/test-results/
 
 # Local web-research cache
 .firecrawl/
+
+# Optional local pretrained weights
+.models/
+
+# Deployment credentials are local only.
+.env.beta
+
+# Root Playwright runtime results
+/test-results/

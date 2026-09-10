@@ -1,0 +1,83 @@
+# Standalone invite-only profile; NOT an override of the local compose file.
+# docker compose --env-file .env.beta -f docker-compose.beta.yml up --build -d
+x-python: &python
+  build:
+    context: .
+    dockerfile: Dockerfile.api
+    args:
+      INSTALL_ML: ${INSTALL_ML:-false}
+  env_file: ${BETA_ENV_FILE:-.env.beta}
+  environment:
+    DEPLOYMENT_MODE: invite_beta
+    PROCESS_JOBS_INLINE: "0"
+  init: true
+  restart: unless-stopped
+  read_only: true
+  tmpfs:
+    - /tmp:size=512m,mode=1777
+  volumes:
+    - ./.models:/models:ro
+  security_opt:
+    - no-new-privileges:true
+  cap_drop: [ALL]
+  mem_limit: 4g
+  cpus: 2.0
+
+services:
+  migrate:
+    <<: *python
+    command: python scripts/migrate.py
+    restart: "no"
+  api:
+    <<: *python
+    command: python -m handwrite_font_maker.web.server
+    environment:
+      DEPLOYMENT_MODE: invite_beta
+      HOST: 0.0.0.0
+      PORT: "8000"
+      PROCESS_JOBS_INLINE: "0"
+    expose: ["8000"]
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    healthcheck:
+      test: [CMD, python, -c, "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/readyz', timeout=5)"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+  worker:
+    <<: *python
+    command: python -m handwrite_font_maker.web.worker_loop
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+  cleanup:
+    <<: *python
+    command: python -m handwrite_font_maker.web.cleanup
+    mem_limit: 256m
+    cpus: 0.5
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile.web
+    environment:
+      DEPLOYMENT_MODE: invite_beta
+      SITE_URL: ${SITE_URL:?Set SITE_URL}
+      SUPABASE_URL: ${SUPABASE_URL:?Set SUPABASE_URL}
+      SUPABASE_ANON_KEY: ${SUPABASE_ANON_KEY:?Set SUPABASE_ANON_KEY}
+      INTERNAL_API_KEY: ${INTERNAL_API_KEY:?Set INTERNAL_API_KEY}
+      WORKER_API_BASE_URL: http://api:8000
+      PORT: "3000"
+    ports: ["127.0.0.1:3000:3000"]
+    init: true
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    cap_drop: [ALL]
+    mem_limit: 768m
+    depends_on:
+      api:
+        condition: service_healthy

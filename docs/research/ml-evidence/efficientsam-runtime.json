@@ -1,0 +1,40 @@
+{
+  "model": "yunyangx/EfficientSAM",
+  "revision": "d8dbb1eee73bfb3392aa6f6e8944aeb13f3f4036",
+  "variant": "fp32",
+  "provider": "CPUExecutionProvider",
+  "intra_op_threads": 2,
+  "inter_op_threads": 1,
+  "environment": "macOS-26.5-arm64-arm-64bit-Mach-O",
+  "python": "3.14.7",
+  "weights_bytes": 41365489,
+  "runs": [
+    {
+      "kind": "cold",
+      "wall_seconds": 0.7376,
+      "cpu_seconds": 1.3683,
+      "foreground_pixels": 31723
+    },
+    {
+      "kind": "warm",
+      "wall_seconds": 0.6691,
+      "cpu_seconds": 1.3358,
+      "foreground_pixels": 31723
+    },
+    {
+      "kind": "warm",
+      "wall_seconds": 0.7055,
+      "cpu_seconds": 1.4026,
+      "foreground_pixels": 31723
+    },
+    {
+      "kind": "warm",
+      "wall_seconds": 0.7982,
+      "cpu_seconds": 1.5924,
+      "foreground_pixels": 31723
+    }
+  ],
+  "warm_median_seconds": 0.7055,
+  "process_peak_rss_bytes": 1385398272,
+  "scope": "Isolated process on a shared development host; repeated synthetic image with known prompts. No representative p95, cloud cost or general quality claim."
+}

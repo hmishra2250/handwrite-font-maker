@@ -1,0 +1,30 @@
+{
+  "method": "slimsam",
+  "modelId": "Xenova/slimsam-77-uniform@5850ab45f587c112167512ffef949107115e26a0:fp32",
+  "warnings": [],
+  "editorBounds": {
+    "canvasRight": 579.90625,
+    "editorRight": 607.8125,
+    "cellRight": 608.8125,
+    "columnRight": 608.8125,
+    "canvasWidth": 220,
+    "editorWidth": 259.90625,
+    "cellWidth": 261.90625,
+    "documentWidth": 1280,
+    "viewport": 1280
+  },
+  "mobileEditorBounds": {
+    "editorRight": 340,
+    "frameRight": 341,
+    "columnRight": 341,
+    "documentWidth": 390,
+    "viewport": 390
+  },
+  "counterDotMainPreserved": true,
+  "brushChangedPixels": true,
+  "undoExact": true,
+  "resetExact": true,
+  "generatedFontLoaded": true,
+  "ttfBytes": 2328,
+  "errors": []
+}

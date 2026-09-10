@@ -8,7 +8,24 @@ WORKDIR /app
 COPY pyproject.toml README.md /app/
 COPY src /app/src
 COPY scripts /app/scripts
-RUN pip install --no-cache-dir -e .
+COPY licenses /app/licenses
+COPY supabase/migrations /app/supabase/migrations
+ARG INSTALL_ML=false
+RUN if [ "$INSTALL_ML" = "true" ]; then pip install --no-cache-dir -e ".[ml]"; else pip install --no-cache-dir -e .; fi
 
+# Optional immutable model image: verified downloads happen at build time, never in a request.
+ARG INSTALL_MODELS=none
+RUN case "$INSTALL_MODELS" in \
+      none) ;; \
+      efficientsam|slimsam) test "$INSTALL_ML" = "true" && python scripts/install_segmentation_model.py --model "$INSTALL_MODELS" --directory "/models/$INSTALL_MODELS" ;; \
+      both) test "$INSTALL_ML" = "true" && python scripts/install_segmentation_model.py --model efficientsam --directory /models/efficientsam && python scripts/install_segmentation_model.py --model slimsam --directory /models/slimsam ;; \
+      *) echo "INSTALL_MODELS must be none, efficientsam, slimsam, or both"; exit 1 ;; \
+    esac
+
+RUN useradd --uid 10001 --create-home app \
+  && mkdir -p /data/objects /models \
+  && chown -R app:app /data /models
+USER app
 ENV PYTHONUNBUFFERED=1
+ENV PYTHONDONTWRITEBYTECODE=1
 CMD ["python", "-m", "handwrite_font_maker.web.server"]

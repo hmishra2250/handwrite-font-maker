@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Callable, Protocol
@@ -22,6 +23,10 @@ from .contracts import (
 )
 
 
+class LeaseLostError(RuntimeError):
+    """This attempt no longer owns the job; it must not publish results."""
+
+
 @dataclass
 class JobRecord:
     id: str
@@ -34,6 +39,11 @@ class JobRecord:
     artifacts: list[JobArtifact] = field(default_factory=list)
     error: JobError | None = None
     retention_expires_at: str = field(default_factory=retention_expires_at)
+
+    owner_id: str | None = None
+    attempt_id: str | None = None
+    lease_owner: str | None = None
+    attempt_count: int = 0
 
     def as_response(self, signed_url_for: Callable[[str], str] | None = None) -> dict[str, object]:
         artifacts = [_artifact_response(artifact, signed_url_for=signed_url_for) for artifact in self.artifacts]
@@ -76,7 +86,7 @@ def progress_label(stage: JobStage) -> str:
 
 
 class JobStore(Protocol):
-    def create(self, input_photo: InputPhoto, font: FontRequest, capture: CaptureConfig | None = None) -> JobRecord: ...
+    def create(self, input_photo: InputPhoto, font: FontRequest, capture: CaptureConfig | None = None, owner_id: str | None = None) -> JobRecord: ...
     def get(self, job_id: str) -> JobRecord | None: ...
     def next_queued(self) -> JobRecord | None: ...
     def save(self, job: JobRecord) -> None: ...
@@ -97,8 +107,8 @@ class JsonJobStore:
     def _write(self, data: dict[str, dict[str, object]]) -> None:
         self.path.write_text(json.dumps(data, indent=2), encoding="utf-8")
 
-    def create(self, input_photo: InputPhoto, font: FontRequest, capture: CaptureConfig | None = None) -> JobRecord:
-        job = JobRecord(id=new_job_id(), input_photo=input_photo, font=font, capture=capture)
+    def create(self, input_photo: InputPhoto, font: FontRequest, capture: CaptureConfig | None = None, owner_id: str | None = None) -> JobRecord:
+        job = JobRecord(id=new_job_id(), input_photo=input_photo, font=font, capture=capture, owner_id=owner_id)
         self.save(job)
         return job
 
@@ -122,6 +132,10 @@ class JsonJobStore:
 def _to_row(job: JobRecord) -> dict[str, object]:
     return {
         "id": job.id,
+        "owner_id": job.owner_id,
+        "attempt_id": job.attempt_id,
+        "lease_owner": job.lease_owner,
+        "attempt_count": job.attempt_count,
         "input_photo": asdict(job.input_photo),
         "font": asdict(job.font),
         "capture": capture_to_json(job.capture),
@@ -139,6 +153,10 @@ def _from_row(row: dict[str, object]) -> JobRecord:
 
     return JobRecord(
         id=str(row["id"]),
+        owner_id=str(row["owner_id"]) if row.get("owner_id") else None,
+        attempt_id=str(row["attempt_id"]) if row.get("attempt_id") else None,
+        lease_owner=str(row["lease_owner"]) if row.get("lease_owner") else None,
+        attempt_count=int(row.get("attempt_count") or 0),
         input_photo=InputPhoto(**row["input_photo"]),  # type: ignore[arg-type]
         font=FontRequest(**row["font"]),  # type: ignore[arg-type]
         capture=capture_from_json(row.get("capture")),
@@ -161,17 +179,17 @@ class PostgresJobStore:
         self._psycopg = psycopg
 
     def _connect(self):
-        return self._psycopg.connect(self.database_url)
+        return self._psycopg.connect(self.database_url, connect_timeout=5, options="-c statement_timeout=10000 -c lock_timeout=5000")
 
-    def create(self, input_photo: InputPhoto, font: FontRequest, capture: CaptureConfig | None = None) -> JobRecord:
-        job = JobRecord(id=new_job_id(), input_photo=input_photo, font=font, capture=capture)
+    def create(self, input_photo: InputPhoto, font: FontRequest, capture: CaptureConfig | None = None, owner_id: str | None = None) -> JobRecord:
+        job = JobRecord(id=new_job_id(), input_photo=input_photo, font=font, capture=capture, owner_id=owner_id)
         bucket = input_photo.bucket or "handwrite-font-jobs"
         with self._connect() as conn, conn.cursor() as cur:
             cur.execute(
                 """
                 insert into jobs (id, status, stage, font_name, family_name, style_name,
-                  input_bucket, input_path, input_content_type, input_size_bytes, capture_config, retention_expires_at)
-                values (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s::jsonb,%s::timestamptz)
+                  input_bucket, input_path, input_content_type, input_size_bytes, capture_config, retention_expires_at, owner_id)
+                values (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s::jsonb,%s::timestamptz,%s::uuid)
                 """,
                 (
                     job.id,
@@ -186,6 +204,7 @@ class PostgresJobStore:
                     input_photo.size_bytes,
                     json.dumps(capture_to_json(capture)),
                     job.retention_expires_at,
+                    owner_id,
                 ),
             )
         return job
@@ -204,25 +223,69 @@ class PostgresJobStore:
             artifacts = [JobArtifact(kind=r[0], label=r[1], object_key=r[2], content_type=r[3], size_bytes=r[4]) for r in cur.fetchall()]
         return _from_postgres_row(job_row, warnings, artifacts)
 
+    @property
+    def lease_seconds(self) -> int:
+        return max(10, int(os.environ.get("JOB_LEASE_SECONDS", "60")))
+
+    @property
+    def max_attempts(self) -> int:
+        return max(1, int(os.environ.get("JOB_MAX_ATTEMPTS", "3")))
+
     def next_queued(self) -> JobRecord | None:
+        return self.claim()
+
+    def claim(self, job_id: str | None = None) -> JobRecord | None:
         with self._connect() as conn, conn.cursor() as cur:
+            # Expiry and exhausted crashed attempts become terminal even with an empty queue.
+            cur.execute("""update jobs set status='expired', lease_owner=null, lease_expires_at=null,
+                           updated_at=now() where status in ('queued','running') and retention_expires_at<=now()""")
+            cur.execute("""update jobs set status='failed', error_code='INTERNAL_ERROR',
+                           error_message='Processing attempts exhausted.', error_retryable=false,
+                           lease_owner=null, lease_expires_at=null, completed_at=now(), updated_at=now()
+                           where status in ('queued','running') and attempt_count>=%s
+                           and (status='queued' or lease_expires_at is null or lease_expires_at<=now())""", (self.max_attempts,))
             cur.execute(
                 """
-                update jobs
-                set status = 'running', stage = 'upload_received', lease_owner = gen_random_uuid()::text,
-                    lease_expires_at = now() + interval '10 minutes', updated_at = now()
+                update jobs set status='running', stage='upload_received',
+                    lease_owner=gen_random_uuid()::text, attempt_id=gen_random_uuid()::text,
+                    attempt_count=attempt_count+1,
+                    lease_expires_at=now() + %s * interval '1 second', updated_at=now(),
+                    error_code=null, error_message=null, error_retryable=null, error_details='{}'::jsonb
                 where id = (
-                  select id from jobs where status = 'queued' order by created_at for update skip locked limit 1
-                )
-                returning *
-                """
+                    select id from jobs where
+                    (status='queued' or (status='running' and (lease_expires_at is null or lease_expires_at<=now())))
+                    and retention_expires_at>now() and attempt_count<%s
+                    and (%s::text is null or id=%s)
+                    order by created_at, id for update skip locked limit 1
+                ) returning *
+                """, (self.lease_seconds, self.max_attempts, job_id, job_id)
             )
             row = cur.fetchone()
             if row is None:
                 return None
-            cols = [desc.name for desc in cur.description]
-            job_row = dict(zip(cols, row, strict=True))
+            job_row = dict(zip([desc.name for desc in cur.description], row, strict=True))
         return _from_postgres_row(job_row, [], [])
+
+    def heartbeat(self, job: JobRecord) -> bool:
+        with self._connect() as conn, conn.cursor() as cur:
+            cur.execute("""update jobs set lease_expires_at=now()+%s*interval '1 second', updated_at=now()
+                           where id=%s and attempt_id=%s and lease_owner=%s and status='running'
+                           and lease_expires_at>now() and retention_expires_at>now()""",
+                        (self.lease_seconds, job.id, job.attempt_id, job.lease_owner))
+            return cur.rowcount == 1
+
+    def retry_attempt(self, job: JobRecord, *, reason: str = "Worker interrupted") -> bool:
+        """Release a crashed/timed-out attempt. Fence prevents a late supervisor changing a new claim."""
+        with self._connect() as conn, conn.cursor() as cur:
+            cur.execute("""update jobs set status=case when attempt_count<%s then 'queued' else 'failed' end,
+                           stage='queued', lease_owner=null, lease_expires_at=null,
+                           error_code='INTERNAL_ERROR', error_message=%s, error_retryable=(attempt_count<%s),
+                           updated_at=now(), completed_at=case when attempt_count>=%s then now() else null end
+                           where id=%s and attempt_id=%s and lease_owner=%s and status='running'
+                           and lease_expires_at>now() and retention_expires_at>now()""",
+                        (self.max_attempts, reason, self.max_attempts, self.max_attempts,
+                         job.id, job.attempt_id, job.lease_owner))
+            return cur.rowcount == 1
 
     def save(self, job: JobRecord) -> None:
         with self._connect() as conn, conn.cursor() as cur:
@@ -231,7 +294,8 @@ class PostgresJobStore:
                 update jobs
                 set status=%s, stage=%s, capture_config=%s::jsonb, error_code=%s, error_message=%s, error_retryable=%s,
                     error_details=%s::jsonb, updated_at=now(), completed_at = case when %s then now() else completed_at end
-                where id=%s
+                where id=%s and attempt_id=%s and lease_owner=%s and status='running'
+                  and lease_expires_at>now() and retention_expires_at>now()
                 """,
                 (
                     job.status.value,
@@ -243,8 +307,12 @@ class PostgresJobStore:
                     json.dumps({} if job.error is None else job.error.details),
                     job.status in {JobStatus.SUCCEEDED, JobStatus.FAILED, JobStatus.EXPIRED},
                     job.id,
+                    job.attempt_id,
+                    job.lease_owner,
                 ),
             )
+            if cur.rowcount != 1:
+                raise LeaseLostError("Job lease lost or expired")
             cur.execute("delete from job_warnings where job_id=%s", (job.id,))
             for warning in job.warnings:
                 cur.execute("insert into job_warnings (job_id, code, glyph, message, severity, details) values (%s,%s,%s,%s,%s,%s::jsonb)", (job.id, warning.code, warning.glyph, warning.message, warning.severity, json.dumps(warning.details)))
@@ -260,6 +328,10 @@ def _from_postgres_row(row: dict[str, object], warnings: list[JobWarning], artif
         error = JobError(code=HardErrorCode(str(row["error_code"])), message=str(row.get("error_message") or ""), retryable=bool(row.get("error_retryable")), details=row.get("error_details") or {})  # type: ignore[arg-type]
     return JobRecord(
         id=str(row["id"]),
+        owner_id=str(row["owner_id"]) if row.get("owner_id") else None,
+        attempt_id=str(row["attempt_id"]) if row.get("attempt_id") else None,
+        lease_owner=str(row["lease_owner"]) if row.get("lease_owner") else None,
+        attempt_count=int(row.get("attempt_count") or 0),
         input_photo=InputPhoto(object_key=str(row["input_path"]), bucket=str(row["input_bucket"]), content_type=str(row["input_content_type"]), size_bytes=int(row["input_size_bytes"])),
         font=FontRequest(font_name=str(row["font_name"]), family_name=str(row["family_name"]), style_name=str(row["style_name"])),
         capture=capture_from_json(row.get("capture_config")),

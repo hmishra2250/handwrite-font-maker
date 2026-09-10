@@ -1,7 +1,7 @@
 # Handwrite Font Maker
 
 Turn handwriting or user-selected handmade shapes into actual TTF/OTF fonts.
-**Current release: local/private alpha, not a production-ready paid SaaS.**
+**Current release: local capture app + invite-only beta deployment profile. Not a paid/public SaaS launch.**
 
 ## Capture workflows
 
@@ -14,6 +14,34 @@ and builds/validates fonts with FontForge. Dots, holes and disconnected componen
 must not be discarded as generic background cleanup. Photographic color, complex
 script shaping, automatic professional kerning and arbitrary-background accuracy
 are not supported promises.
+
+## Finish and resume a font
+
+Create a saved project, then start with five characters (`ABCDE`) using your own captures or the clearly labeled synthetic sample. Accepted masks are uploaded once and reused for rebuilds. The project library restores masks, metadata, selected characters, and template sheet/corner state; concurrent edits produce a revision conflict instead of silent overwrites.
+
+Review the target-glyph grid, adjust baseline, scale, and spacing, then rebuild to change the actual exported font. Download the ZIP with TTF/OTF, character map, and installation notes. Installing a font remains a user/OS action; the app does not silently install into Office.
+
+Invite-beta projects expire after seven days without a successful edit (maximum ten live projects). Jobs and downloads have a separate 24-hour window. Optional account-linked usage counts and text feedback require consent and have a 30-day cleanup window. No photo attachments or third-party analytics are used. Local JSON storage is single-user development only.
+
+## Deploy the invite beta
+
+Start with [the deployment runbook](docs/DEPLOYMENT.md) and `.env.beta.example`.
+The beta profile separates authenticated Next/Python APIs, owner-scoped PostgreSQL
+records, a leased worker, private storage, and retention cleanup. Use
+`docker-compose.beta.yml` or the staged Render blueprint; public signup and billing
+remain disabled. Hosted provider acceptance and Office checks are still required.
+
+The [real nature-photo experiment](docs/research/nature-experiments.md) compares
+leaf, oak, fern, and satellite-river captures. Reviewed leaf/fern masks become real
+ornament-font glyphs; rejected river/delta results are retained rather than sold as
+successful extraction. These examples do not synthesize a readable alphabet.
+
+The [internet-sample detection-quality report](docs/research/detection-evidence/README.md)
+records paired leaf benchmarks, handwriting comparisons, actual font-detail fixes,
+and remaining page/river limitations. Adaptive ink thresholding is optional;
+ML extraction is not universally better than the deterministic path.
+The [follow-on page-corner safety pass](docs/research/page-corner-evidence/README.md)
+rejects weak/ambiguous outlines and protects manual edits from late detection responses.
 
 ## Run locally
 
@@ -30,19 +58,36 @@ cd web && npm ci && cd ..
 In separate terminals:
 
 ```bash
-HOST=127.0.0.1 PORT=8000 JOB_STORE_PATH=/tmp/handwrite-jobs.json \
+DEPLOYMENT_MODE=local HOST=127.0.0.1 PORT=8000 JOB_STORE_PATH=/tmp/handwrite-jobs.json \
 LOCAL_OBJECT_ROOT=/tmp/handwrite-objects PROCESS_JOBS_INLINE=1 \
 .venv/bin/python -m handwrite_font_maker.web.server
 ```
 
 ```bash
 cd web
-WORKER_API_BASE_URL=http://127.0.0.1:8000 npm run dev -- --port 3000
+DEPLOYMENT_MODE=local WORKER_API_BASE_URL=http://127.0.0.1:8000 npm run dev -- --port 3000
 ```
 
 Open http://localhost:3000. Without a configured worker the UI reports unavailable
 builds; it does not simulate successful font downloads. Alternatively use
 `docker compose up --build`; published development ports bind to localhost.
+
+## Optional local ML cutouts
+
+The app includes two **real, optional pretrained ONNX models** alongside deterministic ink extraction and GrabCut:
+- **AI box cutout (EfficientSAM):** select a rectangle; no point prompts required.
+- **SlimSAM point cutout:** add keep/exclude clicks for ambiguous shapes.
+
+```sh
+.venv/bin/pip install -e '.[ml]'
+.venv/bin/python scripts/install_segmentation_model.py --model efficientsam
+.venv/bin/python scripts/install_segmentation_model.py --model slimsam
+```
+
+Models run locally; weights are explicitly installed, pinned and hash-verified.
+Review the mask and use the reversible add/erase brush before accepting a glyph.
+Neither model guarantees arbitrary-background accuracy or preserves photographic color.
+See [setup, resource requirements and limitations](docs/ML-SEGMENTATION.md).
 
 ## CLI
 

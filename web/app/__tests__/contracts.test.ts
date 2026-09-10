@@ -1,5 +1,14 @@
 import { describe, expect, it } from 'vitest';
-import { HARD_ERROR_CODES, isSafeFontName, isSupportedImage, validateCaptureConfig } from '@/lib/contracts';
+import {
+  HARD_ERROR_CODES,
+  isSafeFontName,
+  isSupportedImage,
+  isValidCaptureForegroundMethod,
+  isValidCaptureForegroundPromptPoints,
+  isValidCaptureForegroundStyle,
+  isValidCaptureForegroundThreshold,
+  validateCaptureConfig,
+} from '@/lib/contracts';
 
 describe('web contract', () => {
   it('keeps hard error taxonomy for capture and font failures', () => {
@@ -18,6 +27,26 @@ describe('web contract', () => {
     expect(isSafeFontName('bad font')).toBe(false);
   });
 
+  it('validates foreground segmentation request fields', () => {
+    expect(isValidCaptureForegroundMethod('auto')).toBe(true);
+    expect(isValidCaptureForegroundMethod('model')).toBe(true);
+    expect(isValidCaptureForegroundMethod('box-model')).toBe(true);
+    expect(isValidCaptureForegroundMethod('grabcut')).toBe(true);
+    expect(isValidCaptureForegroundMethod('threshold')).toBe(false);
+    expect(isValidCaptureForegroundStyle('silhouette')).toBe(true);
+    expect(isValidCaptureForegroundStyle('ink')).toBe(true);
+    expect(isValidCaptureForegroundStyle('color')).toBe(false);
+    expect(isValidCaptureForegroundThreshold(1)).toBe(true);
+    expect(isValidCaptureForegroundThreshold(254)).toBe(true);
+    expect(isValidCaptureForegroundThreshold(0)).toBe(false);
+    expect(isValidCaptureForegroundThreshold(255)).toBe(false);
+    expect(isValidCaptureForegroundThreshold(128.5)).toBe(false);
+    expect(isValidCaptureForegroundPromptPoints([{ x: 0.5, y: 0.25, label: 1 }, { x: 0, y: 1, label: 0 }])).toBe(true);
+    expect(isValidCaptureForegroundPromptPoints([{ x: 1.1, y: 0.25, label: 1 }])).toBe(false);
+    expect(isValidCaptureForegroundPromptPoints([{ x: 0.5, y: 0.25, label: 2 }])).toBe(false);
+    expect(isValidCaptureForegroundPromptPoints(Array.from({ length: 17 }, () => ({ x: 0.5, y: 0.5, label: 1 })))).toBe(false);
+  });
+
   it('accepts frozen markerless template capture config only with confirmed corners', () => {
     const valid = {
       mode: 'template',
@@ -34,8 +63,16 @@ describe('web contract', () => {
   it('accepts guided mask-v1 glyph configs and rejects duplicate or unsupported labels', () => {
     const inputPhoto = { objectKey: 'jobs/test/input/glyph.png', contentType: 'image/png', sizeBytes: 500 };
     expect(validateCaptureConfig({ mode: 'guided', format: 'mask-v1', glyphs: [{ char: 'A', inputPhoto, baseline: 0.8 }] })).toBeNull();
+    expect(validateCaptureConfig({ mode: 'guided', format: 'mask-v1', glyphs: [{ char: 'B', inputPhoto, baseline: 0.8, scale: 0.5, spacing: -0.05 }] })).toBeNull();
+    expect(validateCaptureConfig({ mode: 'guided', format: 'mask-v1', glyphs: [{ char: 'C', inputPhoto, baseline: 0.8, scale: 1.5, spacing: 0.25 }] })).toBeNull();
     expect(validateCaptureConfig({ mode: 'guided', format: 'mask-v1', glyphs: [{ char: ' ', inputPhoto, baseline: 0.8 }] })).toContain('printable');
     expect(validateCaptureConfig({ mode: 'guided', format: 'mask-v1', glyphs: [{ char: 'A', inputPhoto, baseline: 0.8 }, { char: 'A', inputPhoto, baseline: 0.7 }] })).toContain('unique');
     expect(validateCaptureConfig({ mode: 'guided', format: 'mask-v1', glyphs: [{ char: 'A', inputPhoto, baseline: 1 }] })).toContain('baseline');
+    expect(validateCaptureConfig({ mode: 'guided', format: 'mask-v1', glyphs: [{ char: 'A', inputPhoto, baseline: 0.8, scale: 0.49 }] })).toContain('scale');
+    expect(validateCaptureConfig({ mode: 'guided', format: 'mask-v1', glyphs: [{ char: 'A', inputPhoto, baseline: 0.8, scale: 1.51 }] })).toContain('scale');
+    expect(validateCaptureConfig({ mode: 'guided', format: 'mask-v1', glyphs: [{ char: 'A', inputPhoto, baseline: 0.8, scale: '1' }] })).toContain('scale');
+    expect(validateCaptureConfig({ mode: 'guided', format: 'mask-v1', glyphs: [{ char: 'A', inputPhoto, baseline: 0.8, spacing: -0.051 }] })).toContain('spacing');
+    expect(validateCaptureConfig({ mode: 'guided', format: 'mask-v1', glyphs: [{ char: 'A', inputPhoto, baseline: 0.8, spacing: 0.251 }] })).toContain('spacing');
+    expect(validateCaptureConfig({ mode: 'guided', format: 'mask-v1', glyphs: [{ char: 'A', inputPhoto, baseline: 0.8, spacing: false }] })).toContain('spacing');
   });
 });

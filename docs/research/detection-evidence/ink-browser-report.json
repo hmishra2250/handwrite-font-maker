@@ -1,0 +1,23 @@
+{
+  "scope": "Synthetic alpha/shadow/thin-ring/dot end-to-end regression, not real-photo accuracy",
+  "method": "adaptive-local",
+  "pixels": [
+    255,
+    255,
+    255,
+    0,
+    0
+  ],
+  "scriptedEraserStrokes": 3,
+  "repairedPixels": [
+    255,
+    255,
+    255,
+    255,
+    0,
+    0
+  ],
+  "generatedFontLoaded": true,
+  "ttfBytes": 1748,
+  "errors": []
+}

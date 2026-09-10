@@ -1,0 +1,35 @@
+{
+  "kind": "real-object-source-manifest-v1",
+  "scope": "Licensed real-object segmentation cohort source with independent published reference masks; model predictions are never used as ground truth.",
+  "mask_convention": "Published masks are normalized by the collector/benchmark to uint8 grayscale: 0/black = foreground object, 255/white = background.",
+  "target_sample_count": 72,
+  "split_policy": "Deterministic source-group split. When plant/session metadata is unavailable, group by numeric image-id hundred-bucket and assign whole groups to dev or heldout by SHA-256 modulo 5.",
+  "sources": [
+    {
+      "source_id": "mendeley-46n94cngkx-v1",
+      "dataset_name": "Multi_layer graph plant leaf segmentation",
+      "repository": "Mendeley Data",
+      "doi": "10.17632/46n94cngkx.1",
+      "landing_url": "https://data.mendeley.com/datasets/46n94cngkx",
+      "api_url": "https://data.mendeley.com/public-api/datasets/46n94cngkx",
+      "published_date": "2024-03-15",
+      "license": {
+        "name": "Creative Commons Attribution 4.0 International",
+        "short_name": "CC BY 4.0",
+        "url": "http://creativecommons.org/licenses/by/4.0",
+        "evidence": "Mendeley Data public API data_licence.short_name and data_licence.url for dataset 46n94cngkx version 1."
+      },
+      "description_evidence": "Dataset description states it contains 233 high-resolution leaf images in natural environments and a mask folder with ground truth masks.",
+      "archive": {
+        "filename": "Plant_Leaf_Segmentation.rar",
+        "size_bytes": 19481164,
+        "sha256": "a654735869f8e0b77ca485bccdd2e1c3f2cf261e98b2c6af3dcf4758bf1dbb65",
+        "download_url": "https://data.mendeley.com/public-files/datasets/46n94cngkx/files/da8e90e0-5417-489d-b162-d89f78d14c1a/file_downloaded",
+        "dataset_root": "Plant_Leaf_Segmentation",
+        "image_dir": "image",
+        "mask_dir": "mask"
+      },
+      "attribution": "Lyasmine ADADA, Idir Filali, Samia Bouzefrane. Multi_layer graph plant leaf segmentation. Mendeley Data, V1, 2024. DOI: 10.17632/46n94cngkx.1."
+    }
+  ]
+}

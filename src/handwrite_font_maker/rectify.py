@@ -19,6 +19,12 @@ MAX_IMAGE_SIDE_PX = 10_000
 MIN_PAGE_AREA_RATIO = 0.18
 MIN_MANUAL_AREA_RATIO = 0.04
 DETECTION_BORDER_MARGIN_PX = 6.0
+MIN_AUTO_CONTOUR_QUAD_AREA_FIT = 0.78
+MIN_AUTO_EDGE_SUPPORT_AVERAGE = 0.62
+MIN_AUTO_EDGE_SUPPORT_PER_EDGE = 0.25
+MIN_AUTO_PAGE_ASPECT_RATIO = 0.50
+AMBIGUOUS_CANDIDATE_SCORE_RATIO = 0.92
+SAME_PAGE_OVERLAP_RATIO = 0.82
 
 
 def _cv2():
@@ -36,6 +42,17 @@ class RectifiedDocument:
     geometry: TemplateGeometry
     reprojection_error_px: float
     alignment: str = "markers"
+
+
+@dataclass(frozen=True)
+class _PageCandidate:
+    quad: np.ndarray
+    score: float
+    area_ratio: float
+    area_fit: float
+    edge_support_average: float
+    edge_support_minimum: float
+    aspect_ratio: float
 
 
 def load_bgr(path: Path | str) -> np.ndarray:
@@ -56,7 +73,13 @@ def load_bgr(path: Path | str) -> np.ndarray:
                     f"Image is too large ({width}x{height}); use an image up to "
                     f"{MAX_DECODED_PIXELS:,} pixels and {MAX_IMAGE_SIDE_PX}px on its longest side."
                 )
-            oriented = ImageOps.exif_transpose(opened).convert("RGB")
+            oriented = ImageOps.exif_transpose(opened)
+            # Match the browser's visible-on-white ink preview. Dropping alpha
+            # exposes invisible RGB values as false foreground in PNG/WebP assets.
+            if 'A' in oriented.getbands() or 'transparency' in oriented.info:
+                rgba = oriented.convert('RGBA')
+                oriented = Image.alpha_composite(Image.new('RGBA', rgba.size, 'white'), rgba)
+            oriented = oriented.convert('RGB')
     except UnidentifiedImageError as exc:
         raise ValueError(f"Unsupported or unreadable image file: {path}") from exc
     except FileNotFoundError:
@@ -228,15 +251,64 @@ def _score_quad(quad: np.ndarray, *, image_width: int, image_height: int) -> flo
     return area_ratio * 6.0 + opposite_balance + ratio_score
 
 
-def _find_page_candidates(gray: np.ndarray) -> list[np.ndarray]:
+def _quad_aspect_ratio(quad: np.ndarray) -> float:
+    edges = [float(np.linalg.norm(quad[(i + 1) % 4] - quad[i])) for i in range(4)]
+    if min(edges) <= 0.0:
+        return 0.0
+    width_est = (edges[0] + edges[2]) / 2.0
+    height_est = (edges[1] + edges[3]) / 2.0
+    return min(width_est, height_est) / max(width_est, height_est)
+
+
+def _quad_edge_support(edge_map: np.ndarray, quad: np.ndarray) -> tuple[float, float]:
+    cv2 = _cv2()
+    h, w = edge_map.shape[:2]
+    support_map = cv2.dilate(edge_map, cv2.getStructuringElement(cv2.MORPH_RECT, (5, 5)), iterations=1)
+    supports: list[float] = []
+    for i in range(4):
+        start = quad[i]
+        end = quad[(i + 1) % 4]
+        length = float(np.linalg.norm(end - start))
+        if length <= 0.0:
+            supports.append(0.0)
+            continue
+        sample_count = max(16, int(round(length / 12.0)))
+        positions = np.linspace(0.02, 0.98, sample_count, dtype=np.float32)
+        points = start[None, :] + ((end - start)[None, :] * positions[:, None])
+        xs = np.clip(np.rint(points[:, 0]).astype(np.int32), 0, w - 1)
+        ys = np.clip(np.rint(points[:, 1]).astype(np.int32), 0, h - 1)
+        supports.append(float(np.mean(support_map[ys, xs] > 0)))
+    return float(np.mean(supports)), float(min(supports))
+
+
+def _quad_overlap_ratio(a: np.ndarray, b: np.ndarray) -> float:
+    area_a = abs(_polygon_signed_area(a))
+    area_b = abs(_polygon_signed_area(b))
+    if area_a <= 0.0 or area_b <= 0.0:
+        return 0.0
+    cv2 = _cv2()
+    intersection_area, _intersection = cv2.intersectConvexConvex(a.astype(np.float32), b.astype(np.float32))
+    return float(intersection_area) / min(area_a, area_b)
+
+
+def _unique_page_candidates(candidates: list[_PageCandidate]) -> list[_PageCandidate]:
+    unique: list[_PageCandidate] = []
+    for candidate in sorted(candidates, key=lambda item: item.score, reverse=True):
+        if any(_quad_overlap_ratio(candidate.quad, existing.quad) >= SAME_PAGE_OVERLAP_RATIO for existing in unique):
+            continue
+        unique.append(candidate)
+    return unique
+
+
+def _find_page_candidates(gray: np.ndarray) -> list[_PageCandidate]:
     cv2 = _cv2()
     h, w = gray.shape[:2]
-    candidates: list[np.ndarray] = []
+    candidates: list[_PageCandidate] = []
 
     blurred = cv2.GaussianBlur(gray, (5, 5), 0)
-    edges = cv2.Canny(blurred, 40, 120)
+    edge_map = cv2.Canny(blurred, 40, 120)
     kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (7, 7))
-    edges = cv2.morphologyEx(edges, cv2.MORPH_CLOSE, kernel, iterations=2)
+    edges = cv2.morphologyEx(edge_map, cv2.MORPH_CLOSE, kernel, iterations=2)
     contours, _hier = cv2.findContours(edges, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
     contours = list(contours)
 
@@ -267,7 +339,30 @@ def _find_page_candidates(gray: np.ndarray) -> list[np.ndarray]:
             )
         except ValueError:
             continue
-        candidates.append(valid)
+        quad_area = abs(_polygon_signed_area(valid))
+        contour_area = float(cv2.contourArea(contour))
+        area_fit = min(contour_area, quad_area) / max(contour_area, quad_area) if contour_area > 0.0 and quad_area > 0.0 else 0.0
+        aspect_ratio = _quad_aspect_ratio(valid)
+        edge_support_average, edge_support_minimum = _quad_edge_support(edge_map, valid)
+        if area_fit < MIN_AUTO_CONTOUR_QUAD_AREA_FIT:
+            continue
+        if aspect_ratio < MIN_AUTO_PAGE_ASPECT_RATIO:
+            continue
+        if edge_support_average < MIN_AUTO_EDGE_SUPPORT_AVERAGE or edge_support_minimum < MIN_AUTO_EDGE_SUPPORT_PER_EDGE:
+            continue
+        base_score = _score_quad(valid, image_width=w, image_height=h)
+        score = base_score * (0.65 + (0.35 * edge_support_average)) * (0.65 + (0.35 * area_fit))
+        candidates.append(
+            _PageCandidate(
+                quad=valid,
+                score=score,
+                area_ratio=quad_area / float(w * h),
+                area_fit=area_fit,
+                edge_support_average=edge_support_average,
+                edge_support_minimum=edge_support_minimum,
+                aspect_ratio=aspect_ratio,
+            )
+        )
     return candidates
 
 
@@ -299,14 +394,20 @@ def detect_page_corners(image_bgr: np.ndarray) -> np.ndarray:
     candidates = _find_page_candidates(gray)
     if not candidates:
         raise ValueError(
-            "Could not find a full A4 page outline. Re-shoot flat on a contrasting background with all four paper edges visible, or supply manual corners."
+            "Could not find a full A4 page outline. Move closer so the paper fills more of the photo. Re-shoot flat on a contrasting background with all four paper edges visible, or supply manual corners."
         )
 
     dh, dw = gray.shape[:2]
-    best = max(candidates, key=lambda quad: _score_quad(quad, image_width=dw, image_height=dh))
+    unique_candidates = _unique_page_candidates(candidates)
+    best = unique_candidates[0]
+    if len(unique_candidates) > 1 and unique_candidates[1].score >= best.score * AMBIGUOUS_CANDIDATE_SCORE_RATIO:
+        raise ValueError(
+            "Page detection found multiple similarly plausible page outlines. Supply manual corners or re-shoot with only one full page visible."
+        )
+    best_quad = best.quad
     if scale != 1.0:
-        best = best / scale
-    return best.astype(np.float32)
+        best_quad = best_quad / scale
+    return best_quad.astype(np.float32)
 
 
 def _homography_for_page_corners(corners_px: np.ndarray, geometry: TemplateGeometry) -> np.ndarray:

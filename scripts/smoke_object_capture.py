@@ -16,6 +16,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--base-url', default='http://127.0.0.1:8011')
     parser.add_argument('--output-dir', type=Path, default=Path('output/object-api-smoke'))
+    parser.add_argument('--method', choices=['auto', 'grabcut', 'model', 'box-model'], default='auto')
     args = parser.parse_args()
     if urlparse(args.base_url).hostname not in {'localhost', '127.0.0.1', '::1'}:
         parser.error('Local development service only.')
@@ -39,9 +40,16 @@ def main():
     source.save(buffer, format='PNG')
     source.save(args.output_dir / 'source.png')
     started = time.monotonic()
-    response = requests.post(base + '/capture/foreground', json={'inputPhoto':upload(buffer.getvalue(), 'source.png'), 'rectangle':[0.1,0.05,0.9,0.9]}, timeout=60)
+    capture = {'inputPhoto':upload(buffer.getvalue(), 'source.png'), 'rectangle':[0.1,0.05,0.9,0.9], 'method':args.method}
+    if args.method == 'model':
+        capture['points'] = [{'x':.275,'y':.45,'label':1}, {'x':.18,'y':.14,'label':1}, {'x':.5,'y':.5,'label':0}]
+    response = requests.post(base + '/capture/foreground', json=capture, timeout=60)
     response.raise_for_status()
     cutout = response.json()
+    if args.method == 'model':
+        assert cutout['method'] == 'slimsam' and cutout.get('modelId'), 'Expected actual pretrained model, not fallback'
+    if args.method == 'box-model':
+        assert cutout['method'] == 'efficientsam' and cutout.get('modelId'), 'Expected actual EfficientSAM, not fallback'
     mask_bytes = base64.b64decode(cutout['maskDataUrl'].split(',',1)[1])
     mask = Image.open(io.BytesIO(mask_bytes)).convert('L')
     assert mask.getpixel((195, 200)) == 255, 'Counter was lost'
@@ -73,7 +81,7 @@ def main():
     proof = Image.new('RGB', (500, 240), 'white')
     ImageDraw.Draw(proof).text((25,30), 'O O O', font=font, fill='black')
     proof.save(args.output_dir / 'proof.png')
-    report = {'status':job['status'], 'job_id':job_id, 'method':cutout['method'], 'wall_seconds':round(time.monotonic()-started,3), 'ttf_bytes':len(response.content), 'scope':'Synthetic color object; actual HTTP segmentation, accepted-mask upload, persisted build, TTF/FreeType proof. Not real-photo accuracy.'}
+    report = {'status':job['status'], 'job_id':job_id, 'method':cutout['method'], 'model_id':cutout.get('modelId'), 'warnings':cutout.get('warnings', []), 'wall_seconds':round(time.monotonic()-started,3), 'ttf_bytes':len(response.content), 'scope':'Synthetic color object; actual HTTP segmentation, accepted-mask upload, persisted build, TTF/FreeType proof. Not real-photo accuracy.'}
     (args.output_dir / 'report.json').write_text(json.dumps(report,indent=2)+'\n')
     print(json.dumps(report,indent=2))
 

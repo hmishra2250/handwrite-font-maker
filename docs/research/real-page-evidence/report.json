@@ -1,0 +1,904 @@
+{
+  "source_url": "https://zenodo.org/records/1230218",
+  "download_url": "https://zenodo.org/records/1230218/files/sampleDataset.tar.gz?download=1",
+  "archive_sha256": "90d1a64f476ffe290ebbddf4337e108d471b9c25420551223f447db972844a9a",
+  "license": "CC BY 4.0",
+  "license_url": "https://creativecommons.org/licenses/by/4.0/",
+  "attribution": "Burie, Chazalon, Coustaty, Eskenazi, Luqman, Mehri, Nayef, Ogier, Prum, Rusinol. ICDAR2015 Competition on Smartphone Document Capture and OCR (SmartDoc). ICDAR 2015.",
+  "scope": "Pinned SmartDoc sample videos: real page-outline ground-truth evaluation.\n\n24 sampled frames from THREE correlated capture clips, not 24 independent phone\nsessions. No handwriting ink masks. Printed pages are out-of-template stress\ninputs; this does not measure successful font extraction from our A4 template.\n",
+  "sampling": "Eight uniformly spaced frames per clip, chosen before detection; group=clip/document. Shared background/camera; only three groups.",
+  "split_policy": "letter001 heldout; datasheet001 and magazine001 dev; no tuning on this dataset in this run",
+  "metrics_scope": "Cyclic corner geometry, not reading orientation; all reference pages present. No absent-page false-positive estimate. IoU .90 is a diagnostic threshold, not a release acceptance claim.",
+  "product_area_gate": {
+    "minimum_ratio": 0.18,
+    "frames_meeting_minimum_area": 0,
+    "note": "Out-of-range pages are capture-constraint stress cases; do not present rejection rate as in-spec page detection accuracy."
+  },
+  "summary": {
+    "frames": 24,
+    "detected": 1,
+    "rejected": 23,
+    "mean_iou_all_frames_rejections_zero": 0.014262205783269156,
+    "wrong_suggestion_iou_below_090": 1
+  },
+  "by_split": {
+    "dev": {
+      "frames": 16,
+      "detected": 0,
+      "rejected": 16,
+      "mean_iou_all_frames_rejections_zero": 0.0,
+      "wrong_suggestion_iou_below_090": 0
+    },
+    "heldout": {
+      "frames": 8,
+      "detected": 1,
+      "rejected": 7,
+      "mean_iou_all_frames_rejections_zero": 0.04278661734980747,
+      "wrong_suggestion_iou_below_090": 1
+    }
+  },
+  "samples": [
+    {
+      "sample_id": "datasheet001-0001",
+      "source_group": "datasheet001",
+      "split": "dev",
+      "frame_index_1based": 1,
+      "image_path": "output/detection-sources/pages/datasheet001-0001.png",
+      "image_sha256": "7c5677c5599b3ec697d8cd98fba7b190b084924e72a7dc2406d70c6a68b66ec3",
+      "video_sha256": "a45f09604883d201c4e9691c67e67b3a86ffbf60470f661acf9ceac525aad6b0",
+      "annotation_sha256": "cf22c7916787712c1542881b38c06edba787147eeb88a50897e29218b288a30b",
+      "annotation_origin": "publisher SmartDoc ground_truth XML, not model output",
+      "width": 1920,
+      "height": 1080,
+      "reference_corners_tl_tr_br_bl": [
+        [
+          737.3770141601562,
+          201.38299560546875
+        ],
+        [
+          1180.7099609375,
+          199.1269989013672
+        ],
+        [
+          1259.02001953125,
+          791.9420166015625
+        ],
+        [
+          716.625,
+          805.6090087890625
+        ]
+      ],
+      "reference_area_ratio": 0.14236995045610995,
+      "status": "rejected",
+      "reason": "Could not find a full A4 page outline. Re-shoot flat on a contrasting background with all four paper edges visible, or supply manual corners.",
+      "seconds": 0.23717104201205075
+    },
+    {
+      "sample_id": "datasheet001-0031",
+      "source_group": "datasheet001",
+      "split": "dev",
+      "frame_index_1based": 31,
+      "image_path": "output/detection-sources/pages/datasheet001-0031.png",
+      "image_sha256": "5eae8526554ba8453ca3643bb3d15a7fef159cd0de6fdc7510cb84fc3ecf231b",
+      "video_sha256": "a45f09604883d201c4e9691c67e67b3a86ffbf60470f661acf9ceac525aad6b0",
+      "annotation_sha256": "cf22c7916787712c1542881b38c06edba787147eeb88a50897e29218b288a30b",
+      "annotation_origin": "publisher SmartDoc ground_truth XML, not model output",
+      "width": 1920,
+      "height": 1080,
+      "reference_corners_tl_tr_br_bl": [
+        [
+          759.4329833984375,
+          196.00100708007812
+        ],
+        [
+          1200.280029296875,
+          196.69900512695312
+        ],
+        [
+          1274.18994140625,
+          786.0269775390625
+        ],
+        [
+          733.239013671875,
+          792.7030029296875
+        ]
+      ],
+      "reference_area_ratio": 0.14042330569003686,
+      "status": "rejected",
+      "reason": "Could not find a full A4 page outline. Re-shoot flat on a contrasting background with all four paper edges visible, or supply manual corners.",
+      "seconds": 0.1316905829589814
+    },
+    {
+      "sample_id": "datasheet001-0061",
+      "source_group": "datasheet001",
+      "split": "dev",
+      "frame_index_1based": 61,
+      "image_path": "output/detection-sources/pages/datasheet001-0061.png",
+      "image_sha256": "3debbab927c565edf4b371dce3283f8ea068a62752921c4f72a7270ebe1a90de",
+      "video_sha256": "a45f09604883d201c4e9691c67e67b3a86ffbf60470f661acf9ceac525aad6b0",
+      "annotation_sha256": "cf22c7916787712c1542881b38c06edba787147eeb88a50897e29218b288a30b",
+      "annotation_origin": "publisher SmartDoc ground_truth XML, not model output",
+      "width": 1920,
+      "height": 1080,
+      "reference_corners_tl_tr_br_bl": [
+        [
+          683.291015625,
+          208.3489990234375
+        ],
+        [
+          1112.25,
+          192.69400024414062
+        ],
+        [
+          1164.0999755859375,
+          759.64501953125
+        ],
+        [
+          635.9000244140625,
+          777.9619750976562
+        ]
+      ],
+      "reference_area_ratio": 0.1311757166756568,
+      "status": "rejected",
+      "reason": "Could not find a full A4 page outline. Re-shoot flat on a contrasting background with all four paper edges visible, or supply manual corners.",
+      "seconds": 0.01997170806862414
+    },
+    {
+      "sample_id": "datasheet001-0092",
+      "source_group": "datasheet001",
+      "split": "dev",
+      "frame_index_1based": 92,
+      "image_path": "output/detection-sources/pages/datasheet001-0092.png",
+      "image_sha256": "d7e5871078c1c2bbf9d449eb5fe08a8a5032b21e35ca46c93e02d68685212d44",
+      "video_sha256": "a45f09604883d201c4e9691c67e67b3a86ffbf60470f661acf9ceac525aad6b0",
+      "annotation_sha256": "cf22c7916787712c1542881b38c06edba787147eeb88a50897e29218b288a30b",
+      "annotation_origin": "publisher SmartDoc ground_truth XML, not model output",
+      "width": 1920,
+      "height": 1080,
+      "reference_corners_tl_tr_br_bl": [
+        [
+          633.208984375,
+          171.82000732421875
+        ],
+        [
+          1049.9100341796875,
+          169.74000549316406
+        ],
+        [
+          1090.0699462890625,
+          693.3259887695312
+        ],
+        [
+          574.1859741210938,
+          702.0349731445312
+        ]
+      ],
+      "reference_area_ratio": 0.11846010170264856,
+      "status": "rejected",
+      "reason": "Could not find a full A4 page outline. Re-shoot flat on a contrasting background with all four paper edges visible, or supply manual corners.",
+      "seconds": 0.17819670890457928
+    },
+    {
+      "sample_id": "datasheet001-0122",
+      "source_group": "datasheet001",
+      "split": "dev",
+      "frame_index_1based": 122,
+      "image_path": "output/detection-sources/pages/datasheet001-0122.png",
+      "image_sha256": "b4721a85681b7bb6cc953403d2bf0e7a38800a72c5a6659291c3febdec1e182d",
+      "video_sha256": "a45f09604883d201c4e9691c67e67b3a86ffbf60470f661acf9ceac525aad6b0",
+      "annotation_sha256": "cf22c7916787712c1542881b38c06edba787147eeb88a50897e29218b288a30b",
+      "annotation_origin": "publisher SmartDoc ground_truth XML, not model output",
+      "width": 1920,
+      "height": 1080,
+      "reference_corners_tl_tr_br_bl": [
+        [
+          762.1329956054688,
+          139.7790069580078
+        ],
+        [
+          1181.1199951171875,
+          134.23399353027344
+        ],
+        [
+          1312.5799560546875,
+          666.802978515625
+        ],
+        [
+          807.1329956054688,
+          698.1209716796875
+        ]
+      ],
+      "reference_area_ratio": 0.12236930626755947,
+      "status": "rejected",
+      "reason": "Could not find a full A4 page outline. Re-shoot flat on a contrasting background with all four paper edges visible, or supply manual corners.",
+      "seconds": 0.23548516689334065
+    },
+    {
+      "sample_id": "datasheet001-0153",
+      "source_group": "datasheet001",
+      "split": "dev",
+      "frame_index_1based": 153,
+      "image_path": "output/detection-sources/pages/datasheet001-0153.png",
+      "image_sha256": "19349f8bdfb2870e0509e7d18d6ded7748359c9ec4b94829b042087acb824a01",
+      "video_sha256": "a45f09604883d201c4e9691c67e67b3a86ffbf60470f661acf9ceac525aad6b0",
+      "annotation_sha256": "cf22c7916787712c1542881b38c06edba787147eeb88a50897e29218b288a30b",
+      "annotation_origin": "publisher SmartDoc ground_truth XML, not model output",
+      "width": 1920,
+      "height": 1080,
+      "reference_corners_tl_tr_br_bl": [
+        [
+          756.7260131835938,
+          211.12100219726562
+        ],
+        [
+          1193.5,
+          204.13499450683594
+        ],
+        [
+          1268.699951171875,
+          808.0479736328125
+        ],
+        [
+          756.5579833984375,
+          826.8909912109375
+        ]
+      ],
+      "reference_area_ratio": 0.13977076454025056,
+      "status": "rejected",
+      "reason": "Could not find a full A4 page outline. Re-shoot flat on a contrasting background with all four paper edges visible, or supply manual corners.",
+      "seconds": 0.11181666702032089
+    },
+    {
+      "sample_id": "datasheet001-0183",
+      "source_group": "datasheet001",
+      "split": "dev",
+      "frame_index_1based": 183,
+      "image_path": "output/detection-sources/pages/datasheet001-0183.png",
+      "image_sha256": "dd5ab3615710f9565d91ed6c68a89247f4c550fe437801c97aba9864d3dd1a9b",
+      "video_sha256": "a45f09604883d201c4e9691c67e67b3a86ffbf60470f661acf9ceac525aad6b0",
+      "annotation_sha256": "cf22c7916787712c1542881b38c06edba787147eeb88a50897e29218b288a30b",
+      "annotation_origin": "publisher SmartDoc ground_truth XML, not model output",
+      "width": 1920,
+      "height": 1080,
+      "reference_corners_tl_tr_br_bl": [
+        [
+          737.1519775390625,
+          200.27000427246094
+        ],
+        [
+          1150.5999755859375,
+          193.75900268554688
+        ],
+        [
+          1225.02001953125,
+          726.1229858398438
+        ],
+        [
+          721.5969848632812,
+          742.697998046875
+        ]
+      ],
+      "reference_area_ratio": 0.11897238971183514,
+      "status": "rejected",
+      "reason": "Could not find a full A4 page outline. Re-shoot flat on a contrasting background with all four paper edges visible, or supply manual corners.",
+      "seconds": 0.346348166000098
+    },
+    {
+      "sample_id": "datasheet001-0214",
+      "source_group": "datasheet001",
+      "split": "dev",
+      "frame_index_1based": 214,
+      "image_path": "output/detection-sources/pages/datasheet001-0214.png",
+      "image_sha256": "e7e3ee962c2d8b5eb032f0e2b99562fbe1b3b1a557aa7b8bf7fe982850893c4a",
+      "video_sha256": "a45f09604883d201c4e9691c67e67b3a86ffbf60470f661acf9ceac525aad6b0",
+      "annotation_sha256": "cf22c7916787712c1542881b38c06edba787147eeb88a50897e29218b288a30b",
+      "annotation_origin": "publisher SmartDoc ground_truth XML, not model output",
+      "width": 1920,
+      "height": 1080,
+      "reference_corners_tl_tr_br_bl": [
+        [
+          738.822021484375,
+          282.57501220703125
+        ],
+        [
+          1144.7099609375,
+          280.91900634765625
+        ],
+        [
+          1200.050048828125,
+          831.6640014648438
+        ],
+        [
+          707.9819946289062,
+          839.3759765625
+        ]
+      ],
+      "reference_area_ratio": 0.1199311642384176,
+      "status": "rejected",
+      "reason": "Could not find a full A4 page outline. Re-shoot flat on a contrasting background with all four paper edges visible, or supply manual corners.",
+      "seconds": 0.236442125053145
+    },
+    {
+      "sample_id": "letter001-0001",
+      "source_group": "letter001",
+      "split": "heldout",
+      "frame_index_1based": 1,
+      "image_path": "output/detection-sources/pages/letter001-0001.png",
+      "image_sha256": "15b51c6414038cb5a98243c56f8c813cd1bdc9e9edef05a7d9e76fb316962333",
+      "video_sha256": "56c8e36ac0c2b6e5c88965a09c3c9d242f751e4740b84bc46995e8d3e2f6a1ee",
+      "annotation_sha256": "1c1a11864f61d4af6076f9760800bafffc33a07d6091f03ef043015dc24f1034",
+      "annotation_origin": "publisher SmartDoc ground_truth XML, not model output",
+      "width": 1920,
+      "height": 1080,
+      "reference_corners_tl_tr_br_bl": [
+        [
+          698.301025390625,
+          223.968994140625
+        ],
+        [
+          1127.1099853515625,
+          225.6479949951172
+        ],
+        [
+          1216.8900146484375,
+          799.2639770507812
+        ],
+        [
+          703.8380126953125,
+          821.8670043945312
+        ]
+      ],
+      "reference_area_ratio": 0.13327036451976318,
+      "status": "rejected",
+      "reason": "Could not find a full A4 page outline. Re-shoot flat on a contrasting background with all four paper edges visible, or supply manual corners.",
+      "seconds": 0.1910462910309434
+    },
+    {
+      "sample_id": "letter001-0026",
+      "source_group": "letter001",
+      "split": "heldout",
+      "frame_index_1based": 26,
+      "image_path": "output/detection-sources/pages/letter001-0026.png",
+      "image_sha256": "5d2facc8abc3c38a6cfa7edbb2a36cb2c80fc65664e408ecd829016dac08d677",
+      "video_sha256": "56c8e36ac0c2b6e5c88965a09c3c9d242f751e4740b84bc46995e8d3e2f6a1ee",
+      "annotation_sha256": "1c1a11864f61d4af6076f9760800bafffc33a07d6091f03ef043015dc24f1034",
+      "annotation_origin": "publisher SmartDoc ground_truth XML, not model output",
+      "width": 1920,
+      "height": 1080,
+      "reference_corners_tl_tr_br_bl": [
+        [
+          610.072998046875,
+          247.72799682617188
+        ],
+        [
+          1029.9200439453125,
+          233.50599670410156
+        ],
+        [
+          1115.6500244140625,
+          773.7739868164062
+        ],
+        [
+          608.7150268554688,
+          809.5189819335938
+        ]
+      ],
+      "reference_area_ratio": 0.12364779668814954,
+      "status": "rejected",
+      "reason": "Could not find a full A4 page outline. Re-shoot flat on a contrasting background with all four paper edges visible, or supply manual corners.",
+      "seconds": 0.2905357079580426
+    },
+    {
+      "sample_id": "letter001-0051",
+      "source_group": "letter001",
+      "split": "heldout",
+      "frame_index_1based": 51,
+      "image_path": "output/detection-sources/pages/letter001-0051.png",
+      "image_sha256": "90a5ca18851603cf524f760e8f791f81aa89061f33ad8b7323d0ca74427a5a3e",
+      "video_sha256": "56c8e36ac0c2b6e5c88965a09c3c9d242f751e4740b84bc46995e8d3e2f6a1ee",
+      "annotation_sha256": "1c1a11864f61d4af6076f9760800bafffc33a07d6091f03ef043015dc24f1034",
+      "annotation_origin": "publisher SmartDoc ground_truth XML, not model output",
+      "width": 1920,
+      "height": 1080,
+      "reference_corners_tl_tr_br_bl": [
+        [
+          621.1019897460938,
+          288.7080078125
+        ],
+        [
+          1013.739990234375,
+          244.5590057373047
+        ],
+        [
+          1151.8299560546875,
+          723.9580078125
+        ],
+        [
+          673.1929931640625,
+          797.5679931640625
+        ]
+      ],
+      "reference_area_ratio": 0.10651051690833126,
+      "status": "detected",
+      "predicted_corners": [
+        [
+          9.600000381469727,
+          37.20000076293945
+        ],
+        [
+          1012.800048828125,
+          243.60000610351562
+        ],
+        [
+          1147.2000732421875,
+          720.0
+        ],
+        [
+          49.20000076293945,
+          468.0
+        ]
+      ],
+      "metrics": {
+        "polygon_iou": 0.34229293879845973,
+        "corner_rmse_px_cyclic": 483.5318603515625,
+        "corner_rmse_image_diagonal": 0.21949715672018003
+      },
+      "seconds": 0.17266975005622953
+    },
+    {
+      "sample_id": "letter001-0076",
+      "source_group": "letter001",
+      "split": "heldout",
+      "frame_index_1based": 76,
+      "image_path": "output/detection-sources/pages/letter001-0076.png",
+      "image_sha256": "196dc23fe3795a788ea06d630fd87e67e6545b2f95d51cc3fed3e4ab029e8727",
+      "video_sha256": "56c8e36ac0c2b6e5c88965a09c3c9d242f751e4740b84bc46995e8d3e2f6a1ee",
+      "annotation_sha256": "1c1a11864f61d4af6076f9760800bafffc33a07d6091f03ef043015dc24f1034",
+      "annotation_origin": "publisher SmartDoc ground_truth XML, not model output",
+      "width": 1920,
+      "height": 1080,
+      "reference_corners_tl_tr_br_bl": [
+        [
+          666.4539794921875,
+          310.875
+        ],
+        [
+          1048.199951171875,
+          249.36099243164062
+        ],
+        [
+          1245.47998046875,
+          708.0070190429688
+        ],
+        [
+          787.7570190429688,
+          810.8519897460938
+        ]
+      ],
+      "reference_area_ratio": 0.10333432538608049,
+      "status": "rejected",
+      "reason": "Could not find a full A4 page outline. Re-shoot flat on a contrasting background with all four paper edges visible, or supply manual corners.",
+      "seconds": 0.18253274995367974
+    },
+    {
+      "sample_id": "letter001-0101",
+      "source_group": "letter001",
+      "split": "heldout",
+      "frame_index_1based": 101,
+      "image_path": "output/detection-sources/pages/letter001-0101.png",
+      "image_sha256": "ce07bc22e5bfe8e8b4430ec6cf30da372cbc3cee56807a9fcefe7ccbb037bde4",
+      "video_sha256": "56c8e36ac0c2b6e5c88965a09c3c9d242f751e4740b84bc46995e8d3e2f6a1ee",
+      "annotation_sha256": "1c1a11864f61d4af6076f9760800bafffc33a07d6091f03ef043015dc24f1034",
+      "annotation_origin": "publisher SmartDoc ground_truth XML, not model output",
+      "width": 1920,
+      "height": 1080,
+      "reference_corners_tl_tr_br_bl": [
+        [
+          674.9849853515625,
+          289.9840087890625
+        ],
+        [
+          1069.2900390625,
+          280.1679992675781
+        ],
+        [
+          1157.239990234375,
+          784.1010131835938
+        ],
+        [
+          673.9169921875,
+          811.197998046875
+        ]
+      ],
+      "reference_area_ratio": 0.10885716150521878,
+      "status": "rejected",
+      "reason": "Could not find a full A4 page outline. Re-shoot flat on a contrasting background with all four paper edges visible, or supply manual corners.",
+      "seconds": 0.20717929198872298
+    },
+    {
+      "sample_id": "letter001-0126",
+      "source_group": "letter001",
+      "split": "heldout",
+      "frame_index_1based": 126,
+      "image_path": "output/detection-sources/pages/letter001-0126.png",
+      "image_sha256": "e4f5619be5c7baee2583a1c6bbdad08b8d5abd9fda36b5bfe201a64b4ebf132c",
+      "video_sha256": "56c8e36ac0c2b6e5c88965a09c3c9d242f751e4740b84bc46995e8d3e2f6a1ee",
+      "annotation_sha256": "1c1a11864f61d4af6076f9760800bafffc33a07d6091f03ef043015dc24f1034",
+      "annotation_origin": "publisher SmartDoc ground_truth XML, not model output",
+      "width": 1920,
+      "height": 1080,
+      "reference_corners_tl_tr_br_bl": [
+        [
+          721.219970703125,
+          193.96200561523438
+        ],
+        [
+          1113.9200439453125,
+          202.80099487304688
+        ],
+        [
+          1145.4100341796875,
+          707.7470092773438
+        ],
+        [
+          673.802978515625,
+          702.4530029296875
+        ]
+      ],
+      "reference_area_ratio": 0.10563101974519848,
+      "status": "rejected",
+      "reason": "Could not find a full A4 page outline. Re-shoot flat on a contrasting background with all four paper edges visible, or supply manual corners.",
+      "seconds": 0.06758741603698581
+    },
+    {
+      "sample_id": "letter001-0151",
+      "source_group": "letter001",
+      "split": "heldout",
+      "frame_index_1based": 151,
+      "image_path": "output/detection-sources/pages/letter001-0151.png",
+      "image_sha256": "0272749ad63dc4c8d4066d9e9854ab8bd66b4cdb7d779a2351a889aacb87d561",
+      "video_sha256": "56c8e36ac0c2b6e5c88965a09c3c9d242f751e4740b84bc46995e8d3e2f6a1ee",
+      "annotation_sha256": "1c1a11864f61d4af6076f9760800bafffc33a07d6091f03ef043015dc24f1034",
+      "annotation_origin": "publisher SmartDoc ground_truth XML, not model output",
+      "width": 1920,
+      "height": 1080,
+      "reference_corners_tl_tr_br_bl": [
+        [
+          654.8510131835938,
+          277.0469970703125
+        ],
+        [
+          1032.489990234375,
+          228.01300048828125
+        ],
+        [
+          1172.4300537109375,
+          709.5440063476562
+        ],
+        [
+          732.1400146484375,
+          786.3800048828125
+        ]
+      ],
+      "reference_area_ratio": 0.101007794312811,
+      "status": "rejected",
+      "reason": "Could not find a full A4 page outline. Re-shoot flat on a contrasting background with all four paper edges visible, or supply manual corners.",
+      "seconds": 0.07549800002016127
+    },
+    {
+      "sample_id": "letter001-0176",
+      "source_group": "letter001",
+      "split": "heldout",
+      "frame_index_1based": 176,
+      "image_path": "output/detection-sources/pages/letter001-0176.png",
+      "image_sha256": "ddb0160cf9407ddda202630b407db5f55c10ee90c3a25098b745b4e125dff16b",
+      "video_sha256": "56c8e36ac0c2b6e5c88965a09c3c9d242f751e4740b84bc46995e8d3e2f6a1ee",
+      "annotation_sha256": "1c1a11864f61d4af6076f9760800bafffc33a07d6091f03ef043015dc24f1034",
+      "annotation_origin": "publisher SmartDoc ground_truth XML, not model output",
+      "width": 1920,
+      "height": 1080,
+      "reference_corners_tl_tr_br_bl": [
+        [
+          641.7009887695312,
+          296.1789855957031
+        ],
+        [
+          1032.3599853515625,
+          247.4320068359375
+        ],
+        [
+          1177.949951171875,
+          746.9879760742188
+        ],
+        [
+          715.4879760742188,
+          825.8489990234375
+        ]
+      ],
+      "reference_area_ratio": 0.10923617440915548,
+      "status": "rejected",
+      "reason": "Could not find a full A4 page outline. Re-shoot flat on a contrasting background with all four paper edges visible, or supply manual corners.",
+      "seconds": 0.09998654096852988
+    },
+    {
+      "sample_id": "magazine001-0001",
+      "source_group": "magazine001",
+      "split": "dev",
+      "frame_index_1based": 1,
+      "image_path": "output/detection-sources/pages/magazine001-0001.png",
+      "image_sha256": "568757f162f2d872e139ba26a727dcea5bfc88e3051d22899785125d4c0bea38",
+      "video_sha256": "defa5b8b69177ae878033b9befde6dab757fbbff1614942d1d0f981c86d79234",
+      "annotation_sha256": "57674f6e70ee7668e63ddd40ccda6ab01a0deef8bed18f654b192fa3476face6",
+      "annotation_origin": "publisher SmartDoc ground_truth XML, not model output",
+      "width": 1920,
+      "height": 1080,
+      "reference_corners_tl_tr_br_bl": [
+        [
+          725.4400024414062,
+          286.5660095214844
+        ],
+        [
+          1111.969970703125,
+          248.83700561523438
+        ],
+        [
+          1117.02001953125,
+          771.3670043945312
+        ],
+        [
+          643.3690185546875,
+          788.6539916992188
+        ]
+      ],
+      "reference_area_ratio": 0.10574839709591388,
+      "status": "rejected",
+      "reason": "Could not find a full A4 page outline. Re-shoot flat on a contrasting background with all four paper edges visible, or supply manual corners.",
+      "seconds": 0.3245331250363961
+    },
+    {
+      "sample_id": "magazine001-0029",
+      "source_group": "magazine001",
+      "split": "dev",
+      "frame_index_1based": 29,
+      "image_path": "output/detection-sources/pages/magazine001-0029.png",
+      "image_sha256": "74b3d1d350854c5e981218dd4e51ad92da4b44c2d710b951cf1813a8ed9576a9",
+      "video_sha256": "defa5b8b69177ae878033b9befde6dab757fbbff1614942d1d0f981c86d79234",
+      "annotation_sha256": "57674f6e70ee7668e63ddd40ccda6ab01a0deef8bed18f654b192fa3476face6",
+      "annotation_origin": "publisher SmartDoc ground_truth XML, not model output",
+      "width": 1920,
+      "height": 1080,
+      "reference_corners_tl_tr_br_bl": [
+        [
+          683.072021484375,
+          282.7590026855469
+        ],
+        [
+          1076.0999755859375,
+          277.2799987792969
+        ],
+        [
+          1117.5,
+          785.7119750976562
+        ],
+        [
+          633.2620239257812,
+          793.9920043945312
+        ]
+      ],
+      "reference_area_ratio": 0.10783198692094573,
+      "status": "rejected",
+      "reason": "Could not find a full A4 page outline. Re-shoot flat on a contrasting background with all four paper edges visible, or supply manual corners.",
+      "seconds": 0.2705339159583673
+    },
+    {
+      "sample_id": "magazine001-0057",
+      "source_group": "magazine001",
+      "split": "dev",
+      "frame_index_1based": 57,
+      "image_path": "output/detection-sources/pages/magazine001-0057.png",
+      "image_sha256": "a0c16990d958d9feee588fb9daf128a894d5c9b418e92f01cad8aece35cf5804",
+      "video_sha256": "defa5b8b69177ae878033b9befde6dab757fbbff1614942d1d0f981c86d79234",
+      "annotation_sha256": "57674f6e70ee7668e63ddd40ccda6ab01a0deef8bed18f654b192fa3476face6",
+      "annotation_origin": "publisher SmartDoc ground_truth XML, not model output",
+      "width": 1920,
+      "height": 1080,
+      "reference_corners_tl_tr_br_bl": [
+        [
+          747.0659790039062,
+          259.7130126953125
+        ],
+        [
+          1118.9200439453125,
+          319.2770080566406
+        ],
+        [
+          1186.489990234375,
+          792.6719970703125
+        ],
+        [
+          721.7960205078125,
+          752.6170043945312
+        ]
+      ],
+      "reference_area_ratio": 0.09694994589591924,
+      "status": "rejected",
+      "reason": "Could not find a full A4 page outline. Re-shoot flat on a contrasting background with all four paper edges visible, or supply manual corners.",
+      "seconds": 0.03498066694010049
+    },
+    {
+      "sample_id": "magazine001-0085",
+      "source_group": "magazine001",
+      "split": "dev",
+      "frame_index_1based": 85,
+      "image_path": "output/detection-sources/pages/magazine001-0085.png",
+      "image_sha256": "f0ee4997f736153902d1530d413eb4b7bdebc83253ac0ca170100423ccf41054",
+      "video_sha256": "defa5b8b69177ae878033b9befde6dab757fbbff1614942d1d0f981c86d79234",
+      "annotation_sha256": "57674f6e70ee7668e63ddd40ccda6ab01a0deef8bed18f654b192fa3476face6",
+      "annotation_origin": "publisher SmartDoc ground_truth XML, not model output",
+      "width": 1920,
+      "height": 1080,
+      "reference_corners_tl_tr_br_bl": [
+        [
+          804.3489990234375,
+          296.8559875488281
+        ],
+        [
+          1182.2900390625,
+          336.9230041503906
+        ],
+        [
+          1186.5999755859375,
+          789.2130126953125
+        ],
+        [
+          701.0969848632812,
+          735.4349975585938
+        ]
+      ],
+      "reference_area_ratio": 0.09385859841310584,
+      "status": "rejected",
+      "reason": "Could not find a full A4 page outline. Re-shoot flat on a contrasting background with all four paper edges visible, or supply manual corners.",
+      "seconds": 0.3352472910191864
+    },
+    {
+      "sample_id": "magazine001-0113",
+      "source_group": "magazine001",
+      "split": "dev",
+      "frame_index_1based": 113,
+      "image_path": "output/detection-sources/pages/magazine001-0113.png",
+      "image_sha256": "7b39a247bdf3cabf1d2e27a60f64c0b67ceb8683dcad16e23b59e5d7cb9ba43b",
+      "video_sha256": "defa5b8b69177ae878033b9befde6dab757fbbff1614942d1d0f981c86d79234",
+      "annotation_sha256": "57674f6e70ee7668e63ddd40ccda6ab01a0deef8bed18f654b192fa3476face6",
+      "annotation_origin": "publisher SmartDoc ground_truth XML, not model output",
+      "width": 1920,
+      "height": 1080,
+      "reference_corners_tl_tr_br_bl": [
+        [
+          796.7109985351562,
+          230.72900390625
+        ],
+        [
+          1178.97998046875,
+          255.4429931640625
+        ],
+        [
+          1163.3900146484375,
+          764.3270263671875
+        ],
+        [
+          704.625,
+          726.2509765625
+        ]
+      ],
+      "reference_area_ratio": 0.10265969513248427,
+      "status": "rejected",
+      "reason": "Could not find a full A4 page outline. Re-shoot flat on a contrasting background with all four paper edges visible, or supply manual corners.",
+      "seconds": 0.251472125062719
+    },
+    {
+      "sample_id": "magazine001-0141",
+      "source_group": "magazine001",
+      "split": "dev",
+      "frame_index_1based": 141,
+      "image_path": "output/detection-sources/pages/magazine001-0141.png",
+      "image_sha256": "d3263a607dcb42d7fb6cc164510273d1e7b026e2551117dd397fa012b7269de7",
+      "video_sha256": "defa5b8b69177ae878033b9befde6dab757fbbff1614942d1d0f981c86d79234",
+      "annotation_sha256": "57674f6e70ee7668e63ddd40ccda6ab01a0deef8bed18f654b192fa3476face6",
+      "annotation_origin": "publisher SmartDoc ground_truth XML, not model output",
+      "width": 1920,
+      "height": 1080,
+      "reference_corners_tl_tr_br_bl": [
+        [
+          784.2639770507812,
+          215.79299926757812
+        ],
+        [
+          1188.77001953125,
+          202.8769989013672
+        ],
+        [
+          1268.6600341796875,
+          749.0599975585938
+        ],
+        [
+          791.9420166015625,
+          770.791015625
+        ]
+      ],
+      "reference_area_ratio": 0.11735884173642464,
+      "status": "rejected",
+      "reason": "Could not find a full A4 page outline. Re-shoot flat on a contrasting background with all four paper edges visible, or supply manual corners.",
+      "seconds": 0.2246493339771405
+    },
+    {
+      "sample_id": "magazine001-0169",
+      "source_group": "magazine001",
+      "split": "dev",
+      "frame_index_1based": 169,
+      "image_path": "output/detection-sources/pages/magazine001-0169.png",
+      "image_sha256": "ce9d06c6ebe045d0cb973efa023aa97ada62b8cdfb403b9c353ac94074d5c202",
+      "video_sha256": "defa5b8b69177ae878033b9befde6dab757fbbff1614942d1d0f981c86d79234",
+      "annotation_sha256": "57674f6e70ee7668e63ddd40ccda6ab01a0deef8bed18f654b192fa3476face6",
+      "annotation_origin": "publisher SmartDoc ground_truth XML, not model output",
+      "width": 1920,
+      "height": 1080,
+      "reference_corners_tl_tr_br_bl": [
+        [
+          935.7020263671875,
+          199.322998046875
+        ],
+        [
+          1318.1099853515625,
+          238.03199768066406
+        ],
+        [
+          1309.27001953125,
+          747.135986328125
+        ],
+        [
+          860.3049926757812,
+          692.0029907226562
+        ]
+      ],
+      "reference_area_ratio": 0.10136490979774043,
+      "status": "rejected",
+      "reason": "Could not find a full A4 page outline. Re-shoot flat on a contrasting background with all four paper edges visible, or supply manual corners.",
+      "seconds": 0.26206249999813735
+    },
+    {
+      "sample_id": "magazine001-0198",
+      "source_group": "magazine001",
+      "split": "dev",
+      "frame_index_1based": 198,
+      "image_path": "output/detection-sources/pages/magazine001-0198.png",
+      "image_sha256": "a50eba5463f517ce1aeb425e0a26e495bcdf2279eaa2280ff9ce42c631ee0ee8",
+      "video_sha256": "defa5b8b69177ae878033b9befde6dab757fbbff1614942d1d0f981c86d79234",
+      "annotation_sha256": "57674f6e70ee7668e63ddd40ccda6ab01a0deef8bed18f654b192fa3476face6",
+      "annotation_origin": "publisher SmartDoc ground_truth XML, not model output",
+      "width": 1920,
+      "height": 1080,
+      "reference_corners_tl_tr_br_bl": [
+        [
+          832.1669921875,
+          242.5760040283203
+        ],
+        [
+          1218.489990234375,
+          251.96600341796875
+        ],
+        [
+          1307.68994140625,
+          756.2459716796875
+        ],
+        [
+          844.1680297851562,
+          760.60498046875
+        ]
+      ],
+      "reference_area_ratio": 0.10468447525316892,
+      "status": "rejected",
+      "reason": "Could not find a full A4 page outline. Re-shoot flat on a contrasting background with all four paper edges visible, or supply manual corners.",
+      "seconds": 0.1190548330778256
+    }
+  ]
+}

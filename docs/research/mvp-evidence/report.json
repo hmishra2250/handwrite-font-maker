@@ -1,0 +1,37 @@
+{
+  "projectId": "proj_25c91db2-8445-4c8d-8be9-e34a028978a5",
+  "glyphs": 5,
+  "initialRevision": 2,
+  "uploads": 5,
+  "updates": 3,
+  "jobId": "job_75a7650e-8c6e-4872-a446-8d8052d62767",
+  "status": "succeeded",
+  "artifacts": [
+    {
+      "kind": "otf",
+      "sizeBytes": 2700
+    },
+    {
+      "kind": "ttf",
+      "sizeBytes": 2552
+    },
+    {
+      "kind": "sfd",
+      "sizeBytes": 6623
+    },
+    {
+      "kind": "debug_overlay",
+      "sizeBytes": 12605
+    },
+    {
+      "kind": "download_bundle",
+      "sizeBytes": 4410
+    },
+    {
+      "kind": "manifest",
+      "sizeBytes": 2636
+    }
+  ],
+  "mobileWidth": 390,
+  "errors": []
+}

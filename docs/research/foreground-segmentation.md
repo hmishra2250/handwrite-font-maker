@@ -1,5 +1,7 @@
 # Foreground extraction decision — 10 September 2026
 
+> Historical baseline research. The subsequent local ML milestone installed and benchmarked EfficientSAM-Ti and SlimSAM, and added reversible mask brushing. See the [current ML runbook](../ML-SEGMENTATION.md) and [measured selection](ml-model-selection.md); statements below about unimplemented brushes/models describe the earlier checkpoint.
+
 ## Decision
 
 Ship two explicit tools, not a claim to segment everything perfectly:

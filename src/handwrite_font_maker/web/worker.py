@@ -22,7 +22,7 @@ from .contracts import (
     TemplateCapture,
     hard_error_message,
 )
-from .job_store import JobRecord, JobStore
+from .job_store import JobRecord, JobStore, LeaseLostError
 from .supabase_store import ObjectStore
 
 CONTENT_TYPES = {
@@ -31,6 +31,7 @@ CONTENT_TYPES = {
     "sfd": "application/vnd.font-fontforge-sfd",
     "debug_overlay": "image/png",
     "manifest": "application/json",
+    "download_bundle": "application/zip",
 }
 
 
@@ -66,7 +67,7 @@ def process_job(job: JobRecord, job_store: JobStore, object_store: ObjectStore) 
             outputs = _run_build(job, object_store, input_path=input_path, output_dir=output_dir)
             job.stage = JobStage.ARTIFACT_PUBLISH
             job_store.save(job)
-            job.artifacts = _publish_artifacts(job.id, outputs, object_store)
+            job.artifacts = _publish_artifacts(job.id, outputs, object_store, attempt_id=job.attempt_id, job=job)
             job.warnings = [
                 JobWarning(code=str(w.get("code", "GLYPH_LOW_INK_COVERAGE")).upper().replace("-", "_"), glyph=w.get("char"), message=str(w.get("message", "Glyph warning.")))
                 for w in outputs.get("warnings", [])
@@ -76,7 +77,11 @@ def process_job(job: JobRecord, job_store: JobStore, object_store: ObjectStore) 
             job.stage = JobStage.COMPLETE
             job_store.save(job)
             return job
+        except LeaseLostError:
+            raise
         except Exception as exc:  # mapping layer intentionally keeps worker resilient
+            if job.attempt_id and _transient_failure(exc):
+                raise  # Supervisor requeues this fenced attempt within the retry budget.
             job.status = JobStatus.FAILED
             job.stage = _stage_for_exception(exc)
             code = _code_for_exception(exc)
@@ -99,7 +104,7 @@ def _run_build(job: JobRecord, object_store: ObjectStore, *, input_path: Path, o
             total_bytes += _validate_guided_mask(glyph_path, glyph.input_photo)
             if total_bytes > MAX_GUIDED_TOTAL_BYTES:
                 raise ValueError(HardErrorCode.UPLOAD_OBJECT_TOO_LARGE.value)
-            glyph_args.append({"char": glyph.char, "image_path": glyph_path, "baseline": glyph.baseline})
+            glyph_args.append({"char": glyph.char, "image_path": glyph_path, "baseline": glyph.baseline, "scale": glyph.scale, "spacing": glyph.spacing})
         job.stage = JobStage.FONT_GENERATION
         return _build_font_from_masks(
             glyphs=glyph_args,
@@ -183,27 +188,42 @@ def _validate_guided_mask(path: Path, photo: InputPhoto) -> int:
     return size
 
 
-def _publish_artifacts(job_id: str, outputs: dict[str, object], object_store: ObjectStore) -> list[JobArtifact]:
+def _publish_artifacts(job_id: str, outputs: dict[str, object], object_store: ObjectStore, *, attempt_id: str | None = None, job: JobRecord | None = None) -> list[JobArtifact]:
     artifacts: list[JobArtifact] = []
-    for kind in ["otf", "ttf", "sfd", "debug_overlay"]:
+    registry = None
+    if job is not None and job.owner_id:
+        from .tenant_store import WorkerArtifactRegistry
+        registry = WorkerArtifactRegistry.from_env()
+
+    def upload(object_key: str, source: Path, content_type: str, kind: str) -> None:
+        # Persist cleanup intent before the non-transactional external write.
+        # Registry rows alone never grant artifact reads: final job_artifacts is fenced.
+        if registry is not None:
+            registry.register_attempt_artifact(job, object_key=object_key, content_type=content_type, size_bytes=source.stat().st_size, kind=kind)
+        object_store.upload_from_path(object_key, source, content_type)
+        if registry is not None:
+            registry.mark_uploaded(job, object_key=object_key, size_bytes=source.stat().st_size)
+
+    prefix = f"jobs/{job_id}/attempts/{attempt_id}" if attempt_id else f"jobs/{job_id}"
+    for kind in ["otf", "ttf", "sfd", "debug_overlay", "download_bundle"]:
         value = outputs.get(kind)
         if not value:
             continue
         source = Path(str(value))
-        object_key = f"jobs/{job_id}/artifacts/{source.name}"
-        object_store.upload_from_path(object_key, source, CONTENT_TYPES.get(kind, "application/octet-stream"))
+        object_key = f"{prefix}/artifacts/{source.name}"
+        upload(object_key, source, CONTENT_TYPES.get(kind, "application/octet-stream"), kind)
         artifacts.append(JobArtifact(kind=kind, label=_label(kind), object_key=object_key, content_type=CONTENT_TYPES.get(kind, "application/octet-stream"), size_bytes=source.stat().st_size, url=object_store.signed_download_url(object_key)))
     manifest = outputs.get("manifest")
     if manifest:
         source = Path(str(manifest))
-        object_key = f"jobs/{job_id}/artifacts/manifest.json"
-        object_store.upload_from_path(object_key, source, "application/json")
+        object_key = f"{prefix}/artifacts/manifest.json"
+        upload(object_key, source, "application/json", "manifest")
         artifacts.append(JobArtifact(kind="manifest", label="Build manifest", object_key=object_key, content_type="application/json", size_bytes=source.stat().st_size, url=object_store.signed_download_url(object_key)))
     return artifacts
 
 
 def _label(kind: str) -> str:
-    return {"otf": "OpenType Font", "ttf": "TrueType Font", "sfd": "FontForge Source", "debug_overlay": "Rectified Template"}.get(kind, kind)
+    return {"otf": "OpenType Font", "ttf": "TrueType Font", "sfd": "FontForge Source", "debug_overlay": "Rectified Template", "download_bundle": "Download package"}.get(kind, kind)
 
 
 def _code_for_exception(exc: Exception) -> HardErrorCode:
@@ -235,3 +255,12 @@ def _stage_for_exception(exc: Exception) -> JobStage:
     if code in {HardErrorCode.FONT_VALIDATION_FAILED}:
         return JobStage.FONT_VALIDATION
     return JobStage.FONT_GENERATION
+
+
+def _transient_failure(exc: Exception) -> bool:
+    import requests
+    if isinstance(exc, (requests.ConnectionError, requests.Timeout, TimeoutError)):
+        return True
+    if isinstance(exc, requests.HTTPError) and exc.response is not None:
+        return exc.response.status_code == 429 or exc.response.status_code >= 500
+    return False

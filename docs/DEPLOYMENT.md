@@ -1,77 +1,169 @@
-# Deployment and production readiness
+# Deploying the invite-only beta
 
-## Current safety boundary
+## What this profile is—and is not
 
-The new capture implementation is a **private alpha**. Run on localhost or behind an access-controlled staging gateway. This repository is not yet a tenant-isolated paid SaaS: do not expose unauthenticated upload, object or font-build endpoints publicly. A public marketing site does not make the processing backend production-ready.
+The deployment target is an **authenticated, invite-only beta**, not a paid public launch. Local mode remains available for development. Beta processing requires verified Supabase identity, an internal API credential, PostgreSQL ownership/quota records, private storage, a separate leased worker, and cleanup. A successful build is not evidence that a hosted deployment, payment account, backup restore, or Office installation has been tested.
 
-No production account, domain, payment account or spend has been configured by this work. No live checkout, ad campaign or public font-processing deployment is implied by build/test success.
+No production account, domain, payment account, or provider spend was configured by this work. Billing is deliberately disabled: a durable **font project with rebuilds** is not the same thing as one build job. Charging per job would violate the proposed project pricing. See [pricing](PRICING-GTM.md) and [implementation plan](plans/DEPLOYABLE-BETA.md).
 
-## Local development
+## Recommended topology
 
-Install the existing declared Python dependencies in a virtualenv and system Potrace/FontForge. Then:
+```text
+Browser ── HTTPS ── Next (login, HttpOnly session, same-origin API)
+                       │ private network + internal key + user access token
+                       ▼
+                   Python API ─── Supabase Auth (verify identity)
+                       │
+              PostgreSQL + private Storage
+                       ▲                 ▲
+                leased worker       retention cleanup
+                one build/process   periodic retry sweep
+```
+
+The API is not a browser-public service. Service-role storage credentials are not user authorization. Next must not get database/service-role credentials in the browser bundle. Do not put these values in `NEXT_PUBLIC_*` variables.
+
+## Fast path: one host + managed Supabase
+
+1. Create/select the intended **staging** Supabase project. Disable public signups and provision the small invited test cohort through trusted administration. Grant each invited account the server-controlled `app_metadata.handwrite_beta = true` flag (not user-editable `user_metadata`). This release has password login, not self-service signup or a complete recovery/onboarding email product. Configure its rate limits and email/security settings. Use an isolated staging project for the canaries below.
+2. Create a **private** `handwrite-font-jobs` bucket. This bucket holds both input images and generated font/artifact files: do not configure an image-only MIME allowlist that rejects TTF/OTF/SFD/JSON/ZIP. A 64 MiB bucket object limit accommodates bounded artifacts; the application separately enforces the smaller 15 MiB input-image limit, accepted image types, actual bytes, and pixels. Bucket limits are an additional boundary. Back up an existing database before migration.
+3. Copy `.env.beta.example` to ignored `.env.beta`. Replace all placeholders. `SITE_URL` must be the exact HTTPS origin used by the browser. Generate a high-entropy `INTERNAL_API_KEY` and use the same value in Next and Python. Do not commit the environment file.
+4. Load the environment and check it:
+
+   ```sh
+   set -a; . ./.env.beta; set +a
+   .venv/bin/python scripts/deploy_preflight.py
+   .venv/bin/python scripts/migrate.py
+   .venv/bin/python scripts/deploy_preflight.py --check-services
+   ```
+
+   Preflight never provisions infrastructure or prints secret values. `--check-services` verifies the migration ledger and the bucket's private setting; it does **not** prove hosted login or font quality. Migrations are ordered, transactional, checksum-tracked, and protected by an advisory lock. `--check` checks without applying migrations.
+5. Start the standalone beta stack (not a merge with local compose):
+
+   ```sh
+   docker compose --env-file .env.beta -f docker-compose.beta.yml up --build -d
+   docker compose --env-file .env.beta -f docker-compose.beta.yml ps
+   ```
+
+   The migration service must complete before processing starts. Only Next binds a host port, at `127.0.0.1:3000`. Put your existing TLS reverse proxy/access gateway in front of it. Do not publish the API, database, or storage administration endpoint. Run the stack on a host with enough aggregate memory for all services—not just a 4 GB API allocation.
+6. Complete the staging acceptance matrix below. Keep access restricted until every applicable row passes. A TCP/HTTP health response is not a generated-font canary.
+7. Record the deployed image digests, schema ledger, environment revision (not secrets), operator, source backup, and rollback release. CI is provided in `.github/workflows/verify.yml`; it must run in your repository before being treated as evidence.
+
+## ML choices and reproducible images
+
+Models remain optional. Deterministic page extraction/GrabCut does not require ONNX weights. Object segmentation runs in the API, while the font-build worker only consumes accepted masks.
+
+For the Compose profile, explicitly install the selected pinned checkpoints into `.models/` on the host, then mount read-only:
 
 ```sh
-python3 -m venv .venv
+.venv/bin/python scripts/install_segmentation_model.py --model efficientsam --directory .models/efficientsam
+# Optional point-guided alternative:
+.venv/bin/python scripts/install_segmentation_model.py --model slimsam --variant fp32 --directory .models/slimsam
+# Set INSTALL_ML=true in .env.beta and rebuild.
+```
+
+Alternatively build an immutable model image (useful for managed hosting without a model volume):
+
+```sh
+docker build -f Dockerfile.api --build-arg INSTALL_ML=true \
+  --build-arg INSTALL_MODELS=efficientsam -t handwrite-api:beta-ml .
+```
+
+`INSTALL_MODELS` accepts `none`, `efficientsam`, `slimsam`, or `both`; downloads happen at **build time**, with pinned size/SHA-256 verification. Set the corresponding runtime directory to `/models/efficientsam` and/or `/models/slimsam`. Do not mount an empty directory over baked-in weights. Use `scripts/deploy_preflight.py --check-models` inside the configured image to verify files without running inference. Request handling never downloads models.
+
+Local isolated peak RSS was about 1.39 GB EfficientSAM, 2.71 GB SlimSAM fp32, and 3.62 GB SlimSAM int8. These are not cloud/container sizing guarantees. Keep one inference process, allow headroom (the beta API profile has a 4 GB limit), test model switching and bursts, and monitor OOMs. SlimSAM int8 is **not** the recommended memory optimization. See [ML evidence](ML-SEGMENTATION.md).
+
+## Render alternative
+
+`render.yaml` now separates a public Next web service, **private** Python API, background font worker, and scheduled cleanup. Auto-deploy is off. It references paid instance types; importing the Blueprint can incur charges and was **not executed here**.
+
+- Fill the same auth/internal-key values for each applicable service; backend-only credentials stay out of Next.
+- Next constructs `WORKER_API_BASE_URL` from Render's private `hostport` reference.
+- The API owns `preDeployCommand: python scripts/migrate.py`. Deploy the API/migrations before enabling the first worker/cleanup rollout. Later migrations must remain backward-compatible during rolling releases.
+- Private services have TCP checks; `healthCheckPath` applies only to Render web services. Probe API `/readyz` internally and run a real canary separately.
+- To enable ML, set the API service environment variables `INSTALL_ML=true`, `INSTALL_MODELS=efficientsam` (or `both`) and the runtime model directories. [Render translates Docker service environment variables into declared Docker build arguments](https://render.com/docs/docker); these toggles are not secrets. Only the API needs segmentation weights; the font worker consumes masks. Verify this image in staging before switching traffic. The default blueprint is deterministic-only.
+- Cron cleanup runs every 15 minutes; access expiry is enforced by the application before the physical sweep. Monitor failures/backlog.
+
+These fields were checked against [Render's Blueprint reference](https://render.com/docs/blueprint-spec) and [private-service documentation](https://render.com/docs/private-services); provider creation and rollout are still unverified. Detailed official references: [deployment research](research/deployment-references.md).
+
+## Runtime contract
+
+| Variable | Purpose |
+|---|---|
+| `DEPLOYMENT_MODE` | `local`, `invite_beta`, or `production`; beta/prod require secure configuration |
+| `SITE_URL` | Exact browser origin; used by mutation CSRF checks |
+| `SUPABASE_URL`, `SUPABASE_ANON_KEY` | Server-side Auth verification/login |
+| `SUPABASE_SERVICE_ROLE_KEY` | Python-only privileged private-storage access |
+| `INTERNAL_API_KEY` | At least 32 characters; random server-to-server credential |
+| `DATABASE_URL` | Trusted backend PostgreSQL connection; not a browser role |
+| `SUPABASE_STORAGE_BUCKET` | Private bucket, default `handwrite-font-jobs` |
+| `PROCESS_JOBS_INLINE` | Must be `0` for beta/prod |
+| `JOB_LEASE_SECONDS` | Default 60; heartbeat occurs before expiry |
+| `JOB_TIMEOUT_SECONDS` | Default 600; whole build process group is killed at deadline |
+| `JOB_MAX_ATTEMPTS` | Default 3; crash/timeout/transient network retries are bounded |
+| `STORAGE_DELETE_GRACE_SECONDS` | Default 120; in-flight object tombstones are retried through job timeout + this grace |
+| `DAILY_UPLOAD_LIMIT`, `DAILY_UPLOAD_BYTES_LIMIT` | Per-account resource limits; guided capture uploads both sources and masks |
+| `DAILY_PREVIEW_LIMIT`, `DAILY_BUILD_LIMIT`, `ACTIVE_JOB_LIMIT` | Durable beta abuse/cost caps, **not purchased credits** |
+| `BILLING_ENABLED` | Must remain false; paid processing is unavailable |
+
+The starter quota is 150 uploads / 200 MiB / 120 previews / 5 builds per day, at most 2 active jobs. Tune only after observing actual users. These are cost safeguards, not a $3–$5 generation cost claim. API requests still need infrastructure concurrency/connection limits and hosted load testing.
+
+## Staging acceptance matrix
+
+| Check | Expected evidence |
+|---|---|
+| Login / refresh / logout | Real hosted invited account; cookies HttpOnly/Secure; no token in browser storage; logout and refresh verified |
+| Unauthorized calls | Missing internal key/token rejected; wrong Origin rejected on mutations |
+| Two-user isolation | A cannot read/write B's sources, masks, jobs, secondary guided glyphs, or artifacts |
+| Font canaries | Real controlled page, markerless page, guided subset, and reviewed nature masks produce downloadable fonts |
+| Queue recovery | Restart worker during build; reclaim expired lease; late attempt cannot publish visible artifacts |
+| Timeout | Hung child + descendants killed; no partial font exposed; attempt budget honored |
+| Quotas | Simultaneous requests cannot exceed active/daily limits; invalid references do not create jobs |
+| Retention/deletion | Expired access denied immediately; abandoned uploads and failed-attempt artifacts cleaned; storage failure retried |
+| Model limits | Correct explicit method; unavailable model is honest; bounded inference under actual host memory/concurrency |
+| Data recovery | Restore backup into disposable staging and rerun canary; record recovery time |
+| Office usability | Install/render in Windows/macOS Word and PowerPoint; embedding and shared-document behavior checked separately |
+
+Local automated evidence lives in [validation](VALIDATION.md). Hosted-provider and Office checks must not be ticked based on unit tests.
+
+## Operations and rollback
+
+Run separate commands:
+
+```sh
+python -m handwrite_font_maker.web.server
+python -m handwrite_font_maker.web.worker_loop
+python -m handwrite_font_maker.web.cleanup --once
+```
+
+For an incident: stop new admission at the gateway, retain database and object backups, stop/restart workers safely, and redeploy the previous **schema-compatible** image. The migration runner refuses unknown newer migrations or modified applied checksums. It does not implement destructive down-migrations. Reverting to the old unauthenticated alpha is **not** a safe rollback behind a public endpoint.
+
+Run `python scripts/ops_status.py` with the backend database environment for a read-only aggregate queue/lease/deletion snapshot. Monitor oldest queued job, active leases, attempt counts, failures, daily usage, storage deletion backlog, disk/memory pressure, and model latency. Log coarse errors/job IDs—not photographs, private glyph contents, bearer tokens, signed URLs, or service keys. A failed storage deletion is a retryable operations item, not permission to resume access. In-flight uploads/artifacts retain an independent deletion deadline through `JOB_TIMEOUT_SECONDS + STORAGE_DELETE_GRACE_SECONDS`; retries cannot erase that window. Storage failures back off from 5 seconds to 5 minutes. Physical removal is asynchronous and depends on a working scheduled cleanup service; do not promise immediate erasure.
+
+## Local-only development
+
+```sh
 .venv/bin/pip install -e '.[test]'
-# macOS system tools (Linux image installs these through apt):
-brew install potrace fontforge
-JOB_STORE_PATH=/tmp/handwrite-alpha-jobs.json \
-LOCAL_OBJECT_ROOT=/tmp/handwrite-alpha-objects \
-PROCESS_JOBS_INLINE=1 PORT=8000 \
-.venv/bin/python -m handwrite_font_maker.web.server
-# separate terminal:
+# macOS: brew install potrace fontforge
+DEPLOYMENT_MODE=local PROCESS_JOBS_INLINE=1 PORT=8000 \
+  JOB_STORE_PATH=/tmp/handwrite-alpha-jobs.json LOCAL_OBJECT_ROOT=/tmp/handwrite-alpha-objects \
+  .venv/bin/python -m handwrite_font_maker.web.server
 cd web
-npm ci
 WORKER_API_BASE_URL=http://127.0.0.1:8000 npm run dev -- --port 3001
 ```
 
-JSON job storage is a local/dev option, not a production persistence/queue guarantee. Without `WORKER_API_BASE_URL`, legacy demo mode does not convert user handwriting. New capture workflows must show a missing-backend error rather than manufacture a successful font.
+The local `docker-compose.yml` now also exercises separate Postgres-backed processing. JSON storage and unauthenticated local mode are development conveniences, not a tenant boundary. Never expose the local profile publicly.
 
-## Environment contract
+## Remaining public/paid launch gates
 
-| Setting | Purpose | Secret? |
-|---|---|---|
-| `WORKER_API_BASE_URL` | Next server → Python base URL; local uploads/downloads use the same-origin Next object proxy | No; local worker hostname need only be reachable by the Next server |
-| `DATABASE_URL` | Postgres connection | Yes |
-| `SUPABASE_URL` | Supabase project | No |
-| `SUPABASE_SERVICE_ROLE_KEY` | Server-only storage privilege | **Yes; never NEXT_PUBLIC** |
-| `SUPABASE_STORAGE_BUCKET` | Private bucket name | No |
-| `JOB_STORE_PATH`, `LOCAL_OBJECT_ROOT` | Development file paths | No |
-| `PORT`, `HOST` | Python bind; default localhost, explicitly `HOST=0.0.0.0` inside an access-controlled container | No |
-| `PROCESS_JOBS_INLINE` | Development inline processing | No; not a durable production queue |
+Hosted end-to-end acceptance, real-user capture quality/support measurements, operational restore/load evidence, actual merchant/tax/privacy/terms review, Office compatibility, and explicit project/domain/budget ownership remain launch gates. The saved project library and edit revisions are implemented, but are not a paid entitlement ledger. Self-service account recovery/onboarding and a verified checkout/webhook/credit/refund ledger are still required before charging. No subscriptions or fabricated checkout are presented as implemented.
 
-Consult server code for any added host/size/timeout settings; set container listen host explicitly when binding on all container interfaces is needed. Binding all interfaces inside a container does not itself provide authentication.
 
-## Staging checklist (not yet complete)
+## Saved-project MVP operations
 
-1. Select the existing or new **staging** Vercel/Render/Supabase project IDs and budget. Reuse approved existing projects; never guess the owner's production account.
-2. Build immutable Python and Next images; audit existing package vulnerabilities and test the lockfile under the deployment Node/Python versions.
-3. Back up the database; apply `supabase/migrations/` in order to staging only. Verify old jobs still deserialize and new capture config survives reload. Record migration version and rollback constraints.
-4. Provision a **private** object bucket, owner-scoped paths and appropriate RLS/authorization. The service-role key bypasses RLS: app-layer ownership checks remain required.
-5. Add an access-controlled gateway/private networking in front of processing services. A secret frontend URL is not access control. Avoid browser-direct private-worker URLs unless deliberately exposed through an authenticated upload capability/proxy.
-6. Configure a durable worker with atomic claims, leases, retry/idempotency and resource ceilings. Inline daemon threads can die on restart and are not the production worker plan.
-7. Verify one real legacy sheet, one markerless sheet and one guided partial font; reload jobs from Postgres before checking private artifact downloads.
-8. Test expiry/deletion, signed-link timeout, malformed/oversized/overpixel images, unauthorized cross-project access, concurrency, restart during build and dependency outage.
-9. Payment test mode only: actual merchant eligibility, webhook signatures, idempotency, checkout-to-project entitlement, credit reservation/refund and successful artifact access. Do not put secret checkout logic in browser state.
-10. Observe latency, CPU/RSS, retry rate and support minutes; compare to the pricing reserve rather than inferring cost from one local benchmark.
+Apply migrations `0005_projects.sql` and `0006_feedback.sql` through the existing migration runner before enabling this UI. Projects use owner-scoped PostgreSQL rows, optimistic revision checks, and a maximum of 10 live projects per account. Successful edits renew a seven-day inactivity window. Live project references retain accepted glyph masks and template sheets; original guided source photos and generated job artifacts still follow their separate 24-hour retention. Deleting a project must not delete objects referenced by another live project or job. A concurrent-tab conflict requires explicitly reopening the newer project; the client must never silently overwrite it.
 
-## Public launch hard gates
+Optional usage reporting is off by default and sends only allowlisted event names. These are account-linked daily counts, not anonymous tracking or verified external-app usage. `font_download_requested` measures a link click, not successful installation. Text feedback requires a separate consent checkbox; attachments are not accepted. The cleanup service removes expired feedback and daily counts after the 30-day window. `scripts/ops_status.py` exposes aggregate usage and feedback-topic counts without content or account IDs. No third-party analytics or automated email/support integration is included.
 
-- [ ] Real auth/project ownership with cross-tenant negative tests.
-- [ ] Authenticated server-to-server API or private network; browser-safe scoped upload/download capabilities.
-- [ ] Rate limits, quotas and bounded CPU/memory/subprocess runtime, including free previews.
-- [ ] Storage isolation and actual retention/deletion enforcement, including abandoned uploads.
-- [ ] Durable job retry/lease recovery and idempotent artifact publication.
-- [ ] Billing and project-credit ledger, verified webhook/idempotency/refund tests.
-- [ ] Merchant/tax/privacy/terms review for the actual business and supported countries.
-- [ ] Generated fonts installed/rendered in Windows and macOS Word/PowerPoint; embedding/sharing tested separately.
-- [ ] Real-user acceptance corpus; measured cost, support and refund targets.
-- [ ] Explicit production project/domain/budget and rollback owner.
+Local mode is single-user development, with atomic project JSON (`PROJECT_STORE_PATH`) and feedback JSON (`FEEDBACK_STORE_PATH`); it is not a substitute for authenticated hosted storage. Keep these files outside version control. Saved projects do not extend job download lifetimes: rebuild from retained masks if a previous build expired.
 
-These are not checked merely because unit tests pass. Keep the service private until they are verified.
-
-## Rollback and operations
-
-Deploy immutable versions; keep previous image + frontend release. Before a schema change, snapshot database and document whether rollback requires migration reversal or simply redeploying compatible old code. Retain no failed-job input longer than the declared retention window. Pause new builds on systemic errors; preserve paid entitlements; never retry paid provider actions without idempotency.
-
-Log job IDs, stage durations and coarse failure codes. Do not log handwriting photographs, private font contents, signed URLs, database passwords or service-role tokens. Alert on queue age, build failures, overspend/abuse, disk pressure and deletion backlog. Validate health with a real bounded canary font in staging, not `/healthz` alone.
+Staging acceptance additions: save five sample characters, reload and restore masks, adjust scale/spacing, rebuild and inspect the actual exported font; reopen the project in a second tab and verify revision conflicts; delete one of two projects sharing a mask and prove the survivor can still build; verify seven-day project and 30-day feedback cleanup. Download the ZIP, inspect its character map, and install one font format on a real supported OS/Office device. Hosted provider and Office acceptance remain unverified locally.

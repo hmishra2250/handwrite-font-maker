@@ -1,0 +1,50 @@
+{
+  "scope": "Accepted-mask to actual exported TTF outline fidelity, not segmentation ground truth. Does not measure spacing/baseline or human acceptance.",
+  "font_sha256": "8e49a5ff3eebeae33ff9127c20103d7fad2516b492a8f609ed886863ac8be743",
+  "render_size_px": 1024,
+  "normalization": "tight bbox; uniform scale; centered 512px canvas; nearest-neighbor binary masks",
+  "glyphs": [
+    {
+      "status": "ok",
+      "char": "A",
+      "mask_sha256": "c8e1ee4bdb8f37f67f4e67e177b7a03d4a6a41432b6e88065df1b5076b8c6f25",
+      "accepted_mask_topology": {
+        "components": 2,
+        "holes": 1
+      },
+      "rendered_font_topology": {
+        "components": 2,
+        "holes": 1
+      },
+      "normalized_outline_metrics": {
+        "iou": 0.898338,
+        "boundary": {
+          "precision": 0.978157,
+          "recall": 0.959579,
+          "f1": 0.968779
+        },
+        "foreground_pixels": {
+          "predicted": 21687,
+          "reference": 21728
+        },
+        "false_positive_pixels": 1142,
+        "false_negative_pixels": 1183,
+        "topology": {
+          "predicted": {
+            "components": 2,
+            "holes": 1
+          },
+          "reference": {
+            "components": 2,
+            "holes": 1
+          },
+          "components_preserved": true,
+          "holes_preserved": true,
+          "component_delta": 0,
+          "hole_delta": 0
+        }
+      },
+      "comparison_png": "U0041.png"
+    }
+  ]
+}

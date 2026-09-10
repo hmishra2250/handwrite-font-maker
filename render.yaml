@@ -1,21 +1,137 @@
+# Invite-only profile. Blueprint creation incurs provider charges; auto-deploy stays OFF.
+# Fill the SAME identity/internal-key/backend credentials in each applicable service.
+# ML is opt-in: see docs/DEPLOYMENT.md for immutable model-image preparation.
 services:
   - type: web
+    name: handwrite-font-web
+    runtime: docker
+    dockerfilePath: ./Dockerfile.web
+    dockerContext: .
+    dockerCommand: sh -c 'export WORKER_API_BASE_URL="http://$WORKER_API_HOSTPORT"; exec node server.js'
+    plan: 1c-2g
+    autoDeploy: false
+    healthCheckPath: /
+    envVars:
+      - key: DEPLOYMENT_MODE
+        value: invite_beta
+      - key: PROCESS_JOBS_INLINE
+        value: "0"
+      - key: BILLING_ENABLED
+        value: "false"
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_ANON_KEY
+        sync: false
+      - key: INTERNAL_API_KEY
+        sync: false
+      - key: SITE_URL
+        sync: false
+      - key: WORKER_API_HOSTPORT
+        fromService:
+          name: handwrite-font-api
+          type: pserv
+          property: hostport
+  - type: pserv
     name: handwrite-font-api
     runtime: docker
     dockerfilePath: ./Dockerfile.api
+    dockerContext: .
     dockerCommand: python -m handwrite_font_maker.web.server
-    plan: free
-    autoDeploy: false  # Enable only after the production gates in docs/DEPLOYMENT.md.
+    preDeployCommand: python scripts/migrate.py
+    plan: 2c-4g
+    autoDeploy: false
     envVars:
-      - key: HOST
-        value: 0.0.0.0
+      - key: DEPLOYMENT_MODE
+        value: invite_beta
+      - key: PROCESS_JOBS_INLINE
+        value: "0"
+      - key: BILLING_ENABLED
+        value: "false"
       - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_ANON_KEY
+        sync: false
+      - key: INTERNAL_API_KEY
         sync: false
       - key: SUPABASE_SERVICE_ROLE_KEY
         sync: false
-      - key: SUPABASE_STORAGE_BUCKET
-        value: handwrite-font-jobs
       - key: DATABASE_URL
         sync: false
+      - key: SUPABASE_STORAGE_BUCKET
+        value: handwrite-font-jobs
+      - key: DAILY_UPLOAD_LIMIT
+        value: "150"
+      - key: DAILY_PREVIEW_LIMIT
+        value: "120"
+      - key: HOST
+        value: 0.0.0.0
+      - key: PORT
+        value: "8000"
+  - type: worker
+    name: handwrite-font-worker
+    runtime: docker
+    dockerfilePath: ./Dockerfile.api
+    dockerContext: .
+    dockerCommand: python -m handwrite_font_maker.web.worker_loop
+    plan: 1c-2g
+    autoDeploy: false
+    maxShutdownDelaySeconds: 30
+    envVars:
+      - key: DEPLOYMENT_MODE
+        value: invite_beta
       - key: PROCESS_JOBS_INLINE
-        value: "1"
+        value: "0"
+      - key: BILLING_ENABLED
+        value: "false"
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_ANON_KEY
+        sync: false
+      - key: INTERNAL_API_KEY
+        sync: false
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false
+      - key: DATABASE_URL
+        sync: false
+      - key: SUPABASE_STORAGE_BUCKET
+        value: handwrite-font-jobs
+      - key: DAILY_UPLOAD_LIMIT
+        value: "150"
+      - key: DAILY_PREVIEW_LIMIT
+        value: "120"
+      - key: JOB_TIMEOUT_SECONDS
+        value: "600"
+      - key: JOB_MAX_ATTEMPTS
+        value: "3"
+  - type: cron
+    name: handwrite-font-cleanup
+    runtime: docker
+    dockerfilePath: ./Dockerfile.api
+    dockerContext: .
+    dockerCommand: python -m handwrite_font_maker.web.cleanup --once
+    schedule: "*/15 * * * *"
+    plan: 0.5c-512mb
+    autoDeploy: false
+    envVars:
+      - key: DEPLOYMENT_MODE
+        value: invite_beta
+      - key: PROCESS_JOBS_INLINE
+        value: "0"
+      - key: BILLING_ENABLED
+        value: "false"
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_ANON_KEY
+        sync: false
+      - key: INTERNAL_API_KEY
+        sync: false
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false
+      - key: DATABASE_URL
+        sync: false
+      - key: SUPABASE_STORAGE_BUCKET
+        value: handwrite-font-jobs
+      - key: DAILY_UPLOAD_LIMIT
+        value: "150"
+      - key: DAILY_PREVIEW_LIMIT
+        value: "120"

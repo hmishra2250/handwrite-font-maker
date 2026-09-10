@@ -1,0 +1,163 @@
+{
+  "kind": "real-object-evidence-summary-v1",
+  "source": {
+    "source_id": "mendeley-46n94cngkx-v1",
+    "dataset_name": "Multi_layer graph plant leaf segmentation",
+    "doi": "10.17632/46n94cngkx.1",
+    "landing_url": "https://data.mendeley.com/datasets/46n94cngkx",
+    "api_url": "https://data.mendeley.com/public-api/datasets/46n94cngkx",
+    "license": {
+      "name": "Creative Commons Attribution 4.0 International",
+      "short_name": "CC BY 4.0",
+      "url": "http://creativecommons.org/licenses/by/4.0",
+      "evidence": "Mendeley Data public API data_licence.short_name and data_licence.url for dataset 46n94cngkx version 1."
+    },
+    "attribution": "Lyasmine ADADA, Idir Filali, Samia Bouzefrane. Multi_layer graph plant leaf segmentation. Mendeley Data, V1, 2024. DOI: 10.17632/46n94cngkx.1.",
+    "archive": {
+      "filename": "Plant_Leaf_Segmentation.rar",
+      "size_bytes": 19481164,
+      "sha256": "a654735869f8e0b77ca485bccdd2e1c3f2cf261e98b2c6af3dcf4758bf1dbb65"
+    },
+    "independent_annotation_origin": "Dataset description states it contains 233 high-resolution leaf images in natural environments and a mask folder with ground truth masks."
+  },
+  "available_pairs": 233,
+  "selected_samples": 72,
+  "split_counts": {
+    "dev": 60,
+    "heldout": 12
+  },
+  "dimension_mismatch_count": 22,
+  "grouping_limitation": "No plant/session IDs are provided in the selected archive metadata; source_group is a filename numeric bucket, so split leakage by biological specimen cannot be ruled out.",
+  "benchmark_summary": {
+    "efficientsam-bbox": {
+      "samples": 72,
+      "successful": 72,
+      "failed": 0,
+      "mean_iou": 0.91993,
+      "mean_boundary_f1": 0.851701,
+      "mean_iou_denominator": "all samples; failed runs contribute 0.0",
+      "mean_boundary_f1_denominator": "all samples; failed runs contribute 0.0",
+      "mean_iou_successful_only": 0.91993,
+      "mean_boundary_f1_successful_only": 0.851701,
+      "topology_exact_count": 31,
+      "mean_seconds_successful_only": 9.255884,
+      "by_split": {
+        "dev": {
+          "samples": 60,
+          "successful": 60,
+          "mean_iou": 0.9291,
+          "mean_iou_successful_only": 0.9291
+        },
+        "heldout": {
+          "samples": 12,
+          "successful": 12,
+          "mean_iou": 0.874082,
+          "mean_iou_successful_only": 0.874082
+        }
+      },
+      "by_mask_alignment": {
+        "resized-published-mask": {
+          "samples": 22,
+          "successful": 22,
+          "mean_iou": 0.944406,
+          "mean_boundary_f1": 0.86888
+        },
+        "same-dimensions": {
+          "samples": 50,
+          "successful": 50,
+          "mean_iou": 0.909161,
+          "mean_boundary_f1": 0.844142
+        }
+      }
+    },
+    "grabcut-bbox": {
+      "samples": 72,
+      "successful": 72,
+      "failed": 0,
+      "mean_iou": 0.918554,
+      "mean_boundary_f1": 0.830617,
+      "mean_iou_denominator": "all samples; failed runs contribute 0.0",
+      "mean_boundary_f1_denominator": "all samples; failed runs contribute 0.0",
+      "mean_iou_successful_only": 0.918554,
+      "mean_boundary_f1_successful_only": 0.830617,
+      "topology_exact_count": 26,
+      "mean_seconds_successful_only": 0.90707,
+      "by_split": {
+        "dev": {
+          "samples": 60,
+          "successful": 60,
+          "mean_iou": 0.915586,
+          "mean_iou_successful_only": 0.915586
+        },
+        "heldout": {
+          "samples": 12,
+          "successful": 12,
+          "mean_iou": 0.933398,
+          "mean_iou_successful_only": 0.933398
+        }
+      },
+      "by_mask_alignment": {
+        "resized-published-mask": {
+          "samples": 22,
+          "successful": 22,
+          "mean_iou": 0.934149,
+          "mean_boundary_f1": 0.822863
+        },
+        "same-dimensions": {
+          "samples": 50,
+          "successful": 50,
+          "mean_iou": 0.911693,
+          "mean_boundary_f1": 0.834029
+        }
+      }
+    },
+    "slimsam-one-point": {
+      "samples": 72,
+      "successful": 72,
+      "failed": 0,
+      "mean_iou": 0.899583,
+      "mean_boundary_f1": 0.789731,
+      "mean_iou_denominator": "all samples; failed runs contribute 0.0",
+      "mean_boundary_f1_denominator": "all samples; failed runs contribute 0.0",
+      "mean_iou_successful_only": 0.899583,
+      "mean_boundary_f1_successful_only": 0.789731,
+      "topology_exact_count": 25,
+      "mean_seconds_successful_only": 4.83036,
+      "by_split": {
+        "dev": {
+          "samples": 60,
+          "successful": 60,
+          "mean_iou": 0.88968,
+          "mean_iou_successful_only": 0.88968
+        },
+        "heldout": {
+          "samples": 12,
+          "successful": 12,
+          "mean_iou": 0.949095,
+          "mean_iou_successful_only": 0.949095
+        }
+      },
+      "by_mask_alignment": {
+        "resized-published-mask": {
+          "samples": 22,
+          "successful": 22,
+          "mean_iou": 0.889915,
+          "mean_boundary_f1": 0.771939
+        },
+        "same-dimensions": {
+          "samples": 50,
+          "successful": 50,
+          "mean_iou": 0.903836,
+          "mean_boundary_f1": 0.79756
+        }
+      }
+    }
+  },
+  "benchmark_scope": "Real licensed leaf/object photos scored against independent published reference masks; no model-generated pseudo-ground-truth.",
+  "prompt_comparison_note": "Compare GrabCut vs EfficientSAM as bbox-only. SlimSAM one-point is a separate assisted diagnostic and must not be described as prompt-equivalent to bbox-only methods. All rectangles are reference-mask-derived oracle boxes, not detector outputs.",
+  "ignored_full_outputs": {
+    "report_json": "real-object-benchmark.json",
+    "comparison_png": "real-object-comparison.png",
+    "predictions_dir": "predictions/"
+  }
+}

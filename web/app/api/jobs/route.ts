@@ -1,35 +1,44 @@
+import { readBoundedJson } from '@/lib/read-json';
 import { NextResponse } from 'next/server';
-import { ERROR_COPY, isLiveMode, isLocalMode, isSafeFontName, retentionExpiry, validateCaptureConfig, workerBaseUrl, type CreateJobRequest, type JobResponse } from '@/lib/contracts';
+import { ERROR_COPY, isLiveMode, isLocalMode, isSafeFontName, retentionExpiry, validateCaptureConfig, type CreateJobRequest, type JobResponse } from '@/lib/contracts';
 import { demoBackendUnavailable } from '@/lib/mock-jobs';
+import { applyAuthCookies, authenticatedWorkerHeaders, enforceMutationOrigin, protectedWorkerBaseUrl, requireAuthenticatedRequest, sanitizeProtectedWorkerError } from '@/lib/server-auth';
 
 export async function POST(request: Request) {
-  const body = (await request.json().catch(() => null)) as CreateJobRequest | null;
+  const originError = enforceMutationOrigin(request);
+  if (originError) return originError;
+  const authResult = await requireAuthenticatedRequest(request);
+  if (!authResult.ok) return authResult.response;
+  const auth = authResult.auth;
+  const json = (body: unknown, init?: ResponseInit) => applyAuthCookies(NextResponse.json(body, init), auth);
+  const body = (await readBoundedJson(request)) as CreateJobRequest | null;
   if (!body?.inputPhoto?.objectKey) {
-    return NextResponse.json({ error: { code: 'UPLOAD_OBJECT_MISSING', message: ERROR_COPY.UPLOAD_OBJECT_MISSING } }, { status: 400 });
+    return json({ error: { code: 'UPLOAD_OBJECT_MISSING', message: ERROR_COPY.UPLOAD_OBJECT_MISSING } }, { status: 400 });
   }
   if (!body.font?.fontName || !isSafeFontName(body.font.fontName)) {
-    return NextResponse.json({ error: { code: 'FONT_METADATA_INVALID', message: ERROR_COPY.FONT_METADATA_INVALID } }, { status: 400 });
+    return json({ error: { code: 'FONT_METADATA_INVALID', message: ERROR_COPY.FONT_METADATA_INVALID } }, { status: 400 });
   }
   const captureError = validateCaptureConfig(body.capture);
   if (captureError) {
-    return NextResponse.json({ error: { code: 'CAPTURE_CONFIG_INVALID', message: captureError } }, { status: 400 });
+    return json({ error: { code: 'CAPTURE_CONFIG_INVALID', message: captureError } }, { status: 400 });
   }
 
   /* --- Local or Live mode: proxy to the Python backend --- */
-  if (isLocalMode() || isLiveMode()) {
-    const base = workerBaseUrl();
+  if (auth.protected || isLocalMode() || isLiveMode()) {
+    const base = protectedWorkerBaseUrl(auth);
     if (!base) {
-      return NextResponse.json({ error: { code: 'INTERNAL_ERROR', message: 'Worker API URL is not configured.' } }, { status: 500 });
+      return json({ error: { code: 'INTERNAL_ERROR', message: 'Worker API URL is not configured.' } }, { status: 500 });
     }
 
     const upstream = await fetch(new URL('/jobs', base), {
       method: 'POST',
-      headers: { 'content-type': 'application/json' },
+      headers: authenticatedWorkerHeaders(auth, { 'content-type': 'application/json' }),
       body: JSON.stringify(body),
       cache: 'no-store'
     });
     const payload: unknown = await upstream.json().catch(() => ({ error: { code: 'INTERNAL_ERROR', message: 'Worker returned a non-JSON response.' } }));
-    return NextResponse.json(payload, { status: upstream.status });
+    const safePayload = upstream.ok ? payload : sanitizeProtectedWorkerError(auth, payload, 'Job creation failed.');
+    return applyAuthCookies(NextResponse.json(safePayload, { status: upstream.status }), auth);
   }
 
   /* --- Demo mode: return canned response --- */

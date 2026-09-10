@@ -1,0 +1,20 @@
+{
+  "realServerChecks": [
+    "runtime beta login gate",
+    "unauthenticated session/upload/object denied",
+    "cross-origin mutation denied",
+    "no-store",
+    "noindex"
+  ],
+  "mockedUiChecks": [
+    "login unlocks workbench",
+    "failed logout retains UI session and shows retry",
+    "successful logout locks workbench"
+  ],
+  "bounds": {
+    "viewport": 390,
+    "width": 390
+  },
+  "pageErrors": [],
+  "caveat": "No real hosted Supabase identity/refresh or cloud deployment tested."
+}

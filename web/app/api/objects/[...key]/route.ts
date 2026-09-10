@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
-import { ERROR_COPY, isLiveMode, isLocalMode, MAX_UPLOAD_BYTES, workerBaseUrl } from '@/lib/contracts';
+import { ERROR_COPY, isLiveMode, isLocalMode, MAX_UPLOAD_BYTES } from '@/lib/contracts';
+import { applyAuthCookies, authenticatedWorkerHeaders, enforceMutationOrigin, protectedWorkerBaseUrl, requireAuthenticatedRequest, sanitizeProtectedWorkerError } from '@/lib/server-auth';
 
 type Params = { params: Promise<{ key: string[] }> };
 
@@ -31,31 +32,39 @@ async function readBoundedUploadBlob(request: Request, maxBytes: number): Promis
 }
 
 async function proxyObject(request: Request, { params }: Params, method: 'GET' | 'PUT') {
-  if (!(isLocalMode() || isLiveMode())) {
-    return NextResponse.json({ error: { code: 'INTERNAL_ERROR', message: 'Object proxy requires a configured Python worker.' } }, { status: 503 });
+  if (method === 'PUT') {
+    const originError = enforceMutationOrigin(request);
+    if (originError) return originError;
+  }
+  const authResult = await requireAuthenticatedRequest(request);
+  if (!authResult.ok) return authResult.response;
+  const auth = authResult.auth;
+  const json = (body: unknown, init?: ResponseInit) => applyAuthCookies(NextResponse.json(body, init), auth);
+  if (!(auth.protected || isLocalMode() || isLiveMode())) {
+    return json({ error: { code: 'INTERNAL_ERROR', message: 'Object proxy requires a configured Python worker.' } }, { status: 503 });
   }
   const { key } = await params;
-  const base = workerBaseUrl();
+  const base = protectedWorkerBaseUrl(auth);
   if (!base || !key?.length) {
-    return NextResponse.json({ error: { code: 'UPLOAD_OBJECT_MISSING', message: 'Object key is required.' } }, { status: 400 });
+    return json({ error: { code: 'UPLOAD_OBJECT_MISSING', message: 'Object key is required.' } }, { status: 400 });
   }
 
   let uploadBody: Blob | undefined;
   if (method === 'PUT') {
     const sizeHeader = Number(request.headers.get('content-length') ?? 0);
     if (sizeHeader > MAX_UPLOAD_BYTES) {
-      return NextResponse.json({ error: { code: 'UPLOAD_OBJECT_TOO_LARGE', message: ERROR_COPY.UPLOAD_OBJECT_TOO_LARGE } }, { status: 413 });
+      return json({ error: { code: 'UPLOAD_OBJECT_TOO_LARGE', message: ERROR_COPY.UPLOAD_OBJECT_TOO_LARGE } }, { status: 413 });
     }
     const boundedBody = await readBoundedUploadBlob(request, MAX_UPLOAD_BYTES);
     if (boundedBody === 'too_large') {
-      return NextResponse.json({ error: { code: 'UPLOAD_OBJECT_TOO_LARGE', message: ERROR_COPY.UPLOAD_OBJECT_TOO_LARGE } }, { status: 413 });
+      return json({ error: { code: 'UPLOAD_OBJECT_TOO_LARGE', message: ERROR_COPY.UPLOAD_OBJECT_TOO_LARGE } }, { status: 413 });
     }
     uploadBody = boundedBody;
   }
 
   const upstream = await fetch(new URL(`/objects/${objectPath(key)}`, base), {
     method,
-    headers: method === 'PUT' ? { 'content-type': request.headers.get('content-type') ?? 'image/png' } : undefined,
+    headers: authenticatedWorkerHeaders(auth, method === 'PUT' ? { 'content-type': request.headers.get('content-type') ?? 'image/png' } : {}),
     body: uploadBody,
     cache: 'no-store',
   });
@@ -63,18 +72,23 @@ async function proxyObject(request: Request, { params }: Params, method: 'GET' |
   if (method === 'PUT') {
     if (!upstream.ok) {
       const payload = await upstream.json().catch(() => ({ error: { code: 'INTERNAL_ERROR', message: 'Worker object upload failed.' } }));
-      return NextResponse.json(payload, { status: upstream.status });
+      return applyAuthCookies(NextResponse.json(sanitizeProtectedWorkerError(auth, payload, 'Object upload failed.'), { status: upstream.status }), auth);
     }
-    return new Response(null, { status: upstream.status });
+    return applyAuthCookies(new NextResponse(null, { status: upstream.status }), auth);
   }
 
-  return new Response(upstream.body, {
+  if (!upstream.ok) {
+    const payload = await upstream.json().catch(() => ({ error: { code: 'INTERNAL_ERROR', message: 'Worker object download failed.' } }));
+    return applyAuthCookies(NextResponse.json(sanitizeProtectedWorkerError(auth, payload, 'Object download failed.'), { status: upstream.status }), auth);
+  }
+
+  return applyAuthCookies(new NextResponse(upstream.body, {
     status: upstream.status,
     headers: {
       'content-type': upstream.headers.get('content-type') ?? 'application/octet-stream',
       'cache-control': 'no-store',
     },
-  });
+  }), auth);
 }
 
 export async function PUT(request: Request, context: Params) {

@@ -6,7 +6,10 @@ import {
   isSafeFontName,
   isSupportedImage,
   MAX_UPLOAD_BYTES,
+  type CaptureForegroundPromptPoint,
+  type CaptureForegroundRequestMethod,
   type CaptureForegroundResponse,
+  type CaptureForegroundStyle,
   type CapturePageResponse,
   type CreateJobRequest,
   type InputPhotoRef,
@@ -16,6 +19,14 @@ import {
   type PageCorners,
   type UploadResponse,
 } from '@/lib/contracts';
+import { ProjectManager } from './projects/project-manager';
+import { useProjectClient } from './projects/use-projects';
+import { FontReviewPanel, type ReviewGlyph } from './review/font-review-panel';
+import { StarterSamplePanel, STARTER_TARGET_CHARACTERS } from './onboarding/starter-sample';
+import { projectObjectUrl, type FontProject, type ProjectGlyph, type ProjectPayload } from '@/lib/projects';
+import { recordFunnelEvent } from '@/lib/feedback-client';
+import { DeleteJobButton } from './delete-job-button';
+import { buildInkMask, type InkMaskMethod } from '@/lib/ink-mask';
 
 type LocalState =
   | 'idle'
@@ -27,7 +38,8 @@ type LocalState =
   | 'failed';
 
 type WorkbenchMode = 'guided' | 'markerless' | 'legacy';
-type GuidedMaskMethod = 'threshold' | 'object';
+type GuidedMaskMethod = 'threshold' | 'foreground';
+type ForegroundPromptMode = 'positive' | 'negative';
 type CornerIndex = 0 | 1 | 2 | 3;
 
 type MaskResult = {
@@ -37,24 +49,33 @@ type MaskResult = {
   foregroundRatio: number;
 };
 
-type CurrentMask = MaskResult & { url: string };
+type CurrentMask = MaskResult & {
+  url: string;
+  originalBlob: Blob;
+  sourceMethod: 'threshold' | 'grabcut' | 'slimsam' | 'efficientsam';
+  modelId?: string;
+  warnings: string[];
+};
 
 type AcceptedGlyph = {
   char: string;
   blob: Blob;
   url: string;
   baseline: number;
+  scale: number;
+  spacing: number;
   width: number;
   height: number;
   foregroundRatio: number;
   filename: string;
+  inputPhoto?: InputPhotoRef;
 };
 
 const POLL_INTERVAL_MS = 2000;
 const MAX_POLLS = 120;
 const MASK_MAX_SIDE = 1024;
 const GUIDED_CHARACTER_ORDER = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789' + Array.from({ length: 94 }, (_, i) => String.fromCharCode(i + 33)).filter((char) => !/[A-Za-z0-9]/.test(char)).join('');
-const GUIDED_CHARACTERS = Array.from(GUIDED_CHARACTER_ORDER);
+const ALL_GUIDED_CHARACTERS = Array.from(GUIDED_CHARACTER_ORDER);
 const DEFAULT_CORNERS: PageCorners = [[0.08, 0.08], [0.92, 0.08], [0.92, 0.92], [0.08, 0.92]];
 const DEFAULT_FOREGROUND_RECTANGLE: NormalizedRectangle = [0.12, 0.12, 0.88, 0.88];
 const CORNER_LABELS = ['TL', 'TR', 'BR', 'BL'] as const;
@@ -101,6 +122,12 @@ export function normalizedPointInContainedImage(clientX: number, clientY: number
   return [clamp01((clientX - bounds.left) / bounds.width), clamp01((clientY - bounds.top) / bounds.height)];
 }
 
+export function maskCanvasPointFromClient(clientX: number, clientY: number, canvasRect: RectLike, canvasWidth: number, canvasHeight: number): [number, number] {
+  const x = clamp01(canvasRect.width > 0 ? (clientX - canvasRect.left) / canvasRect.width : 0);
+  const y = clamp01(canvasRect.height > 0 ? (clientY - canvasRect.top) / canvasRect.height : 0);
+  return [Math.round(x * Math.max(0, canvasWidth - 1)), Math.round(y * Math.max(0, canvasHeight - 1))];
+}
+
 function updateCorner(corners: PageCorners, index: CornerIndex, x: number, y: number): PageCorners {
   const point: [number, number] = [clamp01(x), clamp01(y)];
   return [
@@ -113,6 +140,54 @@ function updateCorner(corners: PageCorners, index: CornerIndex, x: number, y: nu
 
 function glyphFilename(char: string) {
   return `glyph-u${char.charCodeAt(0).toString(16).padStart(4, '0')}.png`;
+}
+
+
+function normalizeTargetCharacters(value: string) {
+  const seen = new Set<string>();
+  const chars: string[] = [];
+  for (const char of value) {
+    const code = char.charCodeAt(0);
+    if (char.length !== 1 || code < 33 || code > 126 || seen.has(char)) continue;
+    seen.add(char);
+    chars.push(char);
+    if (chars.length >= 94) break;
+  }
+  return chars.join('') || STARTER_TARGET_CHARACTERS;
+}
+
+function clampScale(value: number) {
+  return Math.min(1.5, Math.max(0.5, Number.isFinite(value) ? value : 1));
+}
+
+function clampSpacing(value: number) {
+  return Math.min(0.25, Math.max(-0.05, Number.isFinite(value) ? value : 0));
+}
+
+async function blobFromObjectRef(ref: InputPhotoRef, errorMessage = 'Could not restore an accepted mask PNG from the saved project.'): Promise<Blob> {
+  const response = await fetch(projectObjectUrl(ref), { cache: 'no-store' });
+  if (!response.ok) throw new Error(errorMessage);
+  return await response.blob();
+}
+
+function filenameFromObjectKey(objectKey: string) {
+  return objectKey.split('/').pop() || 'saved-image.png';
+}
+
+async function createSyntheticMaskBlob(char: string): Promise<MaskResult> {
+  const canvas = document.createElement('canvas');
+  canvas.width = 220;
+  canvas.height = 260;
+  const ctx = canvas.getContext('2d', { willReadFrequently: true });
+  if (!ctx) throw new Error('This browser could not create the starter mask.');
+  ctx.fillStyle = 'white';
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  ctx.fillStyle = 'black';
+  ctx.font = 'bold 190px serif';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'alphabetic';
+  ctx.fillText(char, canvas.width / 2, 205);
+  return maskResultFromCanvas(canvas);
 }
 
 function CameraIcon({ className }: { className?: string }) {
@@ -167,7 +242,7 @@ async function loadImage(file: Blob): Promise<HTMLImageElement> {
   }
 }
 
-export async function createMaskPngFromFile(file: Blob, threshold: number, invert: boolean): Promise<MaskResult> {
+export async function createMaskPngFromFile(file: Blob, threshold: number, invert: boolean, method: InkMaskMethod = 'global'): Promise<MaskResult> {
   const image = await loadImage(file);
   const sourceWidth = image.naturalWidth || image.width;
   const sourceHeight = image.naturalHeight || image.height;
@@ -183,22 +258,10 @@ export async function createMaskPngFromFile(file: Blob, threshold: number, inver
   if (!ctx) throw new Error('This browser could not prepare the mask canvas.');
 
   ctx.drawImage(image, 0, 0, width, height);
-  const data = ctx.getImageData(0, 0, width, height);
-  let foreground = 0;
-  for (let i = 0; i < data.data.length; i += 4) {
-    const r = data.data[i] ?? 0;
-    const g = data.data[i + 1] ?? 0;
-    const b = data.data[i + 2] ?? 0;
-    const luma = 0.299 * r + 0.587 * g + 0.114 * b;
-    const isForeground = invert ? luma > threshold : luma < threshold;
-    const value = isForeground ? 0 : 255;
-    data.data[i] = value;
-    data.data[i + 1] = value;
-    data.data[i + 2] = value;
-    data.data[i + 3] = 255;
-    if (isForeground) foreground++;
-  }
-  ctx.putImageData(data, 0, 0);
+  const source = ctx.getImageData(0, 0, width, height);
+  const mask = buildInkMask(source.data, width, height, { method, threshold, invert });
+  source.data.set(mask.data);
+  ctx.putImageData(source, 0, 0);
 
   const blob = await new Promise<Blob>((resolve, reject) => {
     canvas.toBlob((result) => {
@@ -207,7 +270,7 @@ export async function createMaskPngFromFile(file: Blob, threshold: number, inver
     }, 'image/png');
   });
 
-  return { blob, width, height, foregroundRatio: foreground / (width * height) };
+  return { blob, width, height, foregroundRatio: mask.foreground / (width * height) };
 }
 
 function dataUrlToBlob(dataUrl: string): Blob {
@@ -240,6 +303,31 @@ async function measureMaskBlob(blob: Blob): Promise<MaskResult> {
   return { blob, width, height, foregroundRatio: foreground / (width * height) };
 }
 
+function foregroundRatioFromImageData(data: ImageData) {
+  let foreground = 0;
+  for (let i = 0; i < data.data.length; i += 4) {
+    const r = data.data[i] ?? 255;
+    const g = data.data[i + 1] ?? 255;
+    const b = data.data[i + 2] ?? 255;
+    if ((r + g + b) / 3 < 128) foreground++;
+  }
+  const pixelCount = Number.isFinite(data.width) && Number.isFinite(data.height) ? data.width * data.height : data.data.length / 4;
+  return foreground / Math.max(1, pixelCount);
+}
+
+async function maskResultFromCanvas(canvas: HTMLCanvasElement): Promise<MaskResult> {
+  const ctx = canvas.getContext('2d', { willReadFrequently: true });
+  if (!ctx) throw new Error('This browser could not read the edited mask.');
+  const data = ctx.getImageData(0, 0, canvas.width, canvas.height);
+  const blob = await new Promise<Blob>((resolve, reject) => {
+    canvas.toBlob((result) => {
+      if (result) resolve(result);
+      else reject(new Error('Could not encode the edited mask PNG.'));
+    }, 'image/png');
+  });
+  return { blob, width: canvas.width, height: canvas.height, foregroundRatio: foregroundRatioFromImageData(data) };
+}
+
 function normalizeRectangle(rectangle: NormalizedRectangle): NormalizedRectangle {
   const [left, top, right, bottom] = rectangle;
   const l = Math.min(clamp01(left), clamp01(right - 0.01));
@@ -249,10 +337,24 @@ function normalizeRectangle(rectangle: NormalizedRectangle): NormalizedRectangle
   return [l, t, r, b];
 }
 
-export function UploadWorkbench() {
+function describeForegroundMethod(result: CaptureForegroundResponse) {
+  if (result.method === 'slimsam') return `AI model SlimSAM${result.modelId ? ` (${result.modelId})` : ''}`;
+  if (result.method === 'efficientsam') return `AI box model EfficientSAM${result.modelId ? ` (${result.modelId})` : ''}`;
+  return 'classical GrabCut';
+}
+
+function describeMaskSource(mask: CurrentMask) {
+  if (mask.sourceMethod === 'threshold') return 'local threshold';
+  if (mask.sourceMethod === 'slimsam') return `AI model SlimSAM${mask.modelId ? ` (${mask.modelId})` : ''}`;
+  if (mask.sourceMethod === 'efficientsam') return `AI box model EfficientSAM${mask.modelId ? ` (${mask.modelId})` : ''}`;
+  return 'classical GrabCut';
+}
+
+export function UploadWorkbench({ allowDelete = false }: { allowDelete?: boolean } = {}) {
   const [mode, setMode] = useState<WorkbenchMode>('guided');
   const [legacyFile, setLegacyFile] = useState<File | null>(null);
   const [legacyPreview, setLegacyPreview] = useState<string | null>(null);
+  const [legacyUploadRef, setLegacyUploadRef] = useState<InputPhotoRef | null>(null);
   const [pageFile, setPageFile] = useState<File | null>(null);
   const [pagePreview, setPagePreview] = useState<string | null>(null);
   const [pageUploadRef, setPageUploadRef] = useState<InputPhotoRef | null>(null);
@@ -264,21 +366,36 @@ export function UploadWorkbench() {
   const [guidedPreview, setGuidedPreview] = useState<string | null>(null);
   const [guidedUploadRef, setGuidedUploadRef] = useState<InputPhotoRef | null>(null);
   const [guidedMaskMethod, setGuidedMaskMethod] = useState<GuidedMaskMethod>('threshold');
+  const [foregroundMethod, setForegroundMethod] = useState<CaptureForegroundRequestMethod>('auto');
+  const [foregroundStyle, setForegroundStyle] = useState<CaptureForegroundStyle>('silhouette');
   const [foregroundRectangle, setForegroundRectangle] = useState<NormalizedRectangle>(DEFAULT_FOREGROUND_RECTANGLE);
+  const [foregroundPoints, setForegroundPoints] = useState<CaptureForegroundPromptPoint[]>([]);
+  const [foregroundPromptMode, setForegroundPromptMode] = useState<ForegroundPromptMode>('positive');
   const [foregroundStatus, setForegroundStatus] = useState<string | null>(null);
+  const [inkThreshold, setInkThreshold] = useState(128);
+  const [inkMaskMethod, setInkMaskMethod] = useState<InkMaskMethod>('global');
   const [threshold, setThreshold] = useState(170);
   const [invert, setInvert] = useState(false);
   const [baseline, setBaseline] = useState(0.8);
   const [currentCharIndex, setCurrentCharIndex] = useState(0);
   const [currentMask, setCurrentMask] = useState<CurrentMask | null>(null);
+  const currentMaskRef = useRef<CurrentMask | null>(null);
+  const [maskEditPending, setMaskEditPending] = useState(false);
+  const [maskEditError, setMaskEditError] = useState<string | null>(null);
   const [acceptedGlyphs, setAcceptedGlyphs] = useState<Record<string, AcceptedGlyph>>({});
   const [fontName, setFontName] = useState('MyHandwrite-Regular');
   const [familyName, setFamilyName] = useState('My Handwrite');
   const [styleName, setStyleName] = useState('Regular');
+  const [projectName, setProjectName] = useState('My first handwriting font');
+  const [targetCharacters, setTargetCharacters] = useState(STARTER_TARGET_CHARACTERS);
+  const [reviewSelectedChar, setReviewSelectedChar] = useState(STARTER_TARGET_CHARACTERS[0] ?? 'A');
+  const [projectHydrateStatus, setProjectHydrateStatus] = useState<string | null>(null);
   const [state, setState] = useState<LocalState>('idle');
   const [job, setJob] = useState<JobResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [dragover, setDragover] = useState(false);
+  const projectClient = useProjectClient();
+  const { projects, activeProject, status: projectSaveStatus, message: projectMessage, createProject, openProject, saveProject, deleteProject } = projectClient;
   const pollRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pollCount = useRef(0);
   const legacyCameraRef = useRef<HTMLInputElement>(null);
@@ -287,10 +404,28 @@ export function UploadWorkbench() {
   const pageFileRef = useRef<HTMLInputElement>(null);
   const guidedCameraRef = useRef<HTMLInputElement>(null);
   const guidedFileRef = useRef<HTMLInputElement>(null);
+  const maskGenerationSeq = useRef(0);
+  const foregroundRequestSeq = useRef(0);
+  const pageCornerRequestSeq = useRef(0);
+  const activePageCornerRequestRef = useRef<number | null>(null);
+  const projectSwitchSeq = useRef(0);
+  const sheetSelectionSeq = useRef(0);
+  const autosaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const autosaveChainRef = useRef<Promise<void>>(Promise.resolve());
+  const activeProjectRef = useRef<FontProject | null>(null);
+  const acceptedGlyphsRef = useRef<Record<string, AcceptedGlyph>>({});
+  const lastSavedProjectFingerprintRef = useRef<string | null>(null);
+  const pendingSaveFingerprintRef = useRef<string | null>(null);
+  const hydratingProjectRef = useRef(false);
+  const projectHydrationFailedRef = useRef(false);
+  const recordedSuccessJobIdsRef = useRef<Set<string>>(new Set());
 
-  const currentChar = GUIDED_CHARACTERS[currentCharIndex] ?? 'A';
-  const acceptedCount = Object.keys(acceptedGlyphs).length;
-  const missingCount = GUIDED_CHARACTERS.length - acceptedCount;
+  const guidedCharacters = useMemo(() => Array.from(normalizeTargetCharacters(targetCharacters)), [targetCharacters]);
+  const safeCurrentCharIndex = Math.min(currentCharIndex, Math.max(0, guidedCharacters.length - 1));
+  const currentChar = guidedCharacters[safeCurrentCharIndex] ?? guidedCharacters[0] ?? 'A';
+  const effectiveReviewSelectedChar = guidedCharacters.includes(reviewSelectedChar) ? reviewSelectedChar : guidedCharacters[0] ?? 'A';
+  const acceptedCount = guidedCharacters.filter((char) => acceptedGlyphs[char]).length;
+  const missingCount = Math.max(0, guidedCharacters.length - acceptedCount);
 
   const clearPolling = useCallback(() => {
     if (pollRef.current) clearTimeout(pollRef.current);
@@ -311,9 +446,22 @@ export function UploadWorkbench() {
   useEffect(() => { cleanupRef.current.legacyPreview = legacyPreview; }, [legacyPreview]);
   useEffect(() => { cleanupRef.current.pagePreview = pagePreview; }, [pagePreview]);
   useEffect(() => { cleanupRef.current.guidedPreview = guidedPreview; }, [guidedPreview]);
-  useEffect(() => { cleanupRef.current.currentMaskUrl = currentMask?.url ?? null; }, [currentMask]);
-  useEffect(() => { cleanupRef.current.acceptedGlyphs = acceptedGlyphs; }, [acceptedGlyphs]);
+  useEffect(() => {
+    cleanupRef.current.currentMaskUrl = currentMask?.url ?? null;
+    currentMaskRef.current = currentMask;
+  }, [currentMask]);
+  useEffect(() => {
+    cleanupRef.current.acceptedGlyphs = acceptedGlyphs;
+    acceptedGlyphsRef.current = acceptedGlyphs;
+  }, [acceptedGlyphs]);
+  useEffect(() => { activeProjectRef.current = activeProject; }, [activeProject]);
   useEffect(() => () => {
+    projectSwitchSeq.current += 1;
+    pageCornerRequestSeq.current += 1;
+    activePageCornerRequestRef.current = null;
+    activeProjectRef.current = null;
+    pendingSaveFingerprintRef.current = null;
+    if (autosaveTimerRef.current) clearTimeout(autosaveTimerRef.current);
     const cleanup = cleanupRef.current;
     if (cleanup.legacyPreview) URL.revokeObjectURL(cleanup.legacyPreview);
     if (cleanup.pagePreview) URL.revokeObjectURL(cleanup.pagePreview);
@@ -323,34 +471,38 @@ export function UploadWorkbench() {
   }, []);
 
   useEffect(() => {
+    const requestId = ++maskGenerationSeq.current;
     let cancelled = false;
-    let localUrl: string | null = null;
+    let localUrl = '';
     if (guidedMaskMethod !== 'threshold' || !guidedFile || !isSupportedImage(guidedFile.type)) return undefined;
 
-    createMaskPngFromFile(guidedFile, threshold, invert)
+    createMaskPngFromFile(guidedFile, threshold, invert, inkMaskMethod)
       .then((mask) => {
-        if (cancelled) return;
+        if (cancelled || requestId !== maskGenerationSeq.current) return;
         localUrl = URL.createObjectURL(mask.blob);
+        setMaskEditPending(false);
+        setMaskEditError(null);
         setCurrentMask((previous) => {
           if (previous) URL.revokeObjectURL(previous.url);
-          return { ...mask, url: localUrl ?? '' };
+          return { ...mask, url: localUrl, originalBlob: mask.blob, sourceMethod: 'threshold', warnings: [] };
         });
       })
       .catch((err) => {
-        if (!cancelled) {
+        if (!cancelled && requestId === maskGenerationSeq.current) {
           setCurrentMask((previous) => {
             if (previous) URL.revokeObjectURL(previous.url);
             return null;
           });
+          setMaskEditPending(false);
+          setMaskEditError(null);
           setError(err instanceof Error ? err.message : 'Could not build a mask preview.');
         }
       });
 
     return () => {
       cancelled = true;
-      if (localUrl) URL.revokeObjectURL(localUrl);
     };
-  }, [guidedFile, guidedMaskMethod, invert, threshold]);
+  }, [guidedFile, guidedMaskMethod, inkMaskMethod, invert, threshold]);
 
   function resetJobState() {
     setError(null);
@@ -360,14 +512,43 @@ export function UploadWorkbench() {
     }
   }
 
+  function invalidatePageCornerDetection() {
+    pageCornerRequestSeq.current += 1;
+    activePageCornerRequestRef.current = null;
+  }
+
+  function isCurrentPageCornerDetection(requestId: number, switchId: number, sheetSelectionId: number) {
+    return activePageCornerRequestRef.current === requestId
+      && pageCornerRequestSeq.current === requestId
+      && projectSwitchSeq.current === switchId
+      && sheetSelectionSeq.current === sheetSelectionId;
+  }
+
+  function finishStalePageCornerDetection(requestId: number, switchId: number, sheetSelectionId: number) {
+    if (isCurrentPageCornerDetection(requestId, switchId, sheetSelectionId)) return false;
+    if (activePageCornerRequestRef.current === requestId) activePageCornerRequestRef.current = null;
+    setState((current) => (activePageCornerRequestRef.current === null && current === 'preparing_upload' ? 'idle' : current));
+    return true;
+  }
+
+  function handleModeChange(nextMode: WorkbenchMode) {
+    if (nextMode !== mode) invalidatePageCornerDetection();
+    setMode(nextMode);
+  }
+
   function handleLegacyFile(file: File | null) {
+    sheetSelectionSeq.current += 1;
+    invalidatePageCornerDetection();
     if (legacyPreview) URL.revokeObjectURL(legacyPreview);
     setLegacyFile(file);
+    setLegacyUploadRef(null);
     setLegacyPreview(file ? URL.createObjectURL(file) : null);
     resetJobState();
   }
 
   function handlePageFile(file: File | null) {
+    sheetSelectionSeq.current += 1;
+    invalidatePageCornerDetection();
     if (pagePreview) URL.revokeObjectURL(pagePreview);
     setPageFile(file);
     setPagePreview(file ? URL.createObjectURL(file) : null);
@@ -379,11 +560,17 @@ export function UploadWorkbench() {
   }
 
   function handleGuidedFile(file: File | null) {
+    maskGenerationSeq.current++;
+    foregroundRequestSeq.current++;
     if (guidedPreview) URL.revokeObjectURL(guidedPreview);
     setGuidedFile(file);
     setGuidedPreview(file ? URL.createObjectURL(file) : null);
     setGuidedUploadRef(null);
     setForegroundStatus(null);
+    setForegroundPoints([]);
+    setForegroundPromptMode('positive');
+    setMaskEditPending(false);
+    setMaskEditError(null);
     setCurrentMask((previous) => {
       if (previous) URL.revokeObjectURL(previous.url);
       return null;
@@ -393,11 +580,19 @@ export function UploadWorkbench() {
   }
 
   function editCorners(next: PageCorners) {
+    invalidatePageCornerDetection();
     setCorners(next);
     setCornersConfirmed(false);
   }
 
-  async function pollJob(jobId: string) {
+  function confirmPageCorners() {
+    invalidatePageCornerDetection();
+    setCornersConfirmed(true);
+    setCornerStatus('Confirmed the four page corners for default-v1 A4.');
+  }
+
+  async function pollJob(jobId: string, switchId = projectSwitchSeq.current) {
+    if (projectSwitchSeq.current !== switchId) return;
     if (pollCount.current >= MAX_POLLS) {
       setState('failed');
       setError('Job is taking too long. Check backend logs. Accepted glyphs and selected photos are still kept in this page.');
@@ -406,11 +601,17 @@ export function UploadWorkbench() {
     pollCount.current++;
     try {
       const res = await fetch(`/api/jobs/${encodeURIComponent(jobId)}`, { cache: 'no-store' });
+      if (projectSwitchSeq.current !== switchId) return;
       if (!res.ok) return;
       const latest = (await res.json()) as JobResponse;
+      if (projectSwitchSeq.current !== switchId) return;
       setJob(latest);
       if (latest.status === 'succeeded') {
         setState('succeeded');
+        if (!recordedSuccessJobIdsRef.current.has(latest.jobId)) {
+          recordedSuccessJobIdsRef.current.add(latest.jobId);
+          recordFunnelEvent('build_succeeded');
+        }
         clearPolling();
         return;
       }
@@ -419,13 +620,13 @@ export function UploadWorkbench() {
         clearPolling();
         return;
       }
-      pollRef.current = setTimeout(() => pollJob(jobId), POLL_INTERVAL_MS);
+      pollRef.current = setTimeout(() => pollJob(jobId, switchId), POLL_INTERVAL_MS);
     } catch {
-      pollRef.current = setTimeout(() => pollJob(jobId), POLL_INTERVAL_MS * 2);
+      if (projectSwitchSeq.current === switchId) pollRef.current = setTimeout(() => pollJob(jobId, switchId), POLL_INTERVAL_MS * 2);
     }
   }
 
-  async function uploadToSlot(fileOrBlob: Blob, filename: string, contentType: string): Promise<InputPhotoRef> {
+  const uploadToSlot = useCallback(async (fileOrBlob: Blob, filename: string, contentType: string): Promise<InputPhotoRef> => {
     const sizeBytes = fileOrBlob.size;
     if (!isSupportedImage(contentType)) throw new Error(ERROR_COPY.UNSUPPORTED_IMAGE_TYPE);
     if (sizeBytes > MAX_UPLOAD_BYTES) throw new Error(ERROR_COPY.UPLOAD_OBJECT_TOO_LARGE);
@@ -447,10 +648,11 @@ export function UploadWorkbench() {
         headers: { 'content-type': contentType },
       });
       if (!put.ok) throw new Error('The upload failed. Try again with a smaller or sharper image.');
+      recordFunnelEvent('upload_complete');
     }
 
     return uploadRefFromSlot(uploadPayload, contentType, sizeBytes);
-  }
+  }, []);
 
   function validateFontAndFile(file?: File | null) {
     if (file) {
@@ -461,7 +663,359 @@ export function UploadWorkbench() {
     return null;
   }
 
+  const projectPayloadFromGlyphs = useCallback((glyphMap: Record<string, AcceptedGlyph>, savedRefs?: { pageUploadRef?: InputPhotoRef | null; legacyUploadRef?: InputPhotoRef | null }): ProjectPayload => {
+    const targets = normalizeTargetCharacters(targetCharacters);
+    const targetSet = new Set(Array.from(targets));
+    const savedPageUploadRef = savedRefs?.pageUploadRef ?? pageUploadRef;
+    const savedLegacyUploadRef = savedRefs?.legacyUploadRef ?? legacyUploadRef;
+    return {
+      name: projectName.trim() || familyName || 'Untitled handwriting font',
+      font: { fontName, familyName, styleName },
+      mode,
+      targetCharacters: targets,
+      glyphs: mode === 'guided' ? Object.values(glyphMap)
+        .filter((glyph) => targetSet.has(glyph.char) && glyph.inputPhoto)
+        .map((glyph): ProjectGlyph => ({
+          char: glyph.char,
+          inputPhoto: glyph.inputPhoto as InputPhotoRef,
+          baseline: glyph.baseline,
+          scale: glyph.scale,
+          spacing: glyph.spacing,
+          width: glyph.width,
+          height: glyph.height,
+          foregroundRatio: glyph.foregroundRatio,
+          filename: glyph.filename,
+        })) : [],
+      sheet: mode === 'markerless' && savedPageUploadRef ? { inputPhoto: savedPageUploadRef, corners: cornersConfirmed ? corners : undefined, cornersConfirmed } : mode === 'legacy' && savedLegacyUploadRef ? { inputPhoto: savedLegacyUploadRef } : null,
+      lastJobId: job?.jobId ?? activeProjectRef.current?.lastJobId ?? null,
+    };
+  }, [corners, cornersConfirmed, familyName, fontName, job?.jobId, legacyUploadRef, mode, pageUploadRef, projectName, styleName, targetCharacters]);
+
+  const projectFingerprint = useCallback((glyphMap: Record<string, AcceptedGlyph>) => {
+    const targets = normalizeTargetCharacters(targetCharacters);
+    const targetSet = new Set(Array.from(targets));
+    return JSON.stringify({
+      name: projectName.trim() || familyName || 'Untitled handwriting font',
+      font: { fontName, familyName, styleName },
+      mode,
+      targetCharacters: targets,
+      glyphs: mode === 'guided' ? Object.values(glyphMap)
+        .filter((glyph) => targetSet.has(glyph.char))
+        .map((glyph) => ({
+          char: glyph.char,
+          objectKey: glyph.inputPhoto?.objectKey ?? null,
+          localSize: glyph.inputPhoto ? null : glyph.blob.size,
+          baseline: glyph.baseline,
+          scale: glyph.scale,
+          spacing: glyph.spacing,
+          width: glyph.width,
+          height: glyph.height,
+          foregroundRatio: glyph.foregroundRatio,
+          filename: glyph.filename,
+        }))
+        .sort((a, b) => a.char.localeCompare(b.char)) : [],
+      sheet: mode === 'markerless'
+        ? pageUploadRef
+          ? { objectKey: pageUploadRef.objectKey, corners: cornersConfirmed ? corners : null, cornersConfirmed }
+          : pageFile
+            ? { localName: pageFile.name, localSize: pageFile.size, localType: pageFile.type, corners: cornersConfirmed ? corners : null, cornersConfirmed }
+            : null
+        : mode === 'legacy'
+          ? legacyUploadRef
+            ? { objectKey: legacyUploadRef.objectKey }
+            : legacyFile
+              ? { localName: legacyFile.name, localSize: legacyFile.size, localType: legacyFile.type }
+              : null
+          : null,
+      lastJobId: job?.jobId ?? activeProjectRef.current?.lastJobId ?? null,
+    });
+  }, [corners, cornersConfirmed, familyName, fontName, job?.jobId, legacyFile, legacyUploadRef, mode, pageFile, pageUploadRef, projectName, styleName, targetCharacters]);
+
+  function projectFingerprintFromRemote(project: FontProject) {
+    return JSON.stringify({
+      name: project.name,
+      font: project.font,
+      mode: project.mode,
+      targetCharacters: normalizeTargetCharacters(project.targetCharacters),
+      glyphs: project.glyphs.map((glyph) => ({
+        char: glyph.char,
+        objectKey: glyph.inputPhoto.objectKey,
+        localSize: null,
+        baseline: glyph.baseline,
+        scale: clampScale(glyph.scale ?? 1),
+        spacing: clampSpacing(glyph.spacing ?? 0),
+        width: glyph.width,
+        height: glyph.height,
+        foregroundRatio: glyph.foregroundRatio,
+        filename: glyph.filename,
+      })).sort((a, b) => a.char.localeCompare(b.char)),
+      sheet: project.mode === 'markerless' && project.sheet ? { objectKey: project.sheet.inputPhoto.objectKey, corners: project.sheet.cornersConfirmed ? project.sheet.corners ?? null : null, cornersConfirmed: Boolean(project.sheet.cornersConfirmed) } : project.mode === 'legacy' && project.sheet ? { objectKey: project.sheet.inputPhoto.objectKey } : null,
+      lastJobId: project.lastJobId ?? null,
+    });
+  }
+
+  const mergeUploadedRefs = useCallback((glyphMap: Record<string, AcceptedGlyph>, uploads: { char: string; blob: Blob; inputPhoto: InputPhotoRef }[]) => {
+    let nextGlyphs = glyphMap;
+    for (const upload of uploads) {
+      const current = nextGlyphs[upload.char];
+      if (!current || current.blob !== upload.blob || current.inputPhoto) continue;
+      nextGlyphs = { ...nextGlyphs, [upload.char]: { ...current, inputPhoto: upload.inputPhoto } };
+    }
+    return nextGlyphs;
+  }, []);
+
+  const ensureUploadedProjectGlyphs = useCallback(async (glyphMap: Record<string, AcceptedGlyph>, switchId: number) => {
+    if (mode !== 'guided') return glyphMap;
+    const uploads: { char: string; blob: Blob; inputPhoto: InputPhotoRef }[] = [];
+    const targetSet = new Set(Array.from(normalizeTargetCharacters(targetCharacters)));
+    for (const glyph of Object.values(glyphMap)) {
+      if (!targetSet.has(glyph.char)) continue;
+      if (projectSwitchSeq.current !== switchId) throw new Error('Project changed before the save finished.');
+      if (glyph.inputPhoto) continue;
+      const inputPhoto = await uploadToSlot(glyph.blob, glyph.filename, 'image/png');
+      if (projectSwitchSeq.current !== switchId) throw new Error('Project changed before the upload finished.');
+      uploads.push({ char: glyph.char, blob: glyph.blob, inputPhoto });
+    }
+    if (uploads.length === 0) return glyphMap;
+    const mergedGlyphs = mergeUploadedRefs(acceptedGlyphsRef.current, uploads);
+    setAcceptedGlyphs((previous) => mergeUploadedRefs(previous, uploads));
+    return mergedGlyphs;
+  }, [mergeUploadedRefs, mode, targetCharacters, uploadToSlot]);
+
+  const saveActiveProject = useCallback(async (expectedFingerprint: string, scheduledProjectId: string, scheduledSwitchId: number, scheduledSheetSelection: number) => {
+    const active = activeProjectRef.current;
+    if (!active || active.id !== scheduledProjectId || projectSwitchSeq.current !== scheduledSwitchId || sheetSelectionSeq.current !== scheduledSheetSelection || hydratingProjectRef.current || projectHydrationFailedRef.current) return;
+    const switchId = scheduledSwitchId;
+    try {
+      const glyphsForSave = await ensureUploadedProjectGlyphs(acceptedGlyphs, switchId);
+      if (projectSwitchSeq.current !== switchId || sheetSelectionSeq.current !== scheduledSheetSelection) return;
+      let savedPageUploadRef = pageUploadRef;
+      let savedLegacyUploadRef = legacyUploadRef;
+      if (mode === 'markerless' && !savedPageUploadRef && pageFile) {
+        savedPageUploadRef = await uploadToSlot(pageFile, pageFile.name, pageFile.type);
+        if (projectSwitchSeq.current !== switchId || sheetSelectionSeq.current !== scheduledSheetSelection) return;
+        setPageUploadRef(savedPageUploadRef);
+      }
+      if (mode === 'legacy' && !savedLegacyUploadRef && legacyFile) {
+        savedLegacyUploadRef = await uploadToSlot(legacyFile, legacyFile.name, legacyFile.type);
+        if (projectSwitchSeq.current !== switchId || sheetSelectionSeq.current !== scheduledSheetSelection) return;
+        setLegacyUploadRef(savedLegacyUploadRef);
+      }
+      const payload = projectPayloadFromGlyphs(glyphsForSave, { pageUploadRef: savedPageUploadRef, legacyUploadRef: savedLegacyUploadRef });
+      const saved = await saveProject(active, payload);
+      if (saved) {
+        activeProjectRef.current = saved;
+        lastSavedProjectFingerprintRef.current = projectFingerprintFromRemote(saved);
+      } else if (pendingSaveFingerprintRef.current === expectedFingerprint) {
+        pendingSaveFingerprintRef.current = null;
+      }
+    } catch (err) {
+      if (projectSwitchSeq.current === switchId && activeProjectRef.current?.id === scheduledProjectId) {
+        setError(err instanceof Error ? `Project autosave failed: ${err.message}` : 'Project autosave failed.');
+        if (pendingSaveFingerprintRef.current === expectedFingerprint) pendingSaveFingerprintRef.current = null;
+      }
+    }
+  }, [acceptedGlyphs, ensureUploadedProjectGlyphs, legacyFile, legacyUploadRef, mode, pageFile, pageUploadRef, projectPayloadFromGlyphs, saveProject, uploadToSlot]);
+
+  useEffect(() => {
+    if (!activeProject || hydratingProjectRef.current || projectHydrationFailedRef.current) return undefined;
+    const fingerprint = projectFingerprint(acceptedGlyphs);
+    if (fingerprint === lastSavedProjectFingerprintRef.current || fingerprint === pendingSaveFingerprintRef.current) return undefined;
+    if (autosaveTimerRef.current) clearTimeout(autosaveTimerRef.current);
+    const scheduledProjectId = activeProject.id;
+    const scheduledSwitchId = projectSwitchSeq.current;
+    const scheduledSheetSelection = sheetSelectionSeq.current;
+    autosaveTimerRef.current = setTimeout(() => {
+      pendingSaveFingerprintRef.current = fingerprint;
+      autosaveChainRef.current = autosaveChainRef.current
+        .then(() => saveActiveProject(fingerprint, scheduledProjectId, scheduledSwitchId, scheduledSheetSelection))
+        .finally(() => { if (pendingSaveFingerprintRef.current === fingerprint) pendingSaveFingerprintRef.current = null; })
+        .catch(() => undefined);
+    }, 800);
+    return () => {
+      if (autosaveTimerRef.current) clearTimeout(autosaveTimerRef.current);
+    };
+  }, [acceptedGlyphs, activeProject, corners, cornersConfirmed, familyName, fontName, job?.jobId, legacyUploadRef, mode, pageUploadRef, projectFingerprint, projectName, saveActiveProject, styleName, targetCharacters]);
+
+  async function hydrateProject(project: FontProject | null) {
+    projectSwitchSeq.current += 1;
+    maskGenerationSeq.current += 1;
+    foregroundRequestSeq.current += 1;
+    pageCornerRequestSeq.current += 1;
+    activePageCornerRequestRef.current = null;
+    const switchId = projectSwitchSeq.current;
+    hydratingProjectRef.current = true;
+    projectHydrationFailedRef.current = false;
+    setProjectHydrateStatus(project ? 'Restoring project masks…' : null);
+    setError(null);
+    if (!project) {
+      clearPolling();
+      setJob(null);
+      setCurrentMask((previous) => { if (previous) URL.revokeObjectURL(previous.url); return null; });
+      setMaskEditPending(false);
+      setMaskEditError(null);
+      if (cleanupRef.current.pagePreview) URL.revokeObjectURL(cleanupRef.current.pagePreview);
+      if (cleanupRef.current.legacyPreview) URL.revokeObjectURL(cleanupRef.current.legacyPreview);
+      if (cleanupRef.current.guidedPreview) URL.revokeObjectURL(cleanupRef.current.guidedPreview);
+      setPageFile(null);
+      setPagePreview(null);
+      setLegacyFile(null);
+      setLegacyPreview(null);
+      setGuidedFile(null);
+      setGuidedPreview(null);
+      setGuidedUploadRef(null);
+      setMode('guided');
+      setTargetCharacters(STARTER_TARGET_CHARACTERS);
+      setProjectName('My first handwriting font');
+      lastSavedProjectFingerprintRef.current = null;
+      pendingSaveFingerprintRef.current = null;
+      setAcceptedGlyphs((previous) => {
+        Object.values(previous).forEach((glyph) => URL.revokeObjectURL(glyph.url));
+        return {};
+      });
+      setCurrentCharIndex(0);
+      setReviewSelectedChar(STARTER_TARGET_CHARACTERS[0] ?? 'A');
+      setPageUploadRef(null);
+      setLegacyUploadRef(null);
+      setCorners(DEFAULT_CORNERS);
+      setCornersConfirmed(false);
+      hydratingProjectRef.current = false;
+      return;
+    }
+    const targets = normalizeTargetCharacters(project.targetCharacters);
+    const restoreUrls: string[] = [];
+    try {
+      const entries = await Promise.all(project.glyphs.map(async (glyph) => {
+        const blob = await blobFromObjectRef(glyph.inputPhoto);
+        const url = URL.createObjectURL(blob);
+        restoreUrls.push(url);
+        return [glyph.char, { ...glyph, blob, url, scale: clampScale(glyph.scale ?? 1), spacing: clampSpacing(glyph.spacing ?? 0) }] as const;
+      }));
+      const savedSheet = project.sheet;
+      const restoredSheet = savedSheet ? await (async () => {
+        const blob = await blobFromObjectRef(savedSheet.inputPhoto, 'Could not restore the saved sheet image from the saved project.');
+        const url = URL.createObjectURL(blob);
+        restoreUrls.push(url);
+        const file = new File([blob], filenameFromObjectKey(savedSheet.inputPhoto.objectKey), { type: savedSheet.inputPhoto.contentType });
+        return { file, url };
+      })() : null;
+      if (projectSwitchSeq.current !== switchId) {
+        restoreUrls.forEach((url) => URL.revokeObjectURL(url));
+        return;
+      }
+      let restoredJob: JobResponse | null = null;
+      if (project.lastJobId) {
+        const response = await fetch(`/api/jobs/${encodeURIComponent(project.lastJobId)}`, { cache: 'no-store' });
+        if (projectSwitchSeq.current !== switchId) {
+          restoreUrls.forEach((url) => URL.revokeObjectURL(url));
+          return;
+        }
+        if (response.ok) restoredJob = (await response.json()) as JobResponse;
+      }
+      if (projectSwitchSeq.current !== switchId) {
+        restoreUrls.forEach((url) => URL.revokeObjectURL(url));
+        return;
+      }
+      clearPolling();
+      setJob(null);
+      setCurrentMask((previous) => { if (previous) URL.revokeObjectURL(previous.url); return null; });
+      setMaskEditPending(false);
+      setMaskEditError(null);
+      if (cleanupRef.current.pagePreview) URL.revokeObjectURL(cleanupRef.current.pagePreview);
+      if (cleanupRef.current.legacyPreview) URL.revokeObjectURL(cleanupRef.current.legacyPreview);
+      if (cleanupRef.current.guidedPreview) URL.revokeObjectURL(cleanupRef.current.guidedPreview);
+      setGuidedFile(null);
+      setGuidedPreview(null);
+      setGuidedUploadRef(null);
+      setMode(project.mode);
+      setProjectName(project.name);
+      setFontName(project.font.fontName);
+      setFamilyName(project.font.familyName);
+      setStyleName(project.font.styleName);
+      setTargetCharacters(targets);
+      setCurrentCharIndex(0);
+      setReviewSelectedChar(targets[0] ?? 'A');
+      setPageFile(project.mode === 'markerless' ? restoredSheet?.file ?? null : null);
+      setPagePreview(project.mode === 'markerless' ? restoredSheet?.url ?? null : null);
+      setPageUploadRef(project.mode === 'markerless' ? project.sheet?.inputPhoto ?? null : null);
+      setLegacyFile(project.mode === 'legacy' ? restoredSheet?.file ?? null : null);
+      setLegacyPreview(project.mode === 'legacy' ? restoredSheet?.url ?? null : null);
+      setLegacyUploadRef(project.mode === 'legacy' ? project.sheet?.inputPhoto ?? null : null);
+      setCorners(project.sheet?.corners ?? DEFAULT_CORNERS);
+      setCornersConfirmed(Boolean(project.sheet?.cornersConfirmed));
+      lastSavedProjectFingerprintRef.current = projectFingerprintFromRemote(project);
+      pendingSaveFingerprintRef.current = null;
+      setAcceptedGlyphs((previous) => {
+        Object.values(previous).forEach((glyph) => URL.revokeObjectURL(glyph.url));
+        return Object.fromEntries(entries);
+      });
+      setProjectHydrateStatus(`Restored ${entries.length} accepted mask${entries.length === 1 ? '' : 's'}.`);
+      if (restoredJob) {
+        setJob(restoredJob);
+        setState(restoredJob.status === 'succeeded' ? 'succeeded' : restoredJob.status === 'failed' || restoredJob.status === 'expired' ? 'failed' : 'polling');
+        if (restoredJob.status !== 'succeeded' && restoredJob.status !== 'failed' && restoredJob.status !== 'expired') pollJob(restoredJob.jobId, switchId);
+      } else {
+        setState('idle');
+      }
+    } catch (err) {
+      restoreUrls.forEach((url) => URL.revokeObjectURL(url));
+      if (projectSwitchSeq.current === switchId) {
+        projectHydrationFailedRef.current = true;
+        setProjectHydrateStatus(null);
+        setError(err instanceof Error ? err.message : 'Could not restore the saved project.');
+      }
+    } finally {
+      if (projectSwitchSeq.current === switchId) hydratingProjectRef.current = false;
+    }
+  }
+
+  async function createNewProject() {
+    projectSwitchSeq.current += 1;
+    maskGenerationSeq.current += 1;
+    foregroundRequestSeq.current += 1;
+    pendingSaveFingerprintRef.current = null;
+    const payload: ProjectPayload = {
+      name: projectName.trim() || 'My first handwriting font',
+      font: { fontName, familyName, styleName },
+      mode: 'guided',
+      targetCharacters: STARTER_TARGET_CHARACTERS,
+      glyphs: [],
+      sheet: null,
+      lastJobId: null,
+    };
+    const created = await createProject(payload);
+    if (created) {
+      activeProjectRef.current = created;
+      lastSavedProjectFingerprintRef.current = projectFingerprintFromRemote(created);
+      await hydrateProject(created);
+    }
+  }
+
+  async function openSavedProject(projectId: string) {
+    if (!projectId) return;
+    const project = await openProject(projectId);
+    if (project) {
+      activeProjectRef.current = project;
+      lastSavedProjectFingerprintRef.current = projectFingerprintFromRemote(project);
+      await hydrateProject(project);
+    }
+  }
+
+  async function deleteActiveProject() {
+    const active = activeProjectRef.current;
+    if (!active) return;
+    if (!window.confirm(`Delete project ${active.name}? This removes the saved project but not already generated job artifacts.`)) return;
+    const deleted = await deleteProject(active.id);
+    if (deleted) {
+      activeProjectRef.current = null;
+      lastSavedProjectFingerprintRef.current = null;
+      pendingSaveFingerprintRef.current = null;
+      await hydrateProject(null);
+    }
+  }
+
   async function createJob(body: CreateJobRequest) {
+    const switchId = projectSwitchSeq.current;
     setState('creating_job');
     const createRes = await fetch('/api/jobs', {
       method: 'POST',
@@ -469,6 +1023,7 @@ export function UploadWorkbench() {
       body: JSON.stringify(body),
     });
     const created = (await createRes.json()) as JobResponse | { error?: { message?: string } };
+    if (projectSwitchSeq.current !== switchId) return;
     if (!createRes.ok || !('jobId' in created)) {
       setState('failed');
       throw new Error(('error' in created ? created.error?.message : undefined) ?? 'Could not create the font job.');
@@ -477,12 +1032,27 @@ export function UploadWorkbench() {
     setJob(created);
     if (created.status === 'succeeded') {
       setState('succeeded');
+      if (!recordedSuccessJobIdsRef.current.has(created.jobId)) {
+        recordedSuccessJobIdsRef.current.add(created.jobId);
+        recordFunnelEvent('build_succeeded');
+      }
     } else if (created.status === 'failed') {
       setState('failed');
     } else {
       setState('polling');
-      pollJob(created.jobId);
+      pollJob(created.jobId, switchId);
     }
+  }
+
+  async function ensureLegacyUpload() {
+    if (legacyUploadRef) return legacyUploadRef;
+    if (!legacyFile) throw new Error('Choose a photographed legacy marker template image first.');
+    const validation = validateFontAndFile(legacyFile);
+    if (validation) throw new Error(validation);
+    setState('preparing_upload');
+    const inputPhoto = await uploadToSlot(legacyFile, legacyFile.name, legacyFile.type);
+    setLegacyUploadRef(inputPhoto);
+    return inputPhoto;
   }
 
   async function submitLegacy(event: FormEvent<HTMLFormElement>) {
@@ -490,13 +1060,12 @@ export function UploadWorkbench() {
     setError(null);
     setJob(null);
     clearPolling();
-    if (!legacyFile) return setError('Choose a photographed legacy marker template image first.');
+    if (!legacyFile && !legacyUploadRef) return setError('Choose a photographed legacy marker template image first.');
     const validation = validateFontAndFile(legacyFile);
     if (validation) return setError(validation);
 
     try {
-      setState('preparing_upload');
-      const inputPhoto = await uploadToSlot(legacyFile, legacyFile.name, legacyFile.type);
+      const inputPhoto = await ensureLegacyUpload();
       await createJob({ inputPhoto, font: { fontName, familyName, styleName }, template: { version: 'v1' } });
     } catch (err) {
       setState('failed');
@@ -505,19 +1074,24 @@ export function UploadWorkbench() {
   }
 
   async function ensurePageUpload() {
+    const expectedSwitchId = projectSwitchSeq.current;
+    const expectedSheetSelectionId = sheetSelectionSeq.current;
     if (pageUploadRef) return pageUploadRef;
     if (!pageFile) throw new Error('Choose a photographed markerless A4 sheet first.');
     const validation = validateFontAndFile(pageFile);
     if (validation) throw new Error(validation);
     setState('preparing_upload');
     const inputPhoto = await uploadToSlot(pageFile, pageFile.name, pageFile.type);
+    if (projectSwitchSeq.current !== expectedSwitchId || sheetSelectionSeq.current !== expectedSheetSelectionId) {
+      throw new Error('Sheet photo changed before the upload finished.');
+    }
     setPageUploadRef(inputPhoto);
     return inputPhoto;
   }
 
   async function ensureGuidedSourceUpload() {
     if (guidedUploadRef) return guidedUploadRef;
-    if (!guidedFile) throw new Error('Capture or upload an image before extracting an object.');
+    if (!guidedFile) throw new Error('Capture or upload an image before extracting a mask.');
     const validation = validateFontAndFile(guidedFile);
     if (validation) throw new Error(validation);
     setState('preparing_upload');
@@ -529,38 +1103,75 @@ export function UploadWorkbench() {
   async function extractObjectMask() {
     setError(null);
     setForegroundStatus(null);
+    const requestId = ++foregroundRequestSeq.current;
     try {
+      const hasPositivePoint = foregroundPoints.some((point) => point.label === 1);
+      if (foregroundMethod === 'model' && !hasPositivePoint) {
+        setForegroundStatus('Add at least one Keep object point on the source preview before using SlimSAM point cutout.');
+        setError('Model segmentation requires at least one Keep object point.');
+        return;
+      }
+      const effectiveMethod: CaptureForegroundRequestMethod = foregroundMethod === 'auto' && !hasPositivePoint ? 'grabcut' : foregroundMethod;
+      const sendsPromptPoints = effectiveMethod === 'auto' || effectiveMethod === 'model';
+      const localWarnings = foregroundMethod === 'auto' && !hasPositivePoint
+        ? ['Auto has no Keep object point, so this extraction used classical GrabCut instead of model segmentation.']
+        : [];
       const inputPhoto = await ensureGuidedSourceUpload();
-      setForegroundStatus('Extracting the selected rectangle with the backend object cutout…');
+      if (requestId !== foregroundRequestSeq.current) return;
+      setForegroundStatus(localWarnings[0] ?? 'Extracting the selected rectangle with the backend segmentation worker…');
       const res = await fetch('/api/capture/foreground', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ inputPhoto, rectangle: foregroundRectangle }),
+        body: JSON.stringify({
+          inputPhoto,
+          rectangle: foregroundRectangle,
+          method: effectiveMethod,
+          style: foregroundStyle,
+          ...(foregroundStyle === 'ink' ? { threshold: inkThreshold } : {}),
+          ...(sendsPromptPoints ? { points: foregroundPoints } : {}),
+        }),
       });
       const payload = (await res.json()) as CaptureForegroundResponse | { error?: { message?: string } };
-      if (!res.ok || !('maskDataUrl' in payload)) throw new Error(('error' in payload ? payload.error?.message : undefined) ?? 'Could not extract the object mask.');
+      if (!res.ok || !('maskDataUrl' in payload)) throw new Error(('error' in payload ? payload.error?.message : undefined) ?? 'Could not extract the segmentation mask.');
+      if (requestId !== foregroundRequestSeq.current) return;
       const blob = dataUrlToBlob(payload.maskDataUrl);
       const measured = await measureMaskBlob(blob);
+      if (requestId !== foregroundRequestSeq.current) return;
       const url = URL.createObjectURL(blob);
+      setMaskEditPending(false);
+      setMaskEditError(null);
       setCurrentMask((previous) => {
         if (previous) URL.revokeObjectURL(previous.url);
-        return { ...measured, url };
+        return {
+          ...measured,
+          url,
+          originalBlob: blob,
+          sourceMethod: payload.method,
+          modelId: payload.modelId,
+          warnings: [...localWarnings, ...(payload.warnings ?? [])],
+        };
       });
-      setGuidedMaskMethod('object');
-      setForegroundStatus(`Object cutout ready (${payload.method}). Inspect the black-and-white preview before accepting.`);
+      setGuidedMaskMethod('foreground');
+      setForegroundStatus(`${localWarnings[0] ? `${localWarnings[0]} ` : ''}Segmentation ready: ${describeForegroundMethod(payload)}. Inspect or correct the black-and-white preview before accepting.`);
       setState('idle');
     } catch (err) {
+      if (requestId !== foregroundRequestSeq.current) return;
       setState('idle');
-      setForegroundStatus('Object cutout did not complete. Try a tighter rectangle, use a plain background, or switch to threshold.');
-      setError(err instanceof Error ? err.message : 'Could not extract the object mask.');
+      setForegroundStatus('Segmentation did not complete. Try a tighter rectangle, use a plain background, or switch to threshold.');
+      setError(err instanceof Error ? err.message : 'Could not extract the segmentation mask.');
     }
   }
 
   async function detectPageCorners() {
     setError(null);
     setCornerStatus(null);
+    const requestId = ++pageCornerRequestSeq.current;
+    activePageCornerRequestRef.current = requestId;
+    const switchId = projectSwitchSeq.current;
+    const sheetSelectionId = sheetSelectionSeq.current;
     try {
       const inputPhoto = await ensurePageUpload();
+      if (finishStalePageCornerDetection(requestId, switchId, sheetSelectionId)) return;
       setCornerStatus('Asking the Python worker for page-corner suggestions…');
       const res = await fetch('/api/capture/page', {
         method: 'POST',
@@ -569,11 +1180,15 @@ export function UploadWorkbench() {
       });
       const payload = (await res.json()) as CapturePageResponse | { error?: { message?: string } };
       if (!res.ok || !('corners' in payload)) throw new Error(('error' in payload ? payload.error?.message : undefined) ?? 'Could not detect page corners.');
+      if (finishStalePageCornerDetection(requestId, switchId, sheetSelectionId)) return;
       setCorners(payload.corners);
       setCornersConfirmed(false);
       setCornerStatus('Corner suggestions loaded. Confirm them or adjust TL/TR/BR/BL before building.');
+      activePageCornerRequestRef.current = null;
       setState('idle');
     } catch (err) {
+      if (finishStalePageCornerDetection(requestId, switchId, sheetSelectionId)) return;
+      activePageCornerRequestRef.current = null;
       setState('idle');
       setCornerStatus('Automatic detection is unavailable. Use click, keyboard, or numeric corner edits, then confirm.');
       setError(err instanceof Error ? err.message : 'Could not detect page corners.');
@@ -585,7 +1200,7 @@ export function UploadWorkbench() {
     setError(null);
     setJob(null);
     clearPolling();
-    if (!pageFile) return setError('Choose a photographed markerless A4 sheet first.');
+    if (!pageFile && !pageUploadRef) return setError('Choose a photographed markerless A4 sheet first.');
     const validation = validateFontAndFile(pageFile);
     if (validation) return setError(validation);
     if (!cornersConfirmed) return setError('Confirm the four page corners before submitting a markerless sheet job.');
@@ -607,6 +1222,7 @@ export function UploadWorkbench() {
   function acceptCurrentGlyph() {
     setError(null);
     if (!guidedFile || !currentMask) return setError('Capture or upload an image for this character first.');
+    if (maskEditPending) return setError(maskEditError ?? 'Finish saving the current mask edit before accepting this character.');
     if (currentMask.foregroundRatio < 0.001) return setError('The mask is almost blank. Lower the threshold or turn on invert before accepting.');
     if (currentMask.foregroundRatio > 0.98) return setError('The mask is almost solid black. Raise the threshold or turn off invert before accepting.');
     const storedUrl = URL.createObjectURL(currentMask.blob);
@@ -615,6 +1231,8 @@ export function UploadWorkbench() {
       blob: currentMask.blob,
       url: storedUrl,
       baseline,
+      scale: 1,
+      spacing: 0,
       width: currentMask.width,
       height: currentMask.height,
       foregroundRatio: currentMask.foregroundRatio,
@@ -625,7 +1243,9 @@ export function UploadWorkbench() {
       if (existing) URL.revokeObjectURL(existing.url);
       return { ...previous, [currentChar]: accepted };
     });
-    if (currentCharIndex < GUIDED_CHARACTERS.length - 1) setCurrentCharIndex((idx) => idx + 1);
+    setReviewSelectedChar(currentChar);
+    recordFunnelEvent('glyph_accepted');
+    if (currentCharIndex < guidedCharacters.length - 1) setCurrentCharIndex((idx) => idx + 1);
   }
 
   function redoCurrentGlyph() {
@@ -639,6 +1259,109 @@ export function UploadWorkbench() {
     });
   }
 
+  function addForegroundPoint(x: number, y: number) {
+    setForegroundPoints((previous) => {
+      if (previous.length >= 16) return previous;
+      return [...previous, { x: clamp01(x), y: clamp01(y), label: foregroundPromptMode === 'positive' ? 1 : 0 }];
+    });
+  }
+
+  const updateCurrentMaskEdit = useCallback((mask: MaskResult, sourceUrl: string) => {
+    if (currentMaskRef.current?.url !== sourceUrl) return;
+    setCurrentMask((previous) => {
+      if (!previous || previous.url !== sourceUrl) return previous;
+      return { ...previous, ...mask };
+    });
+    setMaskEditPending(false);
+    setMaskEditError(null);
+  }, []);
+
+  const handleMaskEditPending = useCallback((pending: boolean, message?: string | null) => {
+    setMaskEditPending(pending);
+    setMaskEditError(message ?? null);
+  }, []);
+
+  function updateGlyphMetrics(char: string, metrics: { baseline?: number; scale?: number; spacing?: number }) {
+    setAcceptedGlyphs((previous) => {
+      const glyph = previous[char];
+      if (!glyph) return previous;
+      return {
+        ...previous,
+        [char]: {
+          ...glyph,
+          baseline: metrics.baseline === undefined ? glyph.baseline : clamp01(metrics.baseline),
+          scale: metrics.scale === undefined ? glyph.scale : clampScale(metrics.scale),
+          spacing: metrics.spacing === undefined ? glyph.spacing : clampSpacing(metrics.spacing),
+        },
+      };
+    });
+    if (metrics.baseline !== undefined && char === currentChar) setBaseline(clamp01(metrics.baseline));
+  }
+
+  function handleTargetCharactersChange(value: string) {
+    const normalized = normalizeTargetCharacters(value);
+    setTargetCharacters(value);
+    setCurrentCharIndex(0);
+    setReviewSelectedChar(normalized[0] ?? 'A');
+  }
+
+  async function loadStarterSample() {
+    if (hydratingProjectRef.current) {
+      setError('Wait for the current project to finish opening before loading the sample.');
+      return;
+    }
+      const switchId = ++projectSwitchSeq.current;
+      maskGenerationSeq.current += 1;
+      foregroundRequestSeq.current += 1;
+      pageCornerRequestSeq.current += 1;
+      activePageCornerRequestRef.current = null;
+    projectHydrationFailedRef.current = false;
+    setError(null);
+    setProjectHydrateStatus('Creating bundled ABCDE sample masks…');
+    lastSavedProjectFingerprintRef.current = null;
+    pendingSaveFingerprintRef.current = null;
+    setAcceptedGlyphs((previous) => {
+      Object.values(previous).forEach((glyph) => URL.revokeObjectURL(glyph.url));
+      return {};
+    });
+    try {
+      const entries = await Promise.all(Array.from(STARTER_TARGET_CHARACTERS).map(async (char) => {
+        const mask = await createSyntheticMaskBlob(char);
+        const url = URL.createObjectURL(mask.blob);
+        return [char, { char, ...mask, url, baseline: 0.8, scale: 1, spacing: 0, filename: glyphFilename(char) }] as const;
+      }));
+      if (projectSwitchSeq.current !== switchId) return;
+      setMode('guided');
+      setTargetCharacters(STARTER_TARGET_CHARACTERS);
+      setCurrentCharIndex(0);
+      setReviewSelectedChar(STARTER_TARGET_CHARACTERS[0] ?? 'A');
+      setAcceptedGlyphs((previous) => {
+        Object.values(previous).forEach((glyph) => URL.revokeObjectURL(glyph.url));
+        return Object.fromEntries(entries);
+      });
+      setProjectHydrateStatus('Loaded bundled ABCDE sample masks. Replace them with handwriting photos for a real personal font.');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Could not load the starter sample.');
+      setProjectHydrateStatus(null);
+    }
+  }
+
+  const reviewGlyphs: ReviewGlyph[] = guidedCharacters.map((char) => {
+    const glyph = acceptedGlyphs[char];
+    return {
+      char,
+      accepted: Boolean(glyph),
+      baseline: glyph?.baseline,
+      scale: glyph?.scale,
+      spacing: glyph?.spacing,
+      foregroundRatio: glyph?.foregroundRatio,
+      url: glyph?.url,
+    };
+  });
+
+  const isProjectBusy = projectSaveStatus === 'saving' || projectSaveStatus === 'loading' || hydratingProjectRef.current
+    || state === 'preparing_upload' || state === 'uploading' || state === 'creating_job' || state === 'polling';
+
   async function submitGuided(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError(null);
@@ -646,17 +1369,28 @@ export function UploadWorkbench() {
     clearPolling();
     const validation = validateFontAndFile();
     if (validation) return setError(validation);
-    const glyphs = GUIDED_CHARACTERS.map((char) => acceptedGlyphs[char]).filter((glyph): glyph is AcceptedGlyph => Boolean(glyph));
+    const glyphs = guidedCharacters.map((char) => acceptedGlyphs[char]).filter((glyph): glyph is AcceptedGlyph => Boolean(glyph));
     if (glyphs.length < 1) return setError('Accept at least one character mask before building a guided font.');
 
     try {
       setState('preparing_upload');
-      const uploadedGlyphs = [];
+      const switchId = projectSwitchSeq.current;
+      const uploads: { char: string; blob: Blob; inputPhoto: InputPhotoRef }[] = [];
       for (const glyph of glyphs) {
+        if (projectSwitchSeq.current !== switchId) return;
         setState('uploading');
-        const inputPhoto = await uploadToSlot(glyph.blob, glyph.filename, 'image/png');
-        uploadedGlyphs.push({ char: glyph.char, inputPhoto, baseline: glyph.baseline });
+        if (!glyph.inputPhoto) {
+          const inputPhoto = await uploadToSlot(glyph.blob, glyph.filename, 'image/png');
+          if (projectSwitchSeq.current !== switchId) return;
+          uploads.push({ char: glyph.char, blob: glyph.blob, inputPhoto });
+        }
       }
+      const nextGlyphMap = mergeUploadedRefs(acceptedGlyphsRef.current, uploads);
+      setAcceptedGlyphs(nextGlyphMap);
+      const uploadedGlyphs = guidedCharacters
+        .map((char) => nextGlyphMap[char])
+        .filter((glyph): glyph is AcceptedGlyph & { inputPhoto: InputPhotoRef } => Boolean(glyph?.inputPhoto))
+        .map((glyph) => ({ char: glyph.char, inputPhoto: glyph.inputPhoto, baseline: glyph.baseline, scale: glyph.scale, spacing: glyph.spacing }));
       const first = uploadedGlyphs[0];
       if (!first) throw new Error('No guided glyph masks were accepted.');
       await createJob({
@@ -664,7 +1398,7 @@ export function UploadWorkbench() {
         font: { fontName, familyName, styleName },
         template: { version: 'v1' },
         capture: { mode: 'guided', format: 'mask-v1', glyphs: uploadedGlyphs },
-      });
+      } as CreateJobRequest);
     } catch (err) {
       setState('failed');
       setError(err instanceof Error ? err.message : 'An unexpected error occurred.');
@@ -674,7 +1408,7 @@ export function UploadWorkbench() {
   const isProcessing = state === 'preparing_upload' || state === 'uploading' || state === 'creating_job' || state === 'polling';
 
   return (
-    <section className="grid grid-cols-1 items-start gap-6 md:grid-cols-[1.2fr_1fr]" aria-labelledby="workbench-title">
+    <section className="grid min-w-0 grid-cols-1 items-start [overflow-wrap:anywhere] gap-6 md:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)]" aria-labelledby="workbench-title">
       <div className="col-span-full mb-2">
         <span className="mb-3 inline-block rounded-[4px] bg-teal-muted px-2.5 py-1 font-mono text-[11px] font-medium uppercase tracking-[.12em] text-teal">
           Build
@@ -687,23 +1421,49 @@ export function UploadWorkbench() {
         </p>
       </div>
 
-      <div className="grid gap-5 rounded-[22px] border border-border bg-surface p-7">
-        <ModeChooser mode={mode} onModeChange={setMode} />
+      <div className="col-span-full">
+        <ProjectManager
+          projects={projects}
+          activeProject={activeProject}
+          projectName={projectName}
+          status={projectSaveStatus}
+          message={projectMessage ?? projectHydrateStatus}
+          busy={isProjectBusy}
+          onProjectName={setProjectName}
+          onNew={createNewProject}
+          onOpen={openSavedProject}
+          onDelete={deleteActiveProject}
+        />
+      </div>
+
+      <div className="grid min-w-0 grid-cols-1 gap-5 rounded-[22px] border border-border bg-surface p-7">
+        <ModeChooser mode={mode} onModeChange={handleModeChange} />
         <FontFields fontName={fontName} familyName={familyName} styleName={styleName} onFontName={setFontName} onFamilyName={setFamilyName} onStyleName={setStyleName} />
+        <StarterSamplePanel disabled={isProjectBusy} onLoadSample={loadStarterSample} />
+        <TargetCharacterControls value={targetCharacters} normalizedValue={normalizeTargetCharacters(targetCharacters)} onChange={handleTargetCharactersChange} />
 
         {mode === 'guided' && (
-          <form className="grid gap-5" onSubmit={submitGuided}>
+          <form className="grid min-w-0 grid-cols-1 gap-5" onSubmit={submitGuided}>
             <GuidedCapturePanel
               currentChar={currentChar}
-              currentCharIndex={currentCharIndex}
+              currentCharIndex={safeCurrentCharIndex}
+              guidedCharacters={guidedCharacters}
               acceptedGlyphs={acceptedGlyphs}
               missingCount={missingCount}
               acceptedCount={acceptedCount}
               guidedPreview={guidedPreview}
               currentMask={currentMask}
+              maskEditPending={maskEditPending}
+              maskEditError={maskEditError}
               maskMethod={guidedMaskMethod}
+              foregroundMethod={foregroundMethod}
+              foregroundStyle={foregroundStyle}
               foregroundRectangle={foregroundRectangle}
+              foregroundPoints={foregroundPoints}
+              foregroundPromptMode={foregroundPromptMode}
               foregroundStatus={foregroundStatus}
+              inkThreshold={inkThreshold}
+              inkMaskMethod={inkMaskMethod}
               threshold={threshold}
               invert={invert}
               baseline={baseline}
@@ -711,20 +1471,30 @@ export function UploadWorkbench() {
               fileRef={guidedFileRef}
               onFile={handleGuidedFile}
               onMaskMethod={setGuidedMaskMethod}
+              onForegroundMethod={setForegroundMethod}
+              onForegroundStyle={setForegroundStyle}
               onForegroundRectangle={(rectangle) => setForegroundRectangle(normalizeRectangle(rectangle))}
+              onForegroundPoint={addForegroundPoint}
+              onForegroundPromptMode={setForegroundPromptMode}
+              onClearForegroundPoints={() => setForegroundPoints([])}
               onExtractObject={extractObjectMask}
+              onInkThreshold={(value) => setInkThreshold(Math.min(254, Math.max(1, Math.round(value))))}
+              onInkMaskMethod={setInkMaskMethod}
               onThreshold={setThreshold}
               onInvert={setInvert}
               onBaseline={setBaseline}
+              onMaskEdited={updateCurrentMaskEdit}
+              onMaskEditPending={handleMaskEditPending}
               onAccept={acceptCurrentGlyph}
               onRedo={redoCurrentGlyph}
-              onPrevious={() => setCurrentCharIndex((idx) => Math.max(0, idx - 1))}
-              onNext={() => setCurrentCharIndex((idx) => Math.min(GUIDED_CHARACTERS.length - 1, idx + 1))}
-              onPickChar={(char) => setCurrentCharIndex(GUIDED_CHARACTERS.indexOf(char))}
+              onPrevious={() => setCurrentCharIndex((idx) => Math.max(0, Math.min(idx - 1, guidedCharacters.length - 1)))}
+              onNext={() => setCurrentCharIndex((idx) => Math.min(Math.max(0, guidedCharacters.length - 1), idx + 1))}
+              onPickChar={(char) => setCurrentCharIndex(Math.max(0, guidedCharacters.indexOf(char)))}
               isProcessing={isProcessing}
             />
+            <FontReviewPanel glyphs={reviewGlyphs} selectedChar={effectiveReviewSelectedChar} onSelect={(char) => { setReviewSelectedChar(char); setCurrentCharIndex(Math.max(0, guidedCharacters.indexOf(char))); }} onMetricsChange={updateGlyphMetrics} />
             {error && <ErrorMessage message={error} />}
-            <button type="submit" disabled={isProcessing || acceptedCount < 1} className="primary-button">
+            <button type="submit" disabled={isProcessing || isProjectBusy || acceptedCount < 1} className="primary-button">
               {isProcessing ? 'Processing…' : `Build guided font (${acceptedCount} accepted)`}
             </button>
           </form>
@@ -744,6 +1514,11 @@ export function UploadWorkbench() {
               onFile={handlePageFile}
               onRemove={() => handlePageFile(null)}
             />
+            {pageUploadRef && !pageFile && (
+              <p className="text-xs text-text-tertiary">
+                Restored saved markerless sheet upload. Build reuses the saved object without reuploading.
+              </p>
+            )}
             <CornerEditor
               preview={pagePreview}
               corners={corners}
@@ -753,11 +1528,11 @@ export function UploadWorkbench() {
               onDetect={detectPageCorners}
               onSelect={setSelectedCorner}
               onChange={editCorners}
-              onConfirm={() => { setCornersConfirmed(true); setCornerStatus('Confirmed the four page corners for default-v1 A4.'); }}
+              onConfirm={confirmPageCorners}
               isProcessing={isProcessing}
             />
             {error && <ErrorMessage message={error} />}
-            <button type="submit" disabled={isProcessing || !pageFile || !cornersConfirmed} className="primary-button">
+            <button type="submit" disabled={isProcessing || isProjectBusy || (!pageFile && !pageUploadRef) || !cornersConfirmed} className="primary-button">
               {isProcessing ? 'Processing…' : 'Build markerless sheet font'}
             </button>
           </form>
@@ -780,15 +1555,39 @@ export function UploadWorkbench() {
               onFile={handleLegacyFile}
               onRemove={() => handleLegacyFile(null)}
             />
+            {legacyUploadRef && !legacyFile && (
+              <p className="text-xs text-text-tertiary">
+                Restored saved legacy sheet upload. Build reuses the saved object without reuploading.
+              </p>
+            )}
             {error && <ErrorMessage message={error} />}
-            <button type="submit" disabled={isProcessing || !legacyFile} className="primary-button">
+            <button type="submit" disabled={isProcessing || isProjectBusy || (!legacyFile && !legacyUploadRef)} className="primary-button">
               {isProcessing ? 'Processing…' : 'Build legacy marker font'}
             </button>
           </form>
         )}
       </div>
 
-      <StatusPanel state={state} job={job} acceptedCharacters={mode === 'guided' ? Object.keys(acceptedGlyphs) : null} />
+      <StatusPanel allowDelete={allowDelete} onDeleted={() => { setPageUploadRef(null); setGuidedUploadRef(null); }} state={state} job={job} acceptedCharacters={mode === 'guided' ? Object.keys(acceptedGlyphs) : null} />
+    </section>
+  );
+}
+
+function TargetCharacterControls({ value, normalizedValue, onChange }: { value: string; normalizedValue: string; onChange: (value: string) => void }) {
+  return (
+    <section className="grid gap-3 rounded-xl border border-border bg-bg p-4" aria-label="Target characters">
+      <div className="flex flex-wrap items-start justify-between gap-2">
+        <div>
+          <strong className="text-sm">Target characters</strong>
+          <p className="mt-1 text-xs text-text-tertiary">Starter default is ABCDE. Use unique printable characters, or paste the full 94-character set when ready.</p>
+        </div>
+        <button type="button" className="secondary-button" onClick={() => onChange(ALL_GUIDED_CHARACTERS.join(''))}>Use full 94</button>
+      </div>
+      <label className="grid min-w-0 gap-1.5">
+        <span className="text-[13px] font-semibold text-text-primary">Characters to capture</span>
+        <input className="field font-mono" value={value} onChange={(event) => onChange(event.target.value)} aria-label="Characters to capture" />
+      </label>
+      <p className="text-xs text-text-tertiary">Normalized target: {normalizedValue.split('').join(' ')} · {normalizedValue.length} character{normalizedValue.length === 1 ? '' : 's'}</p>
     </section>
   );
 }
@@ -895,17 +1694,26 @@ function FileCaptureBox({ label, preview, previewAlt, file, cameraRef, fileRef, 
   );
 }
 
-function GuidedCapturePanel({ currentChar, currentCharIndex, acceptedGlyphs, missingCount, acceptedCount, guidedPreview, currentMask, maskMethod, foregroundRectangle, foregroundStatus, threshold, invert, baseline, cameraRef, fileRef, onFile, onMaskMethod, onForegroundRectangle, onExtractObject, onThreshold, onInvert, onBaseline, onAccept, onRedo, onPrevious, onNext, onPickChar, isProcessing }: {
+function GuidedCapturePanel({ currentChar, currentCharIndex, guidedCharacters, acceptedGlyphs, missingCount, acceptedCount, guidedPreview, currentMask, maskEditPending, maskEditError, maskMethod, foregroundMethod, foregroundStyle, foregroundRectangle, foregroundPoints, foregroundPromptMode, foregroundStatus, inkThreshold, inkMaskMethod, threshold, invert, baseline, cameraRef, fileRef, onFile, onMaskMethod, onForegroundMethod, onForegroundStyle, onForegroundRectangle, onForegroundPoint, onForegroundPromptMode, onClearForegroundPoints, onExtractObject, onInkThreshold, onInkMaskMethod, onThreshold, onInvert, onBaseline, onMaskEdited, onMaskEditPending, onAccept, onRedo, onPrevious, onNext, onPickChar, isProcessing }: {
   currentChar: string;
   currentCharIndex: number;
+  guidedCharacters: string[];
   acceptedGlyphs: Record<string, AcceptedGlyph>;
   missingCount: number;
   acceptedCount: number;
   guidedPreview: string | null;
   currentMask: CurrentMask | null;
+  maskEditPending: boolean;
+  maskEditError: string | null;
   maskMethod: GuidedMaskMethod;
+  foregroundMethod: CaptureForegroundRequestMethod;
+  foregroundStyle: CaptureForegroundStyle;
   foregroundRectangle: NormalizedRectangle;
+  foregroundPoints: CaptureForegroundPromptPoint[];
+  foregroundPromptMode: ForegroundPromptMode;
   foregroundStatus: string | null;
+  inkThreshold: number;
+  inkMaskMethod: InkMaskMethod;
   threshold: number;
   invert: boolean;
   baseline: number;
@@ -913,11 +1721,20 @@ function GuidedCapturePanel({ currentChar, currentCharIndex, acceptedGlyphs, mis
   fileRef: RefObject<HTMLInputElement | null>;
   onFile: (file: File | null) => void;
   onMaskMethod: (value: GuidedMaskMethod) => void;
+  onForegroundMethod: (value: CaptureForegroundRequestMethod) => void;
+  onForegroundStyle: (value: CaptureForegroundStyle) => void;
   onForegroundRectangle: (value: NormalizedRectangle) => void;
+  onForegroundPoint: (x: number, y: number) => void;
+  onForegroundPromptMode: (mode: ForegroundPromptMode) => void;
+  onClearForegroundPoints: () => void;
   onExtractObject: () => void;
+  onInkThreshold: (value: number) => void;
+  onInkMaskMethod: (method: InkMaskMethod) => void;
   onThreshold: (value: number) => void;
   onInvert: (value: boolean) => void;
   onBaseline: (value: number) => void;
+  onMaskEdited: (mask: MaskResult, sourceUrl: string) => void;
+  onMaskEditPending: (pending: boolean, message?: string | null) => void;
   onAccept: () => void;
   onRedo: () => void;
   onPrevious: () => void;
@@ -926,8 +1743,9 @@ function GuidedCapturePanel({ currentChar, currentCharIndex, acceptedGlyphs, mis
   isProcessing: boolean;
 }) {
   const acceptedCurrent = acceptedGlyphs[currentChar];
+  const promptPointsApply = foregroundMethod === 'auto' || foregroundMethod === 'model';
   return (
-    <div className="grid gap-5">
+    <div className="grid min-w-0 grid-cols-1 gap-5">
       <div className="rounded-xl border border-border bg-bg px-4 py-3">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
@@ -938,13 +1756,25 @@ function GuidedCapturePanel({ currentChar, currentCharIndex, acceptedGlyphs, mis
         </div>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-2">
-        <div className="grid gap-2">
+      <div className="grid min-w-0 grid-cols-1 gap-4 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
+        <div className="grid min-w-0 grid-cols-1 gap-2">
           <span className="text-[13px] font-semibold text-text-primary">Source image</span>
           {guidedPreview ? (
-            <div className="relative overflow-hidden rounded-xl border border-border bg-bg-subtle">
-              <img src={guidedPreview} alt={`Source photo for ${currentChar}`} className="h-[240px] w-full object-contain" />
-            </div>
+            maskMethod === 'foreground' && promptPointsApply ? (
+              <PromptPointEditor
+                preview={guidedPreview}
+                currentChar={currentChar}
+                points={foregroundPoints}
+                promptMode={foregroundPromptMode}
+                onPromptMode={onForegroundPromptMode}
+                onAddPoint={onForegroundPoint}
+                onClearPoints={onClearForegroundPoints}
+              />
+            ) : (
+              <div className="relative min-w-0 overflow-hidden rounded-xl border border-border bg-bg-subtle">
+                <img src={guidedPreview} alt={`Source photo for ${currentChar}`} className="h-[240px] w-full object-contain" />
+              </div>
+            )
           ) : (
             <div className="grid place-items-center gap-3 rounded-xl border-2 border-dashed border-border bg-bg px-4 py-8">
               <div className="flex flex-wrap justify-center gap-3">
@@ -963,42 +1793,63 @@ function GuidedCapturePanel({ currentChar, currentCharIndex, acceptedGlyphs, mis
           <input ref={cameraRef} type="file" accept="image/jpeg,image/png,image/webp" capture="environment" className="hidden" onChange={(e) => onFile(e.target.files?.[0] ?? null)} />
           <input ref={fileRef} type="file" accept="image/jpeg,image/png,image/webp" className="hidden" onChange={(e) => onFile(e.target.files?.[0] ?? null)} />
         </div>
-        <div className="grid gap-2">
+        <div className="grid min-w-0 grid-cols-1 gap-2">
           <span className="text-[13px] font-semibold text-text-primary">Accepted preview / upload image</span>
-          <div className="relative grid h-[240px] place-items-center overflow-hidden rounded-xl border border-border bg-white">
+          <div className="relative grid min-h-[240px] min-w-0 place-items-center overflow-hidden rounded-xl border border-border bg-white">
             {currentMask ? (
-              <>
-                <img src={currentMask.url} alt={`Black-on-white mask for ${currentChar}`} className="max-h-full max-w-full object-contain [image-rendering:auto]" />
-                <div className="absolute inset-x-0 border-t-2 border-dashed border-teal" style={{ top: `${baseline * 100}%` }} aria-hidden="true" />
-              </>
+              <MaskCanvasEditor key={currentMask.url} mask={currentMask} currentChar={currentChar} baseline={baseline} onEdited={onMaskEdited} onPendingChange={onMaskEditPending} />
             ) : (
               <span className="px-4 text-center text-sm text-text-tertiary">Mask preview appears after a source image is decoded.</span>
             )}
           </div>
           {currentMask && (
-            <p className="text-xs text-text-tertiary">{currentMask.width}×{currentMask.height}px PNG, {(currentMask.foregroundRatio * 100).toFixed(1)}% foreground. Black pixels are character ink.</p>
+            <div className="grid min-w-0 gap-1 [overflow-wrap:anywhere]">
+              <p className="min-w-0 text-xs text-text-tertiary [overflow-wrap:anywhere]">{currentMask.width}×{currentMask.height}px PNG, {(currentMask.foregroundRatio * 100).toFixed(1)}% foreground. Black pixels are character ink.</p>
+              <p className="min-w-0 text-xs text-text-secondary [overflow-wrap:anywhere]">
+                Preview source: {describeMaskSource(currentMask)}.
+              </p>
+              {currentMask.warnings.length > 0 && (
+                <div className="min-w-0 rounded-md border border-orange-200 bg-amber-muted px-3 py-2 text-xs text-[#92400e] [overflow-wrap:anywhere]" role="status">
+                  <strong className="font-semibold">Segmentation warning{currentMask.warnings.length > 1 ? 's' : ''}:</strong>
+                  <ul className="mt-1 list-disc pl-4">
+                    {currentMask.warnings.map((warning) => <li key={warning}>{warning}</li>)}
+                  </ul>
+                </div>
+              )}
+            </div>
           )}
         </div>
       </div>
 
       <div className="grid gap-3 rounded-xl border border-border bg-bg p-4">
-        <fieldset className="grid gap-2">
+        <fieldset className="grid min-w-0 grid-cols-1 gap-2">
           <legend className="text-[13px] font-semibold text-text-primary">Preview method</legend>
           <label className="flex items-start gap-2 text-sm text-text-secondary">
             <input type="radio" name="mask-method" checked={maskMethod === 'threshold'} onChange={() => onMaskMethod('threshold')} />
             <span><strong className="text-text-primary">Threshold</strong><br />Fast local black/white extraction for dark ink or interior detail on a light background.</span>
           </label>
           <label className="flex items-start gap-2 text-sm text-text-secondary">
-            <input type="radio" name="mask-method" checked={maskMethod === 'object'} onChange={() => onMaskMethod('object')} />
-            <span><strong className="text-text-primary">Experimental object cutout</strong><br />Backend rectangle cutout for a solid monochrome silhouette on a plain background; it does not keep original color or texture.</span>
+            <input type="radio" name="mask-method" checked={maskMethod === 'foreground'} onChange={() => onMaskMethod('foreground')} />
+            <span><strong className="text-text-primary">Backend segmentation cutout</strong><br />Use the original source photo, selected rectangle, method, and output style to request a real backend mask. No browser-only model is simulated.</span>
           </label>
         </fieldset>
 
         {maskMethod === 'threshold' ? (
           <>
+            <fieldset className="grid min-w-0 grid-cols-1 gap-2">
+              <legend className="text-[13px] font-semibold text-text-primary">Ink detection</legend>
+              <label className="flex items-start gap-2 text-sm text-text-secondary">
+                <input type="radio" name="ink-mask-method" checked={inkMaskMethod === 'global'} onChange={() => onInkMaskMethod('global')} />
+                <span><strong className="text-text-primary">Global threshold</strong><br />Manual legacy black/white cutoff. This remains the default.</span>
+              </label>
+              <label className="flex items-start gap-2 text-sm text-text-secondary">
+                <input type="radio" name="ink-mask-method" checked={inkMaskMethod === 'adaptive'} onChange={() => onInkMaskMethod('adaptive')} />
+                <span><strong className="text-text-primary">Adaptive local threshold</strong><br />May help with uneven paper lighting. Review for paper-edge or texture artifacts and missing centers in thick strokes.</span>
+              </label>
+            </fieldset>
             <label className="grid gap-1.5">
               <span className="text-[13px] font-semibold text-text-primary">Threshold: {threshold}</span>
-              <input type="range" min="1" max="254" step="1" value={threshold} onChange={(e) => onThreshold(Number(e.target.value))} />
+              <input type="range" min="1" max="254" step="1" value={threshold} onChange={(e) => onThreshold(Number(e.target.value))} aria-label="Global threshold" disabled={inkMaskMethod === 'adaptive'} />
             </label>
             <label className="flex items-center gap-2 text-sm text-text-secondary">
               <input type="checkbox" checked={invert} onChange={(e) => onInvert(e.target.checked)} />
@@ -1006,7 +1857,19 @@ function GuidedCapturePanel({ currentChar, currentCharIndex, acceptedGlyphs, mis
             </label>
           </>
         ) : (
-          <ObjectRectangleControls rectangle={foregroundRectangle} onChange={onForegroundRectangle} onExtract={onExtractObject} disabled={!guidedPreview || isProcessing} status={foregroundStatus} />
+          <ObjectRectangleControls
+            method={foregroundMethod}
+            style={foregroundStyle}
+            rectangle={foregroundRectangle}
+            inkThreshold={inkThreshold}
+            onMethod={onForegroundMethod}
+            onStyle={onForegroundStyle}
+            onChange={onForegroundRectangle}
+            onInkThreshold={onInkThreshold}
+            onExtract={onExtractObject}
+            disabled={!guidedPreview || isProcessing}
+            status={foregroundStatus}
+          />
         )}
 
         <label className="grid gap-1.5">
@@ -1017,10 +1880,11 @@ function GuidedCapturePanel({ currentChar, currentCharIndex, acceptedGlyphs, mis
 
       <div className="flex flex-wrap gap-2">
         <button type="button" onClick={onPrevious} disabled={currentCharIndex === 0 || isProcessing} className="secondary-button">Previous</button>
-        <button type="button" onClick={onAccept} disabled={!currentMask || isProcessing} className="secondary-button">Accept {currentChar}</button>
+        <button type="button" onClick={onAccept} disabled={!currentMask || isProcessing || maskEditPending} className="secondary-button">Accept {currentChar}</button>
         <button type="button" onClick={onRedo} disabled={!acceptedCurrent || isProcessing} className="secondary-button">Redo {currentChar}</button>
-        <button type="button" onClick={onNext} disabled={currentCharIndex === GUIDED_CHARACTERS.length - 1 || isProcessing} className="secondary-button">Next</button>
+        <button type="button" onClick={onNext} disabled={currentCharIndex === guidedCharacters.length - 1 || isProcessing} className="secondary-button">Next</button>
       </div>
+      {maskEditPending && <p className="text-xs text-text-secondary" role="status">{maskEditError ?? 'Saving the current mask edit…'}</p>}
 
       <div className="rounded-xl border border-border bg-bg p-4">
         <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
@@ -1028,7 +1892,7 @@ function GuidedCapturePanel({ currentChar, currentCharIndex, acceptedGlyphs, mis
           <span className="text-xs text-text-tertiary">{acceptedCount} accepted · {missingCount} missing</span>
         </div>
         <div className="grid grid-cols-8 gap-1 sm:grid-cols-12 md:grid-cols-16" aria-label="Guided character picker">
-          {GUIDED_CHARACTERS.map((char) => {
+          {guidedCharacters.map((char) => {
             const glyph = acceptedGlyphs[char];
             const selected = char === currentChar;
             return (
@@ -1050,9 +1914,337 @@ function GuidedCapturePanel({ currentChar, currentCharIndex, acceptedGlyphs, mis
 }
 
 
-function ObjectRectangleControls({ rectangle, onChange, onExtract, disabled, status }: {
+function PromptPointEditor({ preview, currentChar, points, promptMode, onPromptMode, onAddPoint, onClearPoints }: {
+  preview: string;
+  currentChar: string;
+  points: CaptureForegroundPromptPoint[];
+  promptMode: ForegroundPromptMode;
+  onPromptMode: (mode: ForegroundPromptMode) => void;
+  onAddPoint: (x: number, y: number) => void;
+  onClearPoints: () => void;
+}) {
+  const frameRef = useRef<HTMLDivElement>(null);
+  const imageRef = useRef<HTMLImageElement>(null);
+  const [overlayBox, setOverlayBox] = useState<RectLike | null>(null);
+  const positiveCount = points.filter((point) => point.label === 1).length;
+
+  const updateOverlayBox = useCallback(() => {
+    const frame = frameRef.current;
+    const image = imageRef.current;
+    if (!frame || !image) {
+      setOverlayBox(null);
+      return null;
+    }
+    const frameRect = frame.getBoundingClientRect();
+    const imageRect = image.getBoundingClientRect();
+    const bounds = containedImageBounds(imageRect, image.naturalWidth || image.width, image.naturalHeight || image.height);
+    const next = {
+      left: bounds.left - frameRect.left,
+      top: bounds.top - frameRect.top,
+      width: bounds.width,
+      height: bounds.height,
+    };
+    setOverlayBox(next);
+    return next;
+  }, []);
+
+  useEffect(() => {
+    updateOverlayBox();
+    window.addEventListener('resize', updateOverlayBox);
+    return () => window.removeEventListener('resize', updateOverlayBox);
+  }, [preview, updateOverlayBox]);
+
+  function handleClick(event: MouseEvent<HTMLDivElement>) {
+    const image = imageRef.current;
+    if (!image || points.length >= 16) return;
+    updateOverlayBox();
+    const [x, y] = normalizedPointInContainedImage(
+      event.clientX,
+      event.clientY,
+      image.getBoundingClientRect(),
+      image.naturalWidth || image.width,
+      image.naturalHeight || image.height,
+    );
+    onAddPoint(x, y);
+  }
+
+  return (
+    <div className="grid gap-2">
+      <div
+        ref={frameRef}
+        className="relative overflow-hidden rounded-xl border border-border bg-bg-subtle"
+        onClick={handleClick}
+        role="button"
+        tabIndex={0}
+        aria-label={`Add ${promptMode === 'positive' ? 'Keep object' : 'Exclude background'} prompt point for ${currentChar}`}
+        onKeyDown={(event) => {
+          if (event.key !== 'Enter' && event.key !== ' ') return;
+          event.preventDefault();
+          onAddPoint(0.5, 0.5);
+        }}
+      >
+        <img ref={imageRef} src={preview} alt={`Source photo for ${currentChar}`} className="h-[240px] w-full object-contain" onLoad={updateOverlayBox} />
+        {overlayBox && (
+          <svg
+            className="pointer-events-none absolute"
+            style={{ left: overlayBox.left, top: overlayBox.top, width: overlayBox.width, height: overlayBox.height }}
+            viewBox="0 0 100 100"
+            preserveAspectRatio="none"
+            aria-hidden="true"
+          >
+            {points.map((point, index) => (
+              <g key={`${point.x}-${point.y}-${point.label}-${index}`}>
+                <circle cx={point.x * 100} cy={point.y * 100} r="2.3" fill={point.label === 1 ? '#16a34a' : '#dc2626'} stroke="white" strokeWidth="0.7" vectorEffect="non-scaling-stroke" />
+                <text x={point.x * 100 + 2.8} y={point.y * 100 - 2.8} fontSize="5" fill={point.label === 1 ? '#14532d' : '#7f1d1d'}>{point.label === 1 ? '+' : '−'}</text>
+              </g>
+            ))}
+          </svg>
+        )}
+      </div>
+      <fieldset className="grid gap-2 rounded-lg border border-border bg-surface p-3">
+        <legend className="text-xs font-semibold text-text-primary">Model prompt points</legend>
+        <div className="flex flex-wrap gap-3">
+          <label className="flex items-center gap-2 text-xs text-text-secondary">
+            <input type="radio" name="foreground-prompt-mode" checked={promptMode === 'positive'} onChange={() => onPromptMode('positive')} />
+            Keep object
+          </label>
+          <label className="flex items-center gap-2 text-xs text-text-secondary">
+            <input type="radio" name="foreground-prompt-mode" checked={promptMode === 'negative'} onChange={() => onPromptMode('negative')} />
+            Exclude background
+          </label>
+          <button type="button" onClick={onClearPoints} disabled={points.length === 0} className="secondary-button">Clear prompt points</button>
+        </div>
+        <p className="text-xs text-text-tertiary">
+          Click/tap the source preview to add up to 16 normalized prompt points ({positiveCount} Keep object, {points.length - positiveCount} Exclude background). Model-only extraction requires at least one Keep object point.
+        </p>
+      </fieldset>
+    </div>
+  );
+}
+
+function MaskCanvasEditor({ mask, currentChar, baseline, onEdited, onPendingChange }: {
+  mask: CurrentMask;
+  currentChar: string;
+  baseline: number;
+  onEdited: (mask: MaskResult, sourceUrl: string) => void;
+  onPendingChange: (pending: boolean, message?: string | null) => void;
+}) {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const undoStackRef = useRef<ImageData[]>([]);
+  const paintingRef = useRef(false);
+  const imageLoadSeq = useRef(0);
+  const exportSeq = useRef(0);
+  const [brushMode, setBrushMode] = useState<'add' | 'remove'>('add');
+  const [brushSize, setBrushSize] = useState(18);
+  const [ready, setReady] = useState(false);
+  const [undoCount, setUndoCount] = useState(0);
+  const [editStatus, setEditStatus] = useState<string | null>(null);
+
+  const invalidatePendingCanvasWork = useCallback(() => {
+    imageLoadSeq.current += 1;
+    exportSeq.current += 1;
+  }, []);
+
+  const emitCurrentMask = useCallback(async () => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const requestId = ++exportSeq.current;
+    const sourceUrl = mask.url;
+    try {
+      const next = await maskResultFromCanvas(canvas);
+      if (requestId === exportSeq.current) onEdited(next, sourceUrl);
+    } catch (err) {
+      if (requestId !== exportSeq.current) return;
+      const message = err instanceof Error ? err.message : 'Could not save the edited mask.';
+      setEditStatus(message);
+      onPendingChange(true, message);
+    }
+  }, [mask.url, onEdited, onPendingChange]);
+
+  const drawMaskImage = useCallback((onDone?: () => void) => {
+    const requestId = ++imageLoadSeq.current;
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d', { willReadFrequently: true });
+    if (!ctx) return;
+    const image = new Image();
+    image.decoding = 'async';
+    image.onload = () => {
+      if (requestId !== imageLoadSeq.current) return;
+      canvas.width = mask.width;
+      canvas.height = mask.height;
+      ctx.drawImage(image, 0, 0, mask.width, mask.height);
+      setReady(true);
+      onDone?.();
+    };
+    image.onerror = () => {
+      if (requestId !== imageLoadSeq.current) return;
+      const message = 'Could not load this mask for manual editing.';
+      setReady(false);
+      setEditStatus(message);
+      onPendingChange(true, message);
+    };
+    image.src = mask.url;
+  }, [mask.height, mask.url, mask.width, onPendingChange]);
+
+  useEffect(() => {
+    undoStackRef.current = [];
+    invalidatePendingCanvasWork();
+    drawMaskImage();
+    return invalidatePendingCanvasWork;
+  }, [drawMaskImage, invalidatePendingCanvasWork]);
+
+  function pushUndoSnapshot() {
+    const canvas = canvasRef.current;
+    const ctx = canvas?.getContext('2d', { willReadFrequently: true });
+    if (!canvas || !ctx || canvas.width <= 0 || canvas.height <= 0) return;
+    undoStackRef.current = [...undoStackRef.current.slice(-19), ctx.getImageData(0, 0, canvas.width, canvas.height)];
+    setUndoCount(undoStackRef.current.length);
+  }
+
+  function restoreSnapshot(snapshot: ImageData, status: string) {
+    const canvas = canvasRef.current;
+    const ctx = canvas?.getContext('2d', { willReadFrequently: true });
+    if (!canvas || !ctx) return;
+    ctx.putImageData(snapshot, 0, 0);
+    setEditStatus(status);
+    void emitCurrentMask();
+  }
+
+  function paintAt(clientX: number, clientY: number) {
+    const canvas = canvasRef.current;
+    const ctx = canvas?.getContext('2d', { willReadFrequently: true });
+    if (!canvas || !ctx || canvas.width <= 0 || canvas.height <= 0) return;
+    const [cx, cy] = maskCanvasPointFromClient(clientX, clientY, canvas.getBoundingClientRect(), canvas.width, canvas.height);
+    const radius = Math.max(1, Math.round(brushSize / 2));
+    const data = ctx.getImageData(0, 0, canvas.width, canvas.height);
+    const value = brushMode === 'add' ? 0 : 255;
+    const minX = Math.max(0, cx - radius);
+    const maxX = Math.min(canvas.width - 1, cx + radius);
+    const minY = Math.max(0, cy - radius);
+    const maxY = Math.min(canvas.height - 1, cy + radius);
+    for (let y = minY; y <= maxY; y++) {
+      for (let x = minX; x <= maxX; x++) {
+        const dx = x - cx;
+        const dy = y - cy;
+        if (dx * dx + dy * dy > radius * radius) continue;
+        const index = (y * canvas.width + x) * 4;
+        data.data[index] = value;
+        data.data[index + 1] = value;
+        data.data[index + 2] = value;
+        data.data[index + 3] = 255;
+      }
+    }
+    ctx.putImageData(data, 0, 0);
+  }
+
+  async function undoEdit() {
+    const canvas = canvasRef.current;
+    const ctx = canvas?.getContext('2d', { willReadFrequently: true });
+    const previous = undoStackRef.current.pop();
+    if (!canvas || !ctx || !previous) return;
+    onPendingChange(true);
+    ctx.putImageData(previous, 0, 0);
+    setUndoCount(undoStackRef.current.length);
+    setEditStatus('Undid the last brush stroke.');
+    await emitCurrentMask();
+  }
+
+  function resetEdits() {
+    exportSeq.current++;
+    undoStackRef.current = [];
+    setUndoCount(0);
+    setReady(false);
+    onPendingChange(true);
+    drawMaskImage(() => {
+      setEditStatus('Reset to the latest extracted mask.');
+      void emitCurrentMask();
+    });
+  }
+
+  return (
+    <div data-mask-editor className="grid min-w-0 w-full max-w-full grid-cols-1 gap-3 overflow-hidden p-3">
+      <div className="relative mx-auto w-full max-w-[220px]">
+        <canvas
+          ref={canvasRef}
+          width={mask.width}
+          height={mask.height}
+          className="block h-auto w-full touch-none border border-border [image-rendering:auto]"
+          role="img"
+          aria-label={`Editable mask for ${currentChar}`}
+          onPointerDown={(event) => {
+            if ((event.button ?? 0) > 0 || !ready) return;
+            onPendingChange(true);
+            paintingRef.current = true;
+            setEditStatus(null);
+            exportSeq.current++;
+            event.currentTarget.setPointerCapture?.(event.pointerId);
+            pushUndoSnapshot();
+            paintAt(event.clientX, event.clientY);
+          }}
+          onPointerMove={(event) => {
+            if (!paintingRef.current || !ready) return;
+            paintAt(event.clientX, event.clientY);
+          }}
+          onPointerUp={(event) => {
+            if (!paintingRef.current) return;
+            paintingRef.current = false;
+            event.currentTarget.releasePointerCapture?.(event.pointerId);
+            void emitCurrentMask();
+          }}
+          onPointerCancel={() => {
+            if (paintingRef.current) {
+              const previous = undoStackRef.current.pop();
+              if (previous) {
+                setUndoCount(undoStackRef.current.length);
+                restoreSnapshot(previous, 'Cancelled the brush stroke.');
+              } else {
+                onPendingChange(false);
+              }
+            } else {
+              onPendingChange(false);
+            }
+            paintingRef.current = false;
+          }}
+        />
+        <div className="pointer-events-none absolute inset-x-0 border-t-2 border-dashed border-teal" style={{ top: `${baseline * 100}%` }} aria-hidden="true" />
+      </div>
+      <div className="grid min-w-0 gap-2 rounded-lg border border-border bg-surface p-3">
+        <fieldset className="flex min-w-0 flex-wrap gap-3">
+          <legend className="sr-only">Mask brush mode</legend>
+          <label className="flex items-center gap-2 text-xs text-text-secondary">
+            <input type="radio" name="mask-brush-mode" checked={brushMode === 'add'} onChange={() => setBrushMode('add')} />
+            Add black ink
+          </label>
+          <label className="flex items-center gap-2 text-xs text-text-secondary">
+            <input type="radio" name="mask-brush-mode" checked={brushMode === 'remove'} onChange={() => setBrushMode('remove')} />
+            Remove to white
+          </label>
+        </fieldset>
+        <label className="grid min-w-0 gap-1 text-xs font-semibold text-text-secondary">
+          Brush size: {brushSize}px
+          <input className="min-w-0 w-full" type="range" min="2" max="80" step="1" value={brushSize} onChange={(e) => setBrushSize(Number(e.target.value))} />
+        </label>
+        <div className="flex flex-wrap gap-2">
+          <button type="button" onClick={undoEdit} disabled={!ready || undoCount < 1} className="secondary-button">Undo mask edit</button>
+          <button type="button" onClick={resetEdits} disabled={!ready} className="secondary-button">Reset mask edits</button>
+        </div>
+        <p className="text-xs text-text-tertiary">Brush edits only add or remove pixels in this mask PNG. They do not crop to a bounding box or delete disconnected parts.</p>
+        {editStatus && <p className="text-xs text-text-secondary" role="status">{editStatus}</p>}
+      </div>
+    </div>
+  );
+}
+
+function ObjectRectangleControls({ method, style, rectangle, inkThreshold, onMethod, onStyle, onChange, onInkThreshold, onExtract, disabled, status }: {
+  method: CaptureForegroundRequestMethod;
+  style: CaptureForegroundStyle;
   rectangle: NormalizedRectangle;
+  inkThreshold: number;
+  onMethod: (method: CaptureForegroundRequestMethod) => void;
+  onStyle: (style: CaptureForegroundStyle) => void;
   onChange: (rectangle: NormalizedRectangle) => void;
+  onInkThreshold: (value: number) => void;
   onExtract: () => void;
   disabled: boolean;
   status: string | null;
@@ -1061,14 +2253,52 @@ function ObjectRectangleControls({ rectangle, onChange, onExtract, disabled, sta
   return (
     <div className="grid gap-3 rounded-lg border border-border bg-surface p-3">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <p className="text-xs text-text-secondary">Place the rectangle around the foreground object. The cutout creates a solid monochrome silhouette; holes found by segmentation are preserved, but color/texture is not. The original photo stays available so you can adjust and extract again.</p>
-        <button type="button" onClick={onExtract} disabled={disabled} className="secondary-button">Extract object</button>
+        <p className="text-xs text-text-secondary">Place the rectangle around the foreground object. The worker returns a real mask from the original source photo. Auto may use a model when available or honestly fall back to classical segmentation with a warning.</p>
+        <button type="button" onClick={onExtract} disabled={disabled} className="secondary-button">Extract mask</button>
       </div>
-      <div className="grid gap-2 sm:grid-cols-4">
+      <fieldset className="grid min-w-0 grid-cols-1 gap-2">
+        <legend className="text-xs font-semibold text-text-primary">Segmentation method</legend>
+        <label className="flex items-start gap-2 text-sm text-text-secondary">
+          <input type="radio" name="foreground-method" checked={method === 'auto'} onChange={() => onMethod('auto')} />
+          <span><strong className="text-text-primary">Auto</strong><br />No Keep object point uses GrabCut. With a Keep object point, request SlimSAM; unavailable model fallbacks must be reported as warnings.</span>
+        </label>
+        <label className="flex items-start gap-2 text-sm text-text-secondary">
+          <input type="radio" name="foreground-method" checked={method === 'model'} onChange={() => onMethod('model')} />
+          <span><strong className="text-text-primary">SlimSAM point cutout</strong><br />Require point-prompted SlimSAM segmentation; add at least one Keep object point or the request is blocked.</span>
+        </label>
+        <label className="flex items-start gap-2 text-sm text-text-secondary">
+          <input type="radio" name="foreground-method" checked={method === 'box-model'} onChange={() => onMethod('box-model')} />
+          <span><strong className="text-text-primary">AI box cutout (EfficientSAM)</strong><br />Use the rectangle as the EfficientSAM box prompt. Keep/exclude points are retained for SlimSAM but not sent for this mode.</span>
+        </label>
+        <label className="flex items-start gap-2 text-sm text-text-secondary">
+          <input type="radio" name="foreground-method" checked={method === 'grabcut'} onChange={() => onMethod('grabcut')} />
+          <span><strong className="text-text-primary">Classical GrabCut</strong><br />Use the rectangle-guided classical segmentation path.</span>
+        </label>
+      </fieldset>
+      <fieldset className="grid min-w-0 grid-cols-1 gap-2">
+        <legend className="text-xs font-semibold text-text-primary">Mask style</legend>
+        <label className="flex items-start gap-2 text-sm text-text-secondary">
+          <input type="radio" name="foreground-style" checked={style === 'silhouette'} onChange={() => onStyle('silhouette')} />
+          <span><strong className="text-text-primary">Silhouette</strong><br />Return the segmented foreground shape as solid black on white.</span>
+        </label>
+        <label className="flex items-start gap-2 text-sm text-text-secondary">
+          <input type="radio" name="foreground-style" checked={style === 'ink'} onChange={() => onStyle('ink')} />
+          <span><strong className="text-text-primary">Interior ink</strong><br />Keep dark interior strokes within the segmented foreground using a worker-side threshold.</span>
+        </label>
+      </fieldset>
+      {style === 'ink' && (
+        <label className="grid min-w-0 gap-1.5">
+          <span className="text-[13px] font-semibold text-text-primary">Interior ink threshold: {inkThreshold}</span>
+          <input className="min-w-0 w-full" type="range" min="1" max="254" step="1" value={inkThreshold} onChange={(e) => onInkThreshold(Number(e.target.value))} />
+        </label>
+      )}
+      <div className="grid min-w-0 gap-2 sm:grid-cols-4">
         {rectangle.map((value, index) => (
-          <label key={labels[index]} className="grid gap-1 text-xs font-semibold text-text-secondary">
+          <label key={labels[index]} className="grid min-w-0 gap-1 text-xs font-semibold text-text-secondary">
             {labels[index]} {value.toFixed(2)}
             <input
+              aria-label={`${labels[index]} boundary slider`}
+              className="min-w-0 w-full"
               type="range"
               min="0"
               max="1"
@@ -1081,6 +2311,7 @@ function ObjectRectangleControls({ rectangle, onChange, onExtract, disabled, sta
               }}
             />
             <input
+              aria-label={`${labels[index]} boundary`}
               className="field h-8"
               type="number"
               min="0"
@@ -1224,7 +2455,13 @@ function ErrorMessage({ message }: { message: string }) {
   return <p className="rounded-lg bg-red-muted px-3.5 py-2.5 text-[13px] text-red" role="alert">{message}</p>;
 }
 
-function StatusPanel({ state, job, acceptedCharacters }: { state: LocalState; job: JobResponse | null; acceptedCharacters: string[] | null }) {
+function StatusPanel({ state, job, acceptedCharacters, allowDelete, onDeleted }: { state: LocalState; job: JobResponse | null; acceptedCharacters: string[] | null; allowDelete: boolean; onDeleted: () => void }) {
+  const [deletedJobId, setDeletedJobId] = useState<string | null>(null);
+  if (job && deletedJobId === job.jobId) return (
+    <aside className="rounded-[22px] border border-border bg-surface p-7 text-sm text-text-secondary" role="status">
+      Job access removed. File cleanup is queued; accepted glyphs in this tab remain available for editing. Another build will upload fresh inputs.
+    </aside>
+  );
   const currentStage = job?.stage ?? '';
   const currentIdx = stageIndex(currentStage);
   const isActive = state === 'polling' || state === 'creating_job';
@@ -1241,7 +2478,7 @@ function StatusPanel({ state, job, acceptedCharacters }: { state: LocalState; jo
   const badgeLabel = isFailed ? 'Failed' : isSuccess ? 'Complete' : isActive ? 'Processing' : 'Ready';
 
   return (
-    <aside className="grid content-start gap-5 rounded-[22px] border border-border bg-surface p-7" aria-live="polite">
+    <aside className="grid min-w-0 content-start gap-5 rounded-[22px] border border-border bg-surface p-7" aria-live="polite">
       <div className="flex items-center justify-between">
         <span className="text-[13px] text-text-tertiary">Status</span>
         <span className={`inline-flex h-7 items-center gap-1.5 rounded-full px-3 font-mono text-xs font-semibold uppercase tracking-[.04em] ${badgeClass}`}>
@@ -1303,7 +2540,7 @@ function StatusPanel({ state, job, acceptedCharacters }: { state: LocalState; jo
         <div className="grid gap-2">
           <strong className="mb-1 text-[13px] text-text-secondary">Downloads</strong>
           {job.artifacts.map((artifact) => (
-            <a key={artifact.kind} className="flex items-center justify-between rounded-lg border border-border bg-bg px-4 py-3 text-[13px] font-semibold transition-colors hover:border-border-strong" href={artifact.url} download>
+            <a key={artifact.kind} className="flex items-center justify-between rounded-lg border border-border bg-bg px-4 py-3 text-[13px] font-semibold transition-colors hover:border-border-strong" href={artifact.url} download onClick={() => recordFunnelEvent('font_download_requested' as Parameters<typeof recordFunnelEvent>[0])}>
               <span>{artifact.label}</span>
               <span className="font-mono text-[11px] font-normal text-text-tertiary">{artifact.kind.toUpperCase()}</span>
             </a>
@@ -1314,8 +2551,9 @@ function StatusPanel({ state, job, acceptedCharacters }: { state: LocalState; jo
 
       {isSuccess && job && <GeneratedProof key={job.jobId} job={job} acceptedCharacters={acceptedCharacters} />}
 
+      {allowDelete && job && (job.status === 'succeeded' || job.status === 'failed') && <DeleteJobButton key={job.jobId} jobId={job.jobId} onDeleted={(id) => { setDeletedJobId(id); onDeleted(); }} />}
       <small className="text-xs text-text-tertiary">
-        {job ? `This job's signed download links may expire around ${new Date(job.retentionExpiresAt).toLocaleString()}.` : 'Local/demo state is not a deletion guarantee. Configure backend retention before public use.'}
+        {job ? `This job is retained until ${new Date(job.retentionExpiresAt).toLocaleString()}.` : 'Local/demo state is not a deletion guarantee. Configure backend retention before public use.'}
       </small>
     </aside>
   );

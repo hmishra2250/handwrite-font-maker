@@ -18,6 +18,13 @@ export default function InstallFontsHelp() {
       <h1 className="text-[clamp(2.2rem,4.5vw,3.6rem)] font-bold leading-none tracking-[-0.045em]">Use a generated TTF/OTF in Word or PowerPoint</h1>
       <p className="mt-5 max-w-[68ch] text-base leading-relaxed text-text-secondary">Download the real generated font file first. There is no one-click browser install: install the font in Windows or macOS, then reopen Office if the font list does not refresh.</p>
 
+      <section className="mt-8 rounded-[22px] border border-border bg-surface p-6">
+        <h2 className="text-xl font-semibold">Start with the download bundle</h2>
+        <p className="mt-3 text-sm text-text-secondary">After a successful build, download the ZIP bundle and extract it. It contains the TTF/OTF, a character map of the characters actually generated, and installation notes. Install one format first; you do not need both copies of the same font.</p>
+        <p className="mt-3 text-sm text-text-secondary">Test a short document using your captured characters. If spacing or size looks wrong, reopen the saved project, adjust the affected character, and rebuild. Reinstall the new export; an already downloaded font does not update itself.</p>
+        <p className="mt-3 text-xs text-text-tertiary">Missing characters are not synthesized. Object silhouettes are ornament glyphs assigned to keys, not an automatically readable alphabet. Rights to the font depend on your source material.</p>
+      </section>
+
       <section className="mt-10 grid gap-4 md:grid-cols-2">
         <article className="rounded-[22px] border border-border bg-surface p-6">
           <h2 className="text-xl font-semibold tracking-[-.02em]">Windows</h2>

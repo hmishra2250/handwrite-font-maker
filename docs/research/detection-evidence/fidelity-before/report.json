@@ -1,0 +1,134 @@
+{
+  "scope": "Accepted-mask to actual exported TTF outline fidelity, not segmentation ground truth. Does not measure spacing/baseline or human acceptance.",
+  "font_sha256": "5f7fa29493aaf3ed50a0de9a13ff69ce1ef3df7729e26f1282fb3af92f9f99b4",
+  "render_size_px": 1024,
+  "normalization": "tight bbox; uniform scale; centered 512px canvas; nearest-neighbor binary masks",
+  "glyphs": [
+    {
+      "status": "ok",
+      "char": "L",
+      "mask_sha256": "b6f99c74b46f49667c73e664f474ebecf14ad7864272df3478b56ce33b9d1e37",
+      "accepted_mask_topology": {
+        "components": 1,
+        "holes": 1
+      },
+      "rendered_font_topology": {
+        "components": 1,
+        "holes": 1
+      },
+      "normalized_outline_metrics": {
+        "iou": 0.97678,
+        "boundary": {
+          "precision": 1.0,
+          "recall": 0.999732,
+          "f1": 0.999866
+        },
+        "foreground_pixels": {
+          "predicted": 67553,
+          "reference": 67297
+        },
+        "false_positive_pixels": 920,
+        "false_negative_pixels": 664,
+        "topology": {
+          "predicted": {
+            "components": 1,
+            "holes": 1
+          },
+          "reference": {
+            "components": 1,
+            "holes": 1
+          },
+          "components_preserved": true,
+          "holes_preserved": true,
+          "component_delta": 0,
+          "hole_delta": 0
+        }
+      },
+      "comparison_png": "U004C.png"
+    },
+    {
+      "status": "ok",
+      "char": "B",
+      "mask_sha256": "6751f59a0fcd37edf86b20dee1af71a5c781cc6d352c7f88e68716713d0a31e9",
+      "accepted_mask_topology": {
+        "components": 4,
+        "holes": 3
+      },
+      "rendered_font_topology": {
+        "components": 4,
+        "holes": 2
+      },
+      "normalized_outline_metrics": {
+        "iou": 0.980973,
+        "boundary": {
+          "precision": 0.991416,
+          "recall": 0.970048,
+          "f1": 0.980616
+        },
+        "foreground_pixels": {
+          "predicted": 99223,
+          "reference": 98486
+        },
+        "false_positive_pixels": 1318,
+        "false_negative_pixels": 581,
+        "topology": {
+          "predicted": {
+            "components": 4,
+            "holes": 2
+          },
+          "reference": {
+            "components": 4,
+            "holes": 3
+          },
+          "components_preserved": true,
+          "holes_preserved": false,
+          "component_delta": 0,
+          "hole_delta": -1
+        }
+      },
+      "comparison_png": "U0042.png"
+    },
+    {
+      "status": "ok",
+      "char": "F",
+      "mask_sha256": "97442da3197ca1c0553b8f901ea4b4edfb930754e2ccf6b997d0f3b850100ffe",
+      "accepted_mask_topology": {
+        "components": 1,
+        "holes": 0
+      },
+      "rendered_font_topology": {
+        "components": 1,
+        "holes": 0
+      },
+      "normalized_outline_metrics": {
+        "iou": 0.978068,
+        "boundary": {
+          "precision": 1.0,
+          "recall": 1.0,
+          "f1": 1.0
+        },
+        "foreground_pixels": {
+          "predicted": 41230,
+          "reference": 41026
+        },
+        "false_positive_pixels": 558,
+        "false_negative_pixels": 354,
+        "topology": {
+          "predicted": {
+            "components": 1,
+            "holes": 0
+          },
+          "reference": {
+            "components": 1,
+            "holes": 0
+          },
+          "components_preserved": true,
+          "holes_preserved": true,
+          "component_delta": 0,
+          "hole_delta": 0
+        }
+      },
+      "comparison_png": "U0046.png"
+    }
+  ]
+}

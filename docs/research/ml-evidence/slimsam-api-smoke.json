@@ -1,0 +1,10 @@
+{
+  "status": "succeeded",
+  "job_id": "job_97adfe11-6ecf-4f8c-8370-cd8e102bd621",
+  "method": "slimsam",
+  "model_id": "Xenova/slimsam-77-uniform@5850ab45f587c112167512ffef949107115e26a0:fp32",
+  "warnings": [],
+  "wall_seconds": 3.805,
+  "ttf_bytes": 2328,
+  "scope": "Synthetic color object; actual HTTP segmentation, accepted-mask upload, persisted build, TTF/FreeType proof. Not real-photo accuracy."
+}

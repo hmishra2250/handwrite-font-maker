@@ -44,7 +44,7 @@ export const JOB_STAGES = [
 ] as const;
 export type JobStage = (typeof JOB_STAGES)[number];
 
-export type ArtifactKind = 'otf' | 'ttf' | 'sfd' | 'debug_overlay' | 'rectified_page' | 'manifest' | 'log_excerpt' | 'zip_bundle';
+export type ArtifactKind = 'otf' | 'ttf' | 'sfd' | 'debug_overlay' | 'rectified_page' | 'manifest' | 'log_excerpt' | 'download_bundle';
 
 export interface InputPhotoRef {
   bucket?: string;
@@ -75,6 +75,8 @@ export interface GuidedGlyphInput {
   char: string;
   inputPhoto: InputPhotoRef;
   baseline: number;
+  scale?: number;
+  spacing?: number;
 }
 
 export interface GuidedCaptureConfig {
@@ -101,16 +103,37 @@ export interface CapturePageRequest {
 
 export type NormalizedRectangle = readonly [number, number, number, number];
 
+export const CAPTURE_FOREGROUND_METHODS = ['auto', 'model', 'box-model', 'grabcut'] as const;
+export type CaptureForegroundRequestMethod = (typeof CAPTURE_FOREGROUND_METHODS)[number];
+
+export const CAPTURE_FOREGROUND_STYLES = ['silhouette', 'ink'] as const;
+export type CaptureForegroundStyle = (typeof CAPTURE_FOREGROUND_STYLES)[number];
+
+export const CAPTURE_FOREGROUND_RESULT_METHODS = ['grabcut', 'slimsam', 'efficientsam'] as const;
+export type CaptureForegroundResultMethod = (typeof CAPTURE_FOREGROUND_RESULT_METHODS)[number];
+
+export interface CaptureForegroundPromptPoint {
+  x: number;
+  y: number;
+  label: 0 | 1;
+}
+
 export interface CaptureForegroundRequest {
   inputPhoto: InputPhotoRef;
   rectangle: NormalizedRectangle;
+  method?: CaptureForegroundRequestMethod;
+  style?: CaptureForegroundStyle;
+  threshold?: number;
+  points?: CaptureForegroundPromptPoint[];
 }
 
 export interface CaptureForegroundResponse {
   maskDataUrl: string;
   width: number;
   height: number;
-  method: 'grabcut';
+  method: CaptureForegroundResultMethod;
+  modelId?: string;
+  warnings?: string[];
 }
 
 export interface CapturePageResponse {
@@ -229,10 +252,48 @@ export function isValidBaseline(value: number) {
   return Number.isFinite(value) && value > 0 && value < 1;
 }
 
+export function isValidGuidedGlyphScale(value: unknown): value is number {
+  return typeof value === 'number' && Number.isFinite(value) && value >= 0.5 && value <= 1.5;
+}
+
+export function isValidGuidedGlyphSpacing(value: unknown): value is number {
+  return typeof value === 'number' && Number.isFinite(value) && value >= -0.05 && value <= 0.25;
+}
+
 export function isValidNormalizedRectangle(rectangle: unknown): rectangle is NormalizedRectangle {
   if (!Array.isArray(rectangle) || rectangle.length !== 4) return false;
   const [left, top, right, bottom] = rectangle;
   return [left, top, right, bottom].every((value) => Number.isFinite(value) && value >= 0 && value <= 1) && left < right && top < bottom;
+}
+
+export function isValidCaptureForegroundMethod(method: unknown): method is CaptureForegroundRequestMethod {
+  return typeof method === 'string' && (CAPTURE_FOREGROUND_METHODS as readonly string[]).includes(method);
+}
+
+export function isValidCaptureForegroundStyle(style: unknown): style is CaptureForegroundStyle {
+  return typeof style === 'string' && (CAPTURE_FOREGROUND_STYLES as readonly string[]).includes(style);
+}
+
+export function isValidCaptureForegroundThreshold(threshold: unknown): threshold is number {
+  return Number.isInteger(threshold) && Number(threshold) >= 1 && Number(threshold) <= 254;
+}
+
+export function isValidCaptureForegroundPromptPoints(points: unknown): points is CaptureForegroundPromptPoint[] {
+  if (points === undefined) return true;
+  if (!Array.isArray(points) || points.length > 16) return false;
+  return points.every((point) => {
+    if (!point || typeof point !== 'object') return false;
+    const value = point as Record<string, unknown>;
+    return (
+      Number.isFinite(value.x) &&
+      Number(value.x) >= 0 &&
+      Number(value.x) <= 1 &&
+      Number.isFinite(value.y) &&
+      Number(value.y) >= 0 &&
+      Number(value.y) <= 1 &&
+      (value.label === 0 || value.label === 1)
+    );
+  });
 }
 
 export function isValidPageCorners(corners: unknown): corners is PageCorners {
@@ -272,6 +333,8 @@ export function validateCaptureConfig(capture: unknown): string | null {
       seen.add(g.char);
       if (!g.inputPhoto || typeof g.inputPhoto !== 'object' || !(g.inputPhoto as InputPhotoRef).objectKey) return 'each guided glyph requires an uploaded mask image.';
       if (!isValidBaseline(Number(g.baseline))) return 'each guided glyph baseline must be between 0 and 1.';
+      if (g.scale !== undefined && !isValidGuidedGlyphScale(g.scale)) return 'each guided glyph scale must be between 0.5 and 1.5.';
+      if (g.spacing !== undefined && !isValidGuidedGlyphSpacing(g.spacing)) return 'each guided glyph spacing must be between -0.05 and 0.25 em.';
     }
     return null;
   }

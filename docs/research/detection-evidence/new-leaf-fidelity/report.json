@@ -1,0 +1,92 @@
+{
+  "scope": "Accepted-mask to actual exported TTF outline fidelity, not segmentation ground truth. Does not measure spacing/baseline or human acceptance.",
+  "font_sha256": "e65e1558880e1719d2b085119e9f9030d9d14b12aeb15c4f713b9803c098c09f",
+  "render_size_px": 1024,
+  "normalization": "tight bbox; uniform scale; centered 512px canvas; nearest-neighbor binary masks",
+  "glyphs": [
+    {
+      "status": "ok",
+      "char": "G",
+      "mask_sha256": "17e5273eb2bc390a34f44c6f4eccdc7fe95d848dde04819d5f02b6496d0ecdc3",
+      "accepted_mask_topology": {
+        "components": 1,
+        "holes": 0
+      },
+      "rendered_font_topology": {
+        "components": 1,
+        "holes": 0
+      },
+      "normalized_outline_metrics": {
+        "iou": 0.992525,
+        "boundary": {
+          "precision": 0.99552,
+          "recall": 0.994634,
+          "f1": 0.995077
+        },
+        "foreground_pixels": {
+          "predicted": 171676,
+          "reference": 170869
+        },
+        "false_positive_pixels": 1046,
+        "false_negative_pixels": 239,
+        "topology": {
+          "predicted": {
+            "components": 1,
+            "holes": 0
+          },
+          "reference": {
+            "components": 1,
+            "holes": 0
+          },
+          "components_preserved": true,
+          "holes_preserved": true,
+          "component_delta": 0,
+          "hole_delta": 0
+        }
+      },
+      "comparison_png": "U0047.png"
+    },
+    {
+      "status": "ok",
+      "char": "M",
+      "mask_sha256": "2ad193f412a82338d5d5579b4c51250db08cf343bcf8d9f0341e4702a6106ee4",
+      "accepted_mask_topology": {
+        "components": 1,
+        "holes": 0
+      },
+      "rendered_font_topology": {
+        "components": 1,
+        "holes": 0
+      },
+      "normalized_outline_metrics": {
+        "iou": 0.990554,
+        "boundary": {
+          "precision": 0.983707,
+          "recall": 0.972166,
+          "f1": 0.977902
+        },
+        "foreground_pixels": {
+          "predicted": 172660,
+          "reference": 171266
+        },
+        "false_positive_pixels": 1513,
+        "false_negative_pixels": 119,
+        "topology": {
+          "predicted": {
+            "components": 1,
+            "holes": 0
+          },
+          "reference": {
+            "components": 1,
+            "holes": 0
+          },
+          "components_preserved": true,
+          "holes_preserved": true,
+          "component_delta": 0,
+          "hole_delta": 0
+        }
+      },
+      "comparison_png": "U004D.png"
+    }
+  ]
+}

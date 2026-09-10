@@ -1,0 +1,26 @@
+{
+  "scope": "Synthetic controls, real local API; no font build or real-phone accuracy claim.",
+  "positiveStatus": 200,
+  "rejectedStatus": 400,
+  "corners": [
+    [
+      0.20909090909090908,
+      0.09230769230769231
+    ],
+    [
+      0.7727272727272727,
+      0.13076923076923078
+    ],
+    [
+      0.7272727272727273,
+      0.8615384615384616
+    ],
+    [
+      0.14545454545454545,
+      0.8
+    ]
+  ],
+  "manualConfirmationRequired": true,
+  "manualFallbackAvailable": true,
+  "errors": []
+}

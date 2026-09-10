@@ -8,6 +8,7 @@ import shutil
 import string
 import subprocess
 import sys
+import zipfile
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -31,6 +32,10 @@ DEFAULT_SUBPROCESS_TIMEOUT_SECONDS = 300
 PRINTABLE_NONSPACE_ASCII = set(string.ascii_letters + string.digits + string.punctuation)
 _FONT_NAME_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_-]{1,62}$")
 _FAMILY_STYLE_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9 ._'-]{0,79}$")
+GUIDED_GLYPH_SCALE_MIN = 0.5
+GUIDED_GLYPH_SCALE_MAX = 1.5
+GUIDED_GLYPH_SPACING_MIN = -0.05
+GUIDED_GLYPH_SPACING_MAX = 0.25
 
 
 @dataclass(frozen=True)
@@ -316,7 +321,8 @@ def _run_checked(command: list[str], cwd: Path) -> None:
         raise RuntimeError(f"{tool} timed out after {timeout}s.") from exc
 
 
-def _vectorize_bitmap(bitmap_path: Path, svg_path: Path, cwd: Path) -> None:
+def _vectorize_bitmap(bitmap_path: Path, svg_path: Path, cwd: Path, *, preserve_details: bool = False) -> None:
+    turdsize = "0" if preserve_details else "4"
     _run_checked(
         [
             "potrace",
@@ -324,7 +330,7 @@ def _vectorize_bitmap(bitmap_path: Path, svg_path: Path, cwd: Path) -> None:
             "--svg",
             "--tight",
             "--turdsize",
-            "4",
+            turdsize,
             "--alphamax",
             "0.9",
             "--opttolerance",
@@ -392,7 +398,15 @@ def _warning_for(char: str, code: str, coverage: float) -> GlyphWarning:
     return GlyphWarning(char=char, code=code, message=message, coverage=coverage)
 
 
-def _glyph_record(char: str, result: GlyphBitmapResult, svg_value: str | None, advance_width: int) -> dict[str, object]:
+def _glyph_record(
+    char: str,
+    result: GlyphBitmapResult,
+    svg_value: str | None,
+    advance_width: int,
+    *,
+    scale: float = 1.0,
+    spacing: float = 0.0,
+) -> dict[str, object]:
     return {
         "char": char,
         "glyph_name": glyph_slug(char),
@@ -403,6 +417,8 @@ def _glyph_record(char: str, result: GlyphBitmapResult, svg_value: str | None, a
         "source_width": int(result.source_width if result.source_width is not None else result.bitmap.width),
         "source_height": int(result.source_height if result.source_height is not None else result.bitmap.height),
         "advance_width": int(advance_width),
+        "scale": float(scale),
+        "spacing": float(spacing),
         "coverage": result.coverage,
         "warnings": list(result.warnings),
     }
@@ -472,6 +488,123 @@ def _validate_mask_glyphs(glyphs: list[dict[str, object]]) -> None:
             raise ValueError(f"Guided glyph {char!r} is missing image_path.")
         if "baseline" not in glyph:
             raise ValueError(f"Guided glyph {char!r} is missing baseline.")
+        _glyph_metric_value(glyph, "scale", 1.0, GUIDED_GLYPH_SCALE_MIN, GUIDED_GLYPH_SCALE_MAX)
+        _glyph_metric_value(glyph, "spacing", 0.0, GUIDED_GLYPH_SPACING_MIN, GUIDED_GLYPH_SPACING_MAX)
+
+
+def _glyph_metric_value(glyph: dict[str, object], key: str, default: float, minimum: float, maximum: float) -> float:
+    raw = glyph.get(key, default)
+    if isinstance(raw, bool) or not isinstance(raw, int | float):
+        raise ValueError(f"Guided glyph {key} must be a finite number in range {minimum}..{maximum}.")
+    value = float(raw)
+    if not np.isfinite(value) or not minimum <= value <= maximum:
+        raise ValueError(f"Guided glyph {key} must be a finite number in range {minimum}..{maximum}.")
+    return value
+
+
+def _metric_adjusted_result(result: GlyphBitmapResult, scale: float) -> GlyphBitmapResult:
+    source_width = max(1, int(round((result.source_width if result.source_width is not None else result.bitmap.width) * scale)))
+    source_height = max(1, int(round((result.source_height if result.source_height is not None else result.bitmap.height) * scale)))
+    top_distance_from_baseline = ASCENT - int(result.top_offset)
+    top_offset = int(round(ASCENT - (top_distance_from_baseline * scale)))
+    return GlyphBitmapResult(
+        bitmap=result.bitmap,
+        top_offset=top_offset,
+        coverage=result.coverage,
+        warnings=result.warnings,
+        empty=result.empty,
+        source_width=source_width,
+        source_height=source_height,
+        original_width=result.original_width,
+        original_height=result.original_height,
+    )
+
+
+def _write_package_text_files(manifest: dict[str, object], output_dir: Path) -> tuple[Path, Path]:
+    package_dir = output_dir / "work" / "download-package"
+    package_dir.mkdir(parents=True, exist_ok=True)
+    font_name = str(manifest["font_name"])
+    family_name = str(manifest["family_name"])
+    style_name = str(manifest["style_name"])
+    glyphs = manifest.get("glyphs", [])
+    readme = package_dir / "README.md"
+    readme.write_text(
+        "\n".join(
+            [
+                f"# {family_name}",
+                "",
+                f"Package for `{font_name}` / `{style_name}`.",
+                "",
+                "## Files",
+                "",
+                f"- `fonts/{font_name}.ttf`",
+                f"- `fonts/{font_name}.otf`",
+                "- `CHARACTER_MAP.md`",
+                "",
+                "## Installation",
+                "",
+                "Use your operating system or target application's normal font installation/import flow for TTF or OTF files.",
+                "Exact steps vary by platform and application; this package does not claim automatic OS install or Office compatibility testing.",
+                "",
+                "## Rights",
+                "",
+                "Rights to the generated font output depend on your rights to the input glyph images.",
+                "The app license does not automatically license your output or third-party source material.",
+                "",
+                "## Character map",
+                "",
+                "See `CHARACTER_MAP.md` for the typed character assigned to each generated glyph.",
+                "",
+            ]
+        ),
+        encoding="utf-8",
+    )
+    charmap = package_dir / "CHARACTER_MAP.md"
+    rows = [
+        f"# Character map for {family_name}",
+        "",
+        "| Character | Unicode | Glyph name | Advance width | Scale | Spacing (em) |",
+        "| --- | --- | --- | ---: | ---: | ---: |",
+    ]
+    for glyph in glyphs if isinstance(glyphs, list) else []:
+        if not isinstance(glyph, dict):
+            continue
+        char = str(glyph["char"])
+        rows.append(
+            f"| {_markdown_table_cell(char)} | `U+{int(glyph['codepoint']):04X}` | `{_markdown_table_cell(str(glyph['glyph_name']))}` | "
+            f"{int(glyph['advance_width'])} | {float(glyph.get('scale', 1.0)):.3g} | {float(glyph.get('spacing', 0.0)):.3g} |"
+        )
+    charmap.write_text("\n".join(rows) + "\n", encoding="utf-8")
+    return readme, charmap
+
+
+def _markdown_table_cell(value: str) -> str:
+    escaped = []
+    for char in value:
+        if char in {"|", "`", "&", "<", ">"}:
+            escaped.append(f"&#{ord(char)};")
+        else:
+            escaped.append(char)
+    return "".join(escaped)
+
+
+def _write_download_bundle(manifest: dict[str, object], output_dir: Path, *, otf_path: Path, ttf_path: Path) -> Path:
+    font_name = str(manifest["font_name"])
+    bundle_path = output_dir / f"{font_name}-download.zip"
+    readme, charmap = _write_package_text_files(manifest, output_dir)
+    entries = [
+        (readme, "README.md"),
+        (charmap, "CHARACTER_MAP.md"),
+        (ttf_path, f"fonts/{ttf_path.name}"),
+        (otf_path, f"fonts/{otf_path.name}"),
+    ]
+    with zipfile.ZipFile(bundle_path, "w", compression=zipfile.ZIP_DEFLATED) as archive:
+        for source, arcname in entries:
+            info = zipfile.ZipInfo(arcname, date_time=(2026, 1, 1, 0, 0, 0))
+            info.compress_type = zipfile.ZIP_DEFLATED
+            info.external_attr = 0o644 << 16
+            archive.writestr(info, source.read_bytes())
+    return bundle_path
 
 
 def _write_manifest_and_build(manifest: dict[str, object], output_dir: Path, debug_overlay: Path) -> dict[str, object]:
@@ -495,6 +628,7 @@ def _write_manifest_and_build(manifest: dict[str, object], output_dir: Path, deb
     otf_path = output_dir / f"{font_name}.otf"
     ttf_path = output_dir / f"{font_name}.ttf"
     _validate_fonts(output_dir, manifest_path, otf_path, ttf_path)
+    download_bundle = _write_download_bundle(manifest, output_dir, otf_path=otf_path, ttf_path=ttf_path)
 
     return {
         "manifest": str(manifest_path),
@@ -502,6 +636,7 @@ def _write_manifest_and_build(manifest: dict[str, object], output_dir: Path, deb
         "ttf": str(ttf_path),
         "sfd": str(output_dir / f"{font_name}.sfd"),
         "debug_overlay": str(debug_overlay),
+        "download_bundle": str(download_bundle),
         "warnings": manifest.get("warnings", []),
     }
 
@@ -646,6 +781,9 @@ def build_font_from_masks(
         image_path = Path(glyph["image_path"]).expanduser().resolve()
         baseline = float(glyph["baseline"])
         result = _prepare_accepted_mask(image_path, baseline)
+        glyph_scale = _glyph_metric_value(glyph, "scale", 1.0, GUIDED_GLYPH_SCALE_MIN, GUIDED_GLYPH_SCALE_MAX)
+        glyph_spacing = _glyph_metric_value(glyph, "spacing", 0.0, GUIDED_GLYPH_SPACING_MIN, GUIDED_GLYPH_SPACING_MAX)
+        metric_result = _metric_adjusted_result(result, glyph_scale)
         for code in result.warnings:
             diagnostics.add(_warning_for(char, code, result.coverage))
 
@@ -653,12 +791,13 @@ def build_font_from_masks(
         bitmap_path = bitmaps_dir / f"{glyph_basename}.pbm"
         svg_path = svg_dir / f"{glyph_basename}.svg"
         result.bitmap.save(bitmap_path)
-        _vectorize_bitmap(bitmap_path, svg_path, cwd=output_dir)
+        _vectorize_bitmap(bitmap_path, svg_path, cwd=output_dir, preserve_details=True)
 
-        scaled_ink_width = int(result.source_width if result.source_width is not None else result.bitmap.width)
-        advance_width = max(EMPTY_GLYPH_WIDTH, scaled_ink_width + (SIDE_BEARING * 2))
+        scaled_ink_width = int(metric_result.source_width if metric_result.source_width is not None else metric_result.bitmap.width)
+        spacing_units = int(round(glyph_spacing * EM_SIZE))
+        advance_width = max(EMPTY_GLYPH_WIDTH, scaled_ink_width + (SIDE_BEARING * 2) + spacing_units)
         advance_widths.append(advance_width)
-        manifest_glyphs.append(_glyph_record(char, result, str(svg_path), advance_width))
+        manifest_glyphs.append(_glyph_record(char, metric_result, str(svg_path), advance_width, scale=glyph_scale, spacing=glyph_spacing))
         debug_bitmaps.append((char, result.bitmap.copy()))
 
     average_width = int(round(sum(advance_widths) / len(advance_widths)))

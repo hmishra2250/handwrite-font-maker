@@ -1,0 +1,263 @@
+{
+  "version": 2,
+  "created_at": "2026-09-10T17:00:51+00:00",
+  "purpose": "Real internet handwriting images for qualitative handwriting/document panels; no synthetic images and no invented ground truth.",
+  "byte_cap": 104857600,
+  "total_bytes": 7380239,
+  "sample_count": 5,
+  "acquisition_mode": "curated_seed_titles_only_no_broad_search",
+  "sources_used": [
+    {
+      "name": "Wikimedia Commons file/search API",
+      "api": "https://commons.wikimedia.org/w/api.php",
+      "rights_basis": "Per-file imageinfo extmetadata LicenseShortName/LicenseUrl/Artist/Attribution stored in each sample record; this run accepted only Public domain or CC0.",
+      "used_count": 5,
+      "content_basis": "Strict title/category/metadata filter for page-like handwriting, letters, correspondence, or manuscript pages; known photos/generic/relicense-ambiguous files are quarantined."
+    }
+  ],
+  "reviewed_but_not_acquired_here": [
+    {
+      "status": "schema_reviewed_not_acquired_here",
+      "source_url": "http://smartdoc.univ-lr.fr/smartdoc-2015-challenge-1/smartdoc-2015-challenge-1-dataset/",
+      "record_url": "https://zenodo.org/records/1230218",
+      "download_url": "https://zenodo.org/records/1230218/files/sampleDataset.tar.gz?download=1",
+      "license": "CC BY 4.0",
+      "license_url": "https://creativecommons.org/licenses/by/4.0/",
+      "rights_evidence": "Primary SmartDoc dataset page and Zenodo record state Creative Commons Attribution 4.0 International License.",
+      "authors": [
+        "Jean-Christophe Burie",
+        "Joseph Chazalon",
+        "Mickaël Coustaty",
+        "Sébastien Eskenazi",
+        "Muhammad Muzzamil Luqman",
+        "Maroua Mehri",
+        "Nibal Nayef",
+        "Jean-Marc Ogier",
+        "Sophea Prum",
+        "Marçal Rusiñol"
+      ],
+      "handoff": "Root owns SmartDoc frame extraction under output/detection-sources/pages/; this script does not duplicate or overwrite it.",
+      "archive_bytes": 21203716,
+      "archive_sha256": "90d1a64f476ffe290ebbddf4337e108d471b9c25420551223f447db972844a9a",
+      "archive_md5": "1ee5b7c290d707bd51c59f0b1c1a36f5",
+      "archive_schema": {
+        "file_count": 13,
+        "extension_counts": {
+          ".avi": 3,
+          ".py": 1,
+          ".txt": 1,
+          ".xml": 5,
+          "<noext>": 3
+        },
+        "video_files": [
+          "sampleDataset/input_sample/background00/datasheet001.avi",
+          "sampleDataset/input_sample/background00/letter001.avi",
+          "sampleDataset/input_sample/background00/magazine001.avi"
+        ],
+        "ground_truth_xml_files": [
+          "sampleDataset/input_sample_groundtruth/background00_gt/letter001.gt.xml",
+          "sampleDataset/input_sample_groundtruth/background00_gt/magazine001.gt.xml",
+          "sampleDataset/input_sample_groundtruth/background00_gt/datasheet001.gt.xml"
+        ],
+        "spec_or_readme_files": [
+          "sampleDataset/input_sample/background00/README",
+          "sampleDataset/input_sample_groundtruth/background00_gt/README",
+          "sampleDataset/README",
+          "sampleDataset/output_samples_and_specification/datasheet003.segresult.xml",
+          "sampleDataset/output_samples_and_specification/datasheet001.segresult.xml",
+          "sampleDataset/output_samples_and_specification/output_format_specification.txt"
+        ],
+        "observed_structure": "sampleDataset/input_sample/background00/*.avi plus sampleDataset/input_sample_groundtruth/background00_gt/*.gt.xml; no still image files in the archive.",
+        "ground_truth_shape": "XML segmentation_results/frame records with bl/tl/tr/br corner points per video frame.",
+        "split_warning": "Only three sample videos under one background00 condition; frames extracted from the same video/background are correlated and must not be treated as independent photos."
+      }
+    }
+  ],
+  "quarantined_candidates": [
+    {
+      "title": "File:Handwritten Letter to D. H. Cook from Carolina Cook - DPLA - 56162c270f60b61e1a3ee47c3f7b5.jpg",
+      "reason": "not an image MIME: "
+    }
+  ],
+  "restricted_or_not_used_sources": [
+    {
+      "name": "IAM Handwriting Database",
+      "status": "not used",
+      "reason": "Access/license is registration/research-use oriented rather than clear open redistribution/reuse for this repo."
+    },
+    {
+      "name": "DIBCO/H-DIBCO binarization contest datasets",
+      "status": "not used",
+      "reason": "Useful annotated binarization benchmarks, but this pass did not find primary explicit reusable licensing for direct acquisition/redistribution."
+    },
+    {
+      "name": "SmartDoc-QA",
+      "status": "not used",
+      "source_url": "https://zenodo.org/records/5293201",
+      "reason": "Primary Zenodo record is 13.7 GB, exceeding the bounded <=100 MB acquisition target."
+    },
+    {
+      "name": "MIDV-500 / identity document video datasets",
+      "status": "not used",
+      "reason": "Identity-document/template rights and download scope need separate review; not necessary for this bounded handwriting source set."
+    },
+    {
+      "name": "Library of Congress manuscript API",
+      "status": "not used in automated acquisition",
+      "source_url": "https://www.loc.gov/apis/",
+      "reason": "Rights guidance is promising for public-domain/no-known-restrictions items, but loc.gov JSON requests returned HTTP 403 from this environment during this run."
+    }
+  ],
+  "samples": [
+    {
+      "sample_id": "commons-001",
+      "cohort": "historical_handwriting_commons",
+      "local_path": "output/detection-sources/handwriting/commons-001-Cesare-Borgia-handwritten-letter-2.jpg",
+      "sha256": "2142d274b813b538be53c6e9f9da7e536c1b52a6d9698e59c506eb3a6baa79f8",
+      "bytes": 3207117,
+      "title": "Cesare Borgia, handwritten letter 2",
+      "author": "Cesare Borgia",
+      "source_url": "https://commons.wikimedia.org/wiki/File:Cesare_Borgia,_handwritten_letter_2.jpg",
+      "primary_source_url": "https://commons.wikimedia.org/wiki/File:Cesare_Borgia,_handwritten_letter_2.jpg",
+      "source_metadata_text": "",
+      "original_file_url": "https://upload.wikimedia.org/wikipedia/commons/6/6a/Cesare_Borgia%2C_handwritten_letter_2.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+      "download_url": "https://thumb.wikimedia.org/wikipedia/commons/thumb/6/6a/Cesare_Borgia%2C_handwritten_letter_2.jpg/1920px-Cesare_Borgia%2C_handwritten_letter_2.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail",
+      "download_is_resized_derivative": true,
+      "width": 2672,
+      "height": 4173,
+      "license": "Public domain",
+      "license_url": "",
+      "rights_evidence": {
+        "source": "Wikimedia Commons imageinfo extmetadata for this file",
+        "license_short_name": "Public domain",
+        "license_url": "",
+        "usage_terms": "Public domain",
+        "copyrighted": "False",
+        "credit": "Sarah Bradford: Cesare Borgia. His Life and Times , 1976, ISBN 3-455-08898-8",
+        "attribution": ""
+      },
+      "content_filter_evidence": "title/metadata/category indicate page-like handwriting or historical correspondence",
+      "qualitative_only_no_ground_truth": true
+    },
+    {
+      "sample_id": "commons-002",
+      "cohort": "historical_handwriting_commons",
+      "local_path": "output/detection-sources/handwriting/commons-002-William-Burnett-Letter-May-24-1726---NARA---193049.jpg",
+      "sha256": "5791c889abf9942f8fe33ed929a73b8ebc11d4b7173420f5702c49915fed6088",
+      "bytes": 1262296,
+      "title": "William Burnett Letter May 24, 1726",
+      "author": "William Burnet",
+      "source_url": "https://commons.wikimedia.org/wiki/File:William_Burnett_Letter_May_24,_1726_-_NARA_-_193049.jpg",
+      "primary_source_url": "https://commons.wikimedia.org/wiki/File:William_Burnett_Letter_May_24,_1726_-_NARA_-_193049.jpg",
+      "source_metadata_text": "",
+      "original_file_url": "https://upload.wikimedia.org/wikipedia/commons/0/04/William_Burnett_Letter_May_24%2C_1726_-_NARA_-_193049.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+      "download_url": "https://upload.wikimedia.org/wikipedia/commons/0/04/William_Burnett_Letter_May_24%2C_1726_-_NARA_-_193049.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+      "download_is_resized_derivative": false,
+      "width": 2250,
+      "height": 1650,
+      "license": "Public domain",
+      "license_url": "",
+      "rights_evidence": {
+        "source": "Wikimedia Commons imageinfo extmetadata for this file",
+        "license_short_name": "Public domain",
+        "license_url": "",
+        "usage_terms": "Public domain",
+        "copyrighted": "False",
+        "credit": "U.S. National Archives and Records Administration",
+        "attribution": ""
+      },
+      "content_filter_evidence": "title/metadata/category indicate page-like handwriting or historical correspondence",
+      "qualitative_only_no_ground_truth": true
+    },
+    {
+      "sample_id": "commons-003",
+      "cohort": "historical_handwriting_commons",
+      "local_path": "output/detection-sources/handwriting/commons-003-Annie-Fields-to-Sarah-Watson-Dana-26-March-1867-afcfff9e-1414-44c2-84c3-98c42497f8ef-.jpg",
+      "sha256": "e24b8c744cdea524efbc3220a4ba50aa90bc972ec0f45decec36761802154e8f",
+      "bytes": 2450991,
+      "title": "Annie Fields to Sarah Watson Dana, 26 March 1867 (afcfff9e-1414-44c2-84c3-98c42497f8ef)",
+      "author": "Annie Fields (1834-1915)",
+      "source_url": "https://commons.wikimedia.org/wiki/File:Annie_Fields_to_Sarah_Watson_Dana,_26_March_1867_(afcfff9e-1414-44c2-84c3-98c42497f8ef).jpg",
+      "primary_source_url": "https://commons.wikimedia.org/wiki/File:Annie_Fields_to_Sarah_Watson_Dana,_26_March_1867_(afcfff9e-1414-44c2-84c3-98c42497f8ef).jpg",
+      "source_metadata_text": "",
+      "original_file_url": "https://upload.wikimedia.org/wikipedia/commons/7/7a/Annie_Fields_to_Sarah_Watson_Dana%2C_26_March_1867_%28afcfff9e-1414-44c2-84c3-98c42497f8ef%29.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+      "download_url": "https://upload.wikimedia.org/wikipedia/commons/7/7a/Annie_Fields_to_Sarah_Watson_Dana%2C_26_March_1867_%28afcfff9e-1414-44c2-84c3-98c42497f8ef%29.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+      "download_is_resized_derivative": false,
+      "width": 3895,
+      "height": 3150,
+      "license": "Public domain",
+      "license_url": "",
+      "rights_evidence": {
+        "source": "Wikimedia Commons imageinfo extmetadata for this file",
+        "license_short_name": "Public domain",
+        "license_url": "",
+        "usage_terms": "Public domain",
+        "copyrighted": "False",
+        "credit": "NPGallery",
+        "attribution": ""
+      },
+      "content_filter_evidence": "title/metadata/category indicate page-like handwriting or historical correspondence",
+      "qualitative_only_no_ground_truth": true
+    },
+    {
+      "sample_id": "commons-004",
+      "cohort": "historical_handwriting_commons",
+      "local_path": "output/detection-sources/handwriting/commons-004-J-zef-Che-mo-ski-list-1859.jpg",
+      "sha256": "3c0259504059de829cfffd6379f8deb1b07f9ed4eafcdccfbf00d8be8e68c1e0",
+      "bytes": 278688,
+      "title": "Józef Chełmoński list 1859",
+      "author": "Józef Chełmoński",
+      "source_url": "https://commons.wikimedia.org/wiki/File:J%C3%B3zef_Che%C5%82mo%C5%84ski_list_1859.jpg",
+      "primary_source_url": "https://commons.wikimedia.org/wiki/File:J%C3%B3zef_Che%C5%82mo%C5%84ski_list_1859.jpg",
+      "source_metadata_text": "",
+      "original_file_url": "https://upload.wikimedia.org/wikipedia/commons/f/fd/J%C3%B3zef_Che%C5%82mo%C5%84ski_list_1859.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+      "download_url": "https://upload.wikimedia.org/wikipedia/commons/f/fd/J%C3%B3zef_Che%C5%82mo%C5%84ski_list_1859.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+      "download_is_resized_derivative": false,
+      "width": 1559,
+      "height": 2129,
+      "license": "Public domain",
+      "license_url": "",
+      "rights_evidence": {
+        "source": "Wikimedia Commons imageinfo extmetadata for this file",
+        "license_short_name": "Public domain",
+        "license_url": "",
+        "usage_terms": "Public domain",
+        "copyrighted": "False",
+        "credit": "http://www.jozefchelmonski.piotrchelmonski.pl/index8.html",
+        "attribution": ""
+      },
+      "content_filter_evidence": "title/metadata/category indicate page-like handwriting or historical correspondence",
+      "qualitative_only_no_ground_truth": true
+    },
+    {
+      "sample_id": "commons-005",
+      "cohort": "historical_handwriting_commons",
+      "local_path": "output/detection-sources/handwriting/commons-005-George-Washington-Letter-to-Mrs.-Carroll-November-22-1789---DPLA---2a7955d332258a03f27b386.gif",
+      "sha256": "a5f0cdbab6cdd6f86f03bf3c1938f3f72aa7ec5b6f4689be56a17ca4cc6524d7",
+      "bytes": 181147,
+      "title": "George Washington Letter to Mrs. Carroll November 22, 1789 - DPLA - 2a7955d332258a03f27b3868135ec92e (page 1)",
+      "author": "Kennedy, John F. (John Fitzgerald), 1917-1963",
+      "source_url": "https://commons.wikimedia.org/wiki/File:George_Washington_Letter_to_Mrs._Carroll_November_22,_1789_-_DPLA_-_2a7955d332258a03f27b3868135ec92e_(page_1).gif",
+      "primary_source_url": "https://commons.wikimedia.org/wiki/File:George_Washington_Letter_to_Mrs._Carroll_November_22,_1789_-_DPLA_-_2a7955d332258a03f27b3868135ec92e_(page_1).gif",
+      "source_metadata_text": "",
+      "original_file_url": "https://upload.wikimedia.org/wikipedia/commons/5/5f/George_Washington_Letter_to_Mrs._Carroll_November_22%2C_1789_-_DPLA_-_2a7955d332258a03f27b3868135ec92e_%28page_1%29.gif?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+      "download_url": "https://upload.wikimedia.org/wikipedia/commons/5/5f/George_Washington_Letter_to_Mrs._Carroll_November_22%2C_1789_-_DPLA_-_2a7955d332258a03f27b3868135ec92e_%28page_1%29.gif?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+      "download_is_resized_derivative": false,
+      "width": 632,
+      "height": 792,
+      "license": "Public domain",
+      "license_url": "",
+      "rights_evidence": {
+        "source": "Wikimedia Commons imageinfo extmetadata for this file",
+        "license_short_name": "Public domain",
+        "license_url": "",
+        "usage_terms": "Public domain",
+        "copyrighted": "False",
+        "credit": "File URL Catalog record",
+        "attribution": ""
+      },
+      "content_filter_evidence": "title/metadata/category indicate page-like handwriting or historical correspondence",
+      "qualitative_only_no_ground_truth": true
+    }
+  ]
+}

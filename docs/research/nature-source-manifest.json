@@ -1,0 +1,687 @@
+{
+  "schema_version": 1,
+  "generated_at": "2026-09-10T12:07:10.460354+00:00",
+  "retrieved_on": "2026-09-10",
+  "purpose": "Openly licensed/public-domain nature and satellite images for segmentation/font-shape experiments. These are source fixtures only; no ground-truth masks are claimed or fabricated.",
+  "method_summary": [
+    "Searched with Firecrawl and saved search outputs under .firecrawl/.",
+    "Collected licensing/provenance from Wikimedia Commons pages and Commons API extmetadata.",
+    "Scraped source pages with Firecrawl and retained evidence files under .firecrawl/.",
+    "Downloaded images only to ignored output/nature-source-images/.",
+    "Created temporary downscaled review previews under .firecrawl/nature-review-previews/ and inspected them with view_image."
+  ],
+  "global_rights_caveats": [
+    "Not legal advice; re-check license/source pages before external redistribution.",
+    "CC BY-SA 3.0 fixture requires attribution and share-alike for adapted/redistributed derivatives.",
+    "CC0 fixtures are public-domain dedications, but provenance is retained for auditability.",
+    "NASA/USGS fixtures are marked public domain by Commons and supported by official NASA media-usage guidance; NASA still restricts logos/identifiers, prohibits implied endorsement, and warns that third-party material on NASA sites may be separately copyrighted.",
+    "No ground-truth segmentation masks exist in this manifest; rectangles and keep/avoid points are visual-review proposals only."
+  ],
+  "images": [
+    {
+      "id": "isolated_leaf_silver_maple",
+      "experiment_role": "isolated leaf on clean background; baseline foreground segmentation fixture",
+      "title": "Autumn Silver Maple Leaf",
+      "local_file": {
+        "path": "output/nature-source-images/isolated_leaf__Autumn_Silver_Maple_Leaf.jpg",
+        "sha256": "ec81db0a17581d5d1b3dc21e4328fd1be22a209cf94affa34fb3e11dd7dfd076",
+        "width": 3574,
+        "height": 5093,
+        "bytes": 2152925
+      },
+      "downloadable_image_url": "https://upload.wikimedia.org/wikipedia/commons/f/f4/Autumn_Silver_Maple_Leaf.jpg",
+      "origin_page": "https://commons.wikimedia.org/wiki/File:Autumn_Silver_Maple_Leaf.jpg",
+      "upstream_origin_pages": [],
+      "author_or_creator": "Ninjatacoshell",
+      "credit_line": "Ninjatacoshell",
+      "license": {
+        "short_name": "CC BY-SA 3.0",
+        "url": "https://creativecommons.org/licenses/by-sa/3.0",
+        "usage_terms": "Creative Commons Attribution-Share Alike 3.0",
+        "attribution_required": true,
+        "rights_note": "Attribution and share-alike apply if distributing modified/adapted versions or derivative annotation artifacts."
+      },
+      "source_evidence_files": [
+        ".firecrawl/nature-source-Autumn_Silver_Maple_Leaf.jpg.md",
+        ".firecrawl/commons-candidates-meta.json"
+      ],
+      "visual_review": {
+        "reviewed_with_view_image": true,
+        "review_image_path": ".firecrawl/nature-review-previews/isolated_leaf__Autumn_Silver_Maple_Leaf.jpg",
+        "annotation_status": "proposal_only_no_mask_created",
+        "observed_content": "Red/orange scanned silver maple leaf on white background, including thin stem and jagged lobes.",
+        "proposed_target": "entire leaf blade plus stem",
+        "proposed_crop_xywh": [
+          120,
+          120,
+          3350,
+          4890
+        ],
+        "keep_points_xy": [
+          [
+            1810,
+            2470
+          ],
+          [
+            1780,
+            740
+          ],
+          [
+            780,
+            2820
+          ],
+          [
+            2810,
+            2840
+          ],
+          [
+            1790,
+            4580
+          ]
+        ],
+        "avoid_points_xy": [
+          [
+            160,
+            160
+          ],
+          [
+            3420,
+            170
+          ],
+          [
+            3400,
+            4900
+          ]
+        ],
+        "desired_glyph_shape": "single maple-leaf silhouette for A/M/star-like ornamental glyph tests",
+        "suitability_notes": "High-contrast clean background makes it a good first sanity check for edge fidelity and stem retention."
+      }
+    },
+    {
+      "id": "leaf_on_clutter_brown_litter",
+      "experiment_role": "leaf on clutter; hard negative background fixture",
+      "title": "Top view of brown leaf litter (Unsplash)",
+      "local_file": {
+        "path": "output/nature-source-images/leaf_on_clutter__Top_view_of_brown_leaf_litter_Unsplash.jpg",
+        "sha256": "1cd6f5f16675d69803b75dc9410160354704cdfbb4c5233c65e3ca3e1adcf940",
+        "width": 5184,
+        "height": 3456,
+        "bytes": 12804146
+      },
+      "downloadable_image_url": "https://upload.wikimedia.org/wikipedia/commons/e/ed/Top_view_of_brown_leaf_litter_%28Unsplash%29.jpg",
+      "origin_page": "https://commons.wikimedia.org/wiki/File:Top_view_of_brown_leaf_litter_(Unsplash).jpg",
+      "upstream_origin_pages": [
+        "https://unsplash.com/photos/UJ6uuL8wpJI"
+      ],
+      "author_or_creator": "Aniket Deole (anik3t)",
+      "credit_line": "Aniket Deole (anik3t)",
+      "license": {
+        "short_name": "CC0",
+        "url": "http://creativecommons.org/publicdomain/zero/1.0/deed.en",
+        "usage_terms": "Creative Commons Zero, Public Domain Dedication",
+        "attribution_required": false,
+        "rights_note": "Commons records this as pre-2017 Unsplash CC0; keep the Commons page and Wayback evidence with any redistribution."
+      },
+      "source_evidence_files": [
+        ".firecrawl/nature-source-Top_view_of_brown_leaf_litter__Unsplash_.jpg.md",
+        ".firecrawl/commons-candidates-meta.json"
+      ],
+      "visual_review": {
+        "reviewed_with_view_image": true,
+        "review_image_path": ".firecrawl/nature-review-previews/leaf_on_clutter__Top_view_of_brown_leaf_litter_Unsplash.jpg",
+        "annotation_status": "proposal_only_no_mask_created",
+        "observed_content": "Overhead wet autumn leaf litter with many overlapping dark leaves; one pale maple leaf is prominent near the center.",
+        "proposed_target": "central pale maple leaf only; use surrounding leaves as clutter/background",
+        "proposed_crop_xywh": [
+          2050,
+          930,
+          1350,
+          1150
+        ],
+        "keep_points_xy": [
+          [
+            2600,
+            1510
+          ],
+          [
+            2380,
+            1310
+          ],
+          [
+            2920,
+            1450
+          ],
+          [
+            2720,
+            1760
+          ]
+        ],
+        "avoid_points_xy": [
+          [
+            1570,
+            1450
+          ],
+          [
+            3700,
+            1760
+          ],
+          [
+            2900,
+            760
+          ]
+        ],
+        "desired_glyph_shape": "clutter-extracted small maple silhouette for robustness tests",
+        "suitability_notes": "Good for testing whether prompts/crops can isolate one leaf when colors and shapes repeat across the background."
+      }
+    },
+    {
+      "id": "whole_branch_oak_acorn",
+      "experiment_role": "whole plant/branch; connected leaves, twig, and acorn fixture",
+      "title": "Small oak branch",
+      "local_file": {
+        "path": "output/nature-source-images/whole_branch__Small_oak_branch.jpg",
+        "sha256": "dd2dca8913e76fc46371b8e2d5bc237ea5cef43c7704f2ff5ebe0eac0e033926",
+        "width": 3264,
+        "height": 2448,
+        "bytes": 3952080
+      },
+      "downloadable_image_url": "https://upload.wikimedia.org/wikipedia/commons/e/eb/Small_oak_branch.jpg",
+      "origin_page": "https://commons.wikimedia.org/wiki/File:Small_oak_branch.jpg",
+      "upstream_origin_pages": [],
+      "author_or_creator": "ThatOnejGuy!",
+      "credit_line": "ThatOnejGuy!",
+      "license": {
+        "short_name": "CC0",
+        "url": "http://creativecommons.org/publicdomain/zero/1.0/deed.en",
+        "usage_terms": "Creative Commons Zero, Public Domain Dedication",
+        "attribution_required": false,
+        "rights_note": "CC0 dedication; attribution not required but origin/author retained for provenance."
+      },
+      "source_evidence_files": [
+        ".firecrawl/nature-source-Small_oak_branch.jpg.md",
+        ".firecrawl/commons-candidates-meta.json"
+      ],
+      "visual_review": {
+        "reviewed_with_view_image": true,
+        "review_image_path": ".firecrawl/nature-review-previews/whole_branch__Small_oak_branch.jpg",
+        "annotation_status": "proposal_only_no_mask_created",
+        "observed_content": "Small northern red oak branch on soil/clutter, with multiple connected green leaves, twig, and one acorn.",
+        "proposed_target": "main green oak branch cluster including twig and acorn",
+        "proposed_crop_xywh": [
+          520,
+          620,
+          2260,
+          1350
+        ],
+        "keep_points_xy": [
+          [
+            1630,
+            1120
+          ],
+          [
+            1010,
+            1290
+          ],
+          [
+            2120,
+            1180
+          ],
+          [
+            1600,
+            1640
+          ],
+          [
+            1260,
+            1800
+          ]
+        ],
+        "avoid_points_xy": [
+          [
+            180,
+            390
+          ],
+          [
+            3000,
+            500
+          ],
+          [
+            2970,
+            2220
+          ]
+        ],
+        "desired_glyph_shape": "branchy K/Y-like ornamental glyph with leaf lobes and a small acorn dot",
+        "suitability_notes": "Useful for multi-part foreground connectivity and thin twig retention against textured ground."
+      }
+    },
+    {
+      "id": "fern_emerging_thin_structure",
+      "experiment_role": "fern/needle-like thin structure; delicate tendril fixture",
+      "title": "Close-up of Emerging Fern Frond in Spring",
+      "local_file": {
+        "path": "output/nature-source-images/fern_thin_structure__Close-up_of_Emerging_Fern_Frond_in_Spring.jpg",
+        "sha256": "55e3f1538335b8ac7ff57baf1e558e671639b3a849043028067e7f3902b24bdb",
+        "width": 2400,
+        "height": 3600,
+        "bytes": 367867
+      },
+      "downloadable_image_url": "https://upload.wikimedia.org/wikipedia/commons/e/ef/Close-up_of_Emerging_Fern_Frond_in_Spring.jpg",
+      "origin_page": "https://commons.wikimedia.org/wiki/File:Close-up_of_Emerging_Fern_Frond_in_Spring.jpg",
+      "upstream_origin_pages": [],
+      "author_or_creator": "Girela770",
+      "credit_line": "Girela770",
+      "license": {
+        "short_name": "CC0",
+        "url": "http://creativecommons.org/publicdomain/zero/1.0/deed.en",
+        "usage_terms": "Creative Commons Zero, Public Domain Dedication",
+        "attribution_required": false,
+        "rights_note": "CC0 dedication; attribution not required but origin/author retained for provenance."
+      },
+      "source_evidence_files": [
+        ".firecrawl/nature-source-Close-up_of_Emerging_Fern_Frond_in_Spring.jpg.md",
+        ".firecrawl/commons-candidates-meta.json"
+      ],
+      "visual_review": {
+        "reviewed_with_view_image": true,
+        "review_image_path": ".firecrawl/nature-review-previews/fern_thin_structure__Close-up_of_Emerging_Fern_Frond_in_Spring.jpg",
+        "annotation_status": "proposal_only_no_mask_created",
+        "observed_content": "Emerging fern frond and tendrils beside a vertical trunk/stem, with shallow-focus dark green background.",
+        "proposed_target": "thin green fern shoot/frond; treat large trunk as distractor unless testing combined plant segmentation",
+        "proposed_crop_xywh": [
+          120,
+          1540,
+          1450,
+          1030
+        ],
+        "keep_points_xy": [
+          [
+            430,
+            1960
+          ],
+          [
+            860,
+            2020
+          ],
+          [
+            1260,
+            1800
+          ],
+          [
+            1320,
+            2360
+          ]
+        ],
+        "avoid_points_xy": [
+          [
+            1870,
+            1200
+          ],
+          [
+            1900,
+            2400
+          ],
+          [
+            190,
+            560
+          ]
+        ],
+        "desired_glyph_shape": "curled C/S swash or thin-stroke fern ornament",
+        "suitability_notes": "Good stress case for retaining thin stems and fuzzy margins while avoiding an adjacent high-contrast trunk."
+      }
+    },
+    {
+      "id": "satellite_meandering_mississippi",
+      "experiment_role": "satellite meandering river; high-resolution sinuous water fixture",
+      "title": "Meandering Mississippi (5182095595)",
+      "local_file": {
+        "path": "output/nature-source-images/satellite_meander__Meandering_Mississippi_5182095595.jpg",
+        "sha256": "05f0c26619d46e01648489cc1106c4b762644aa06fb37fedf3206217b6ec5228",
+        "width": 7128,
+        "height": 7140,
+        "bytes": 16182046
+      },
+      "downloadable_image_url": "https://upload.wikimedia.org/wikipedia/commons/b/b9/Meandering_Mississippi_%285182095595%29.jpg",
+      "origin_page": "https://commons.wikimedia.org/wiki/File:Meandering_Mississippi_(5182095595).jpg",
+      "upstream_origin_pages": [
+        "https://images.nasa.gov/details/GSFC_20171208_Archive_e001929",
+        "https://www.flickr.com/photos/gsfc/5182095595/"
+      ],
+      "author_or_creator": "USGS/NASA/Landsat 7",
+      "credit_line": "USGS/NASA/Landsat 7",
+      "license": {
+        "short_name": "Public domain",
+        "url": null,
+        "usage_terms": "Public domain",
+        "attribution_required": false,
+        "rights_note": "Commons marks this NASA/USGS/Landsat image public domain; NASA policy still asks for source acknowledgment and no implied endorsement."
+      },
+      "source_evidence_files": [
+        ".firecrawl/nature-source-Meandering_Mississippi__5182095595_.jpg.md",
+        ".firecrawl/nasa-gsfc-20171208-archive-e001929.md",
+        ".firecrawl/nasa-images-media-usage-guidelines.md",
+        ".firecrawl/commons-candidates-meta.json"
+      ],
+      "visual_review": {
+        "reviewed_with_view_image": true,
+        "review_image_path": ".firecrawl/nature-review-previews/satellite_meander__Meandering_Mississippi_5182095595.jpg",
+        "annotation_status": "proposal_only_no_mask_created",
+        "observed_content": "False-color Landsat view of Mississippi River meanders, oxbows, fields, and towns; turquoise water contrasts with orange/brown land.",
+        "proposed_target": "main turquoise Mississippi channel plus major oxbow water bodies",
+        "proposed_crop_xywh": [
+          2700,
+          250,
+          3850,
+          6600
+        ],
+        "keep_points_xy": [
+          [
+            5520,
+            1380
+          ],
+          [
+            4540,
+            2790
+          ],
+          [
+            4450,
+            4210
+          ],
+          [
+            3220,
+            5660
+          ],
+          [
+            5190,
+            6440
+          ]
+        ],
+        "avoid_points_xy": [
+          [
+            880,
+            1040
+          ],
+          [
+            1140,
+            4200
+          ],
+          [
+            6440,
+            700
+          ]
+        ],
+        "desired_glyph_shape": "large S/G-like river stroke with loops and counters",
+        "suitability_notes": "Excellent for color-separated water extraction and curve simplification into glyph strokes; not a natural-color scene."
+      }
+    },
+    {
+      "id": "satellite_braided_yarlung_zangbo",
+      "experiment_role": "satellite braided river; thin branching channel fixture",
+      "title": "Braided River in Tibet Redraws Its Channels (154747)",
+      "local_file": {
+        "path": "output/nature-source-images/satellite_braided__Braided_River_in_Tibet_Redraws_Its_Channels_154747.jpg",
+        "sha256": "ccfd2bf07230bdd21d4d5f6d6a4c0f4d874570f516e658732360ef153792bbfc",
+        "width": 720,
+        "height": 400,
+        "bytes": 115767
+      },
+      "downloadable_image_url": "https://upload.wikimedia.org/wikipedia/commons/a/a7/Braided_River_in_Tibet_Redraws_Its_Channels_%28154747%29.jpg",
+      "origin_page": "https://commons.wikimedia.org/wiki/File:Braided_River_in_Tibet_Redraws_Its_Channels_(154747).jpg",
+      "upstream_origin_pages": [
+        "https://science.nasa.gov/earth/earth-observatory/braided-river-in-tibet-redraws-its-channels-154747/"
+      ],
+      "author_or_creator": "NASA Earth Observatory image by Michala Garrison and animations by Ross Walter, using Landsat data from the U.S. Geological Survey",
+      "credit_line": "NASA Earth Observatory image by Michala Garrison and animations by Ross Walter, using Landsat data from the U.S. Geological Survey",
+      "license": {
+        "short_name": "Public domain",
+        "url": null,
+        "usage_terms": "Public domain",
+        "attribution_required": false,
+        "rights_note": "Public-domain NASA/USGS evidence is from Commons plus the official NASA Earth Observatory page; avoid logo/endorsement uses."
+      },
+      "source_evidence_files": [
+        ".firecrawl/nature-source-Braided_River_in_Tibet_Redraws_Its_Channels__154747_.jpg.md",
+        ".firecrawl/nasa-eo-braided-river-tibet.md",
+        ".firecrawl/nasa-images-media-usage-guidelines.md",
+        ".firecrawl/commons-candidates-meta.json"
+      ],
+      "visual_review": {
+        "reviewed_with_view_image": true,
+        "review_image_path": ".firecrawl/nature-review-previews/satellite_braided__Braided_River_in_Tibet_Redraws_Its_Channels_154747.jpg",
+        "annotation_status": "proposal_only_no_mask_created",
+        "observed_content": "Landsat view of Yarlung Zangbo River with dark blue braided channels crossing a mountainous tan/green scene; label and scale bar present.",
+        "proposed_target": "dark braided river band; avoid text label and scale bar when deriving masks",
+        "proposed_crop_xywh": [
+          0,
+          135,
+          720,
+          155
+        ],
+        "keep_points_xy": [
+          [
+            105,
+            216
+          ],
+          [
+            250,
+            218
+          ],
+          [
+            365,
+            210
+          ],
+          [
+            575,
+            212
+          ]
+        ],
+        "avoid_points_xy": [
+          [
+            312,
+            171
+          ],
+          [
+            42,
+            377
+          ],
+          [
+            645,
+            60
+          ]
+        ],
+        "desired_glyph_shape": "thin branching horizontal stroke, useful for E/F crossbar or waveform-like ornament",
+        "suitability_notes": "Low-resolution but valuable as a braided-channel topology stress test; embedded label makes it unsuitable for fully automatic masks without cropping."
+      }
+    },
+    {
+      "id": "satellite_ili_delta_oasis",
+      "experiment_role": "satellite river delta/estuary; lake-delta water/ice fixture",
+      "title": "A Delta Oasis in Southeastern Kazakhstan",
+      "local_file": {
+        "path": "output/nature-source-images/satellite_delta_oasis__A_Delta_Oasis_in_Southeastern_Kazakhstan.jpg",
+        "sha256": "fa8ae1a155ac70a823dfa89e126c75573b0eb0dc730c26f39ddf7267a4187179",
+        "width": 4198,
+        "height": 4198,
+        "bytes": 7915992
+      },
+      "downloadable_image_url": "https://upload.wikimedia.org/wikipedia/commons/3/3e/A_Delta_Oasis_in_Southeastern_Kazakhstan.jpg",
+      "origin_page": "https://commons.wikimedia.org/wiki/File:A_Delta_Oasis_in_Southeastern_Kazakhstan.jpg",
+      "upstream_origin_pages": [
+        "https://earthobservatory.nasa.gov/images/146552/a-delta-oasis-in-southeastern-kazakhstan"
+      ],
+      "author_or_creator": "NASA Earth Observatory images by Joshua Stevens, using Landsat data from the U.S. Geological Survey",
+      "credit_line": "NASA Earth Observatory images by Joshua Stevens, using Landsat data from the U.S. Geological Survey",
+      "license": {
+        "short_name": "Public domain",
+        "url": null,
+        "usage_terms": "Public domain",
+        "attribution_required": false,
+        "rights_note": "Public-domain NASA/USGS source; scene includes ice and water, so define the foreground class before making a mask."
+      },
+      "source_evidence_files": [
+        ".firecrawl/nature-source-A_Delta_Oasis_in_Southeastern_Kazakhstan.jpg.md",
+        ".firecrawl/nasa-eo-delta-oasis-kazakhstan.md",
+        ".firecrawl/nasa-images-media-usage-guidelines.md",
+        ".firecrawl/commons-candidates-meta.json"
+      ],
+      "visual_review": {
+        "reviewed_with_view_image": true,
+        "review_image_path": ".firecrawl/nature-review-previews/satellite_delta_oasis__A_Delta_Oasis_in_Southeastern_Kazakhstan.jpg",
+        "annotation_status": "proposal_only_no_mask_created",
+        "observed_content": "Natural-color Landsat view of Ili River Delta/Lake Balkhash with blue water, ice sheets, islands, and desert wetlands.",
+        "proposed_target": "blue/turquoise water-and-ice mass forming the delta/lake shape",
+        "proposed_crop_xywh": [
+          520,
+          240,
+          3100,
+          3350
+        ],
+        "keep_points_xy": [
+          [
+            2200,
+            1180
+          ],
+          [
+            1710,
+            2450
+          ],
+          [
+            2860,
+            1690
+          ],
+          [
+            1120,
+            3070
+          ]
+        ],
+        "avoid_points_xy": [
+          [
+            360,
+            500
+          ],
+          [
+            3800,
+            3600
+          ],
+          [
+            4100,
+            1200
+          ]
+        ],
+        "desired_glyph_shape": "rounded O/Q-like basin with broken counters/island holes",
+        "suitability_notes": "Good for broad area segmentation and hole preservation; water/ice boundary may need semantic decision before mask labeling."
+      }
+    },
+    {
+      "id": "satellite_mackenzie_delta_sediment",
+      "experiment_role": "satellite delta/sediment plume; cloud-like water boundary fixture",
+      "title": "Mackenzie river enters Beaufort sea",
+      "local_file": {
+        "path": "output/nature-source-images/satellite_delta_sediment__Mackenzie_river_enters_Beaufort_sea.jpg",
+        "sha256": "7e58b351d2daf7bacc8d98ef1443a1f1d813de27ab812d8d27c5a386855bfac9",
+        "width": 9000,
+        "height": 7500,
+        "bytes": 67103757
+      },
+      "downloadable_image_url": "https://upload.wikimedia.org/wikipedia/commons/5/51/Mackenzie_river_enters_Beaufort_sea.jpg",
+      "origin_page": "https://commons.wikimedia.org/wiki/File:Mackenzie_river_enters_Beaufort_sea.jpg",
+      "upstream_origin_pages": [
+        "https://earthobservatory.nasa.gov/IOTD/view.php?id=90703&src=eoa-iotd"
+      ],
+      "author_or_creator": "NASA Earth Observatory images by Jesse Allen, using Landsat data from the U.S. Geological Survey",
+      "credit_line": "NASA Earth Observatory images by Jesse Allen, using Landsat data from the U.S. Geological Survey",
+      "license": {
+        "short_name": "Public domain",
+        "url": null,
+        "usage_terms": "Public domain",
+        "attribution_required": false,
+        "rights_note": "Public-domain NASA/USGS source per Commons; NASA no-endorsement and third-party-material caveats still apply."
+      },
+      "source_evidence_files": [
+        ".firecrawl/nature-source-Mackenzie_river_enters_Beaufort_sea.jpg.md",
+        ".firecrawl/nasa-eo-mackenzie-beaufort.md",
+        ".firecrawl/nasa-images-media-usage-guidelines.md",
+        ".firecrawl/commons-candidates-meta.json"
+      ],
+      "visual_review": {
+        "reviewed_with_view_image": true,
+        "review_image_path": ".firecrawl/nature-review-previews/satellite_delta_sediment__Mackenzie_river_enters_Beaufort_sea.jpg",
+        "annotation_status": "proposal_only_no_mask_created",
+        "observed_content": "High-resolution Landsat view of Mackenzie Delta, sediment plumes in the Beaufort Sea, islands, channels, and shoreline wetlands.",
+        "proposed_target": "milky sediment plume plus visible delta channels; choose water/plume foreground for cloud-letter experiments",
+        "proposed_crop_xywh": [
+          750,
+          900,
+          7600,
+          5150
+        ],
+        "keep_points_xy": [
+          [
+            3380,
+            3650
+          ],
+          [
+            4750,
+            4210
+          ],
+          [
+            6200,
+            4930
+          ],
+          [
+            7100,
+            5290
+          ]
+        ],
+        "avoid_points_xy": [
+          [
+            8400,
+            900
+          ],
+          [
+            620,
+            7190
+          ],
+          [
+            7920,
+            6900
+          ]
+        ],
+        "desired_glyph_shape": "soft cloud/C-shape or delta fan with branching counters",
+        "suitability_notes": "Large, detailed image for plume/shoreline simplification; semantic foreground must be defined because water, sediment, and land intermix."
+      }
+    }
+  ],
+  "usable_experiment_fixtures": {
+    "easy_baseline": [
+      "isolated_leaf_silver_maple"
+    ],
+    "cluttered_natural_photos": [
+      "leaf_on_clutter_brown_litter",
+      "whole_branch_oak_acorn",
+      "fern_emerging_thin_structure"
+    ],
+    "thin_structure_stress": [
+      "fern_emerging_thin_structure",
+      "satellite_braided_yarlung_zangbo"
+    ],
+    "satellite_water_shapes": [
+      "satellite_meandering_mississippi",
+      "satellite_braided_yarlung_zangbo",
+      "satellite_ili_delta_oasis",
+      "satellite_mackenzie_delta_sediment"
+    ],
+    "letter_shape_ideas": {
+      "A/M/star": "isolated_leaf_silver_maple",
+      "K/Y branch": "whole_branch_oak_acorn",
+      "C/S swash": "fern_emerging_thin_structure",
+      "S/G river": "satellite_meandering_mississippi",
+      "E/F waveform": "satellite_braided_yarlung_zangbo",
+      "O/Q basin": "satellite_ili_delta_oasis",
+      "C/cloud fan": "satellite_mackenzie_delta_sediment"
+    }
+  },
+  "excluded_or_not_done": [
+    "No fabricated ground-truth masks.",
+    "No paid stock imagery.",
+    "No repo implementation changes outside docs/research/nature-source-manifest.json and ignored output/.firecrawl artifacts."
+  ]
+}

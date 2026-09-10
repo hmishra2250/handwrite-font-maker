@@ -1,0 +1,1728 @@
+{
+  "kind": "nature-font-experiment-v1",
+  "scope": "Real-photo qualitative experiment; no hand-labeled ground truth or accuracy claim.",
+  "mask_convention": "uint8 grayscale mask: 0/black = foreground, 255/white = background",
+  "source_manifest": {
+    "status": "loaded",
+    "path": "docs/research/nature-source-manifest.json",
+    "data": {
+      "schema_version": 1,
+      "generated_at": "2026-09-10T12:07:10.460354+00:00",
+      "retrieved_on": "2026-09-10",
+      "purpose": "Openly licensed/public-domain nature and satellite images for segmentation/font-shape experiments. These are source fixtures only; no ground-truth masks are claimed or fabricated.",
+      "method_summary": [
+        "Searched with Firecrawl and saved search outputs under .firecrawl/.",
+        "Collected licensing/provenance from Wikimedia Commons pages and Commons API extmetadata.",
+        "Scraped source pages with Firecrawl and retained evidence files under .firecrawl/.",
+        "Downloaded images only to ignored output/nature-source-images/.",
+        "Created temporary downscaled review previews under .firecrawl/nature-review-previews/ and inspected them with view_image."
+      ],
+      "global_rights_caveats": [
+        "Not legal advice; re-check license/source pages before external redistribution.",
+        "CC BY-SA 3.0 fixture requires attribution and share-alike for adapted/redistributed derivatives.",
+        "CC0 fixtures are public-domain dedications, but provenance is retained for auditability.",
+        "NASA/USGS fixtures are marked public domain by Commons and supported by official NASA media-usage guidance; NASA still restricts logos/identifiers, prohibits implied endorsement, and warns that third-party material on NASA sites may be separately copyrighted.",
+        "No ground-truth segmentation masks exist in this manifest; rectangles and keep/avoid points are visual-review proposals only."
+      ],
+      "images": [
+        {
+          "id": "isolated_leaf_silver_maple",
+          "experiment_role": "isolated leaf on clean background; baseline foreground segmentation fixture",
+          "title": "Autumn Silver Maple Leaf",
+          "local_file": {
+            "path": "output/nature-source-images/isolated_leaf__Autumn_Silver_Maple_Leaf.jpg",
+            "sha256": "ec81db0a17581d5d1b3dc21e4328fd1be22a209cf94affa34fb3e11dd7dfd076",
+            "width": 3574,
+            "height": 5093,
+            "bytes": 2152925
+          },
+          "downloadable_image_url": "https://upload.wikimedia.org/wikipedia/commons/f/f4/Autumn_Silver_Maple_Leaf.jpg",
+          "origin_page": "https://commons.wikimedia.org/wiki/File:Autumn_Silver_Maple_Leaf.jpg",
+          "upstream_origin_pages": [],
+          "author_or_creator": "Ninjatacoshell",
+          "credit_line": "Ninjatacoshell",
+          "license": {
+            "short_name": "CC BY-SA 3.0",
+            "url": "https://creativecommons.org/licenses/by-sa/3.0",
+            "usage_terms": "Creative Commons Attribution-Share Alike 3.0",
+            "attribution_required": true,
+            "rights_note": "Attribution and share-alike apply if distributing modified/adapted versions or derivative annotation artifacts."
+          },
+          "source_evidence_files": [
+            ".firecrawl/nature-source-Autumn_Silver_Maple_Leaf.jpg.md",
+            ".firecrawl/commons-candidates-meta.json"
+          ],
+          "visual_review": {
+            "reviewed_with_view_image": true,
+            "review_image_path": ".firecrawl/nature-review-previews/isolated_leaf__Autumn_Silver_Maple_Leaf.jpg",
+            "annotation_status": "proposal_only_no_mask_created",
+            "observed_content": "Red/orange scanned silver maple leaf on white background, including thin stem and jagged lobes.",
+            "proposed_target": "entire leaf blade plus stem",
+            "proposed_crop_xywh": [
+              120,
+              120,
+              3350,
+              4890
+            ],
+            "keep_points_xy": [
+              [
+                1810,
+                2470
+              ],
+              [
+                1780,
+                740
+              ],
+              [
+                780,
+                2820
+              ],
+              [
+                2810,
+                2840
+              ],
+              [
+                1790,
+                4580
+              ]
+            ],
+            "avoid_points_xy": [
+              [
+                160,
+                160
+              ],
+              [
+                3420,
+                170
+              ],
+              [
+                3400,
+                4900
+              ]
+            ],
+            "desired_glyph_shape": "single maple-leaf silhouette for A/M/star-like ornamental glyph tests",
+            "suitability_notes": "High-contrast clean background makes it a good first sanity check for edge fidelity and stem retention."
+          }
+        },
+        {
+          "id": "leaf_on_clutter_brown_litter",
+          "experiment_role": "leaf on clutter; hard negative background fixture",
+          "title": "Top view of brown leaf litter (Unsplash)",
+          "local_file": {
+            "path": "output/nature-source-images/leaf_on_clutter__Top_view_of_brown_leaf_litter_Unsplash.jpg",
+            "sha256": "1cd6f5f16675d69803b75dc9410160354704cdfbb4c5233c65e3ca3e1adcf940",
+            "width": 5184,
+            "height": 3456,
+            "bytes": 12804146
+          },
+          "downloadable_image_url": "https://upload.wikimedia.org/wikipedia/commons/e/ed/Top_view_of_brown_leaf_litter_%28Unsplash%29.jpg",
+          "origin_page": "https://commons.wikimedia.org/wiki/File:Top_view_of_brown_leaf_litter_(Unsplash).jpg",
+          "upstream_origin_pages": [
+            "https://unsplash.com/photos/UJ6uuL8wpJI"
+          ],
+          "author_or_creator": "Aniket Deole (anik3t)",
+          "credit_line": "Aniket Deole (anik3t)",
+          "license": {
+            "short_name": "CC0",
+            "url": "http://creativecommons.org/publicdomain/zero/1.0/deed.en",
+            "usage_terms": "Creative Commons Zero, Public Domain Dedication",
+            "attribution_required": false,
+            "rights_note": "Commons records this as pre-2017 Unsplash CC0; keep the Commons page and Wayback evidence with any redistribution."
+          },
+          "source_evidence_files": [
+            ".firecrawl/nature-source-Top_view_of_brown_leaf_litter__Unsplash_.jpg.md",
+            ".firecrawl/commons-candidates-meta.json"
+          ],
+          "visual_review": {
+            "reviewed_with_view_image": true,
+            "review_image_path": ".firecrawl/nature-review-previews/leaf_on_clutter__Top_view_of_brown_leaf_litter_Unsplash.jpg",
+            "annotation_status": "proposal_only_no_mask_created",
+            "observed_content": "Overhead wet autumn leaf litter with many overlapping dark leaves; one pale maple leaf is prominent near the center.",
+            "proposed_target": "central pale maple leaf only; use surrounding leaves as clutter/background",
+            "proposed_crop_xywh": [
+              2050,
+              930,
+              1350,
+              1150
+            ],
+            "keep_points_xy": [
+              [
+                2600,
+                1510
+              ],
+              [
+                2380,
+                1310
+              ],
+              [
+                2920,
+                1450
+              ],
+              [
+                2720,
+                1760
+              ]
+            ],
+            "avoid_points_xy": [
+              [
+                1570,
+                1450
+              ],
+              [
+                3700,
+                1760
+              ],
+              [
+                2900,
+                760
+              ]
+            ],
+            "desired_glyph_shape": "clutter-extracted small maple silhouette for robustness tests",
+            "suitability_notes": "Good for testing whether prompts/crops can isolate one leaf when colors and shapes repeat across the background."
+          }
+        },
+        {
+          "id": "whole_branch_oak_acorn",
+          "experiment_role": "whole plant/branch; connected leaves, twig, and acorn fixture",
+          "title": "Small oak branch",
+          "local_file": {
+            "path": "output/nature-source-images/whole_branch__Small_oak_branch.jpg",
+            "sha256": "dd2dca8913e76fc46371b8e2d5bc237ea5cef43c7704f2ff5ebe0eac0e033926",
+            "width": 3264,
+            "height": 2448,
+            "bytes": 3952080
+          },
+          "downloadable_image_url": "https://upload.wikimedia.org/wikipedia/commons/e/eb/Small_oak_branch.jpg",
+          "origin_page": "https://commons.wikimedia.org/wiki/File:Small_oak_branch.jpg",
+          "upstream_origin_pages": [],
+          "author_or_creator": "ThatOnejGuy!",
+          "credit_line": "ThatOnejGuy!",
+          "license": {
+            "short_name": "CC0",
+            "url": "http://creativecommons.org/publicdomain/zero/1.0/deed.en",
+            "usage_terms": "Creative Commons Zero, Public Domain Dedication",
+            "attribution_required": false,
+            "rights_note": "CC0 dedication; attribution not required but origin/author retained for provenance."
+          },
+          "source_evidence_files": [
+            ".firecrawl/nature-source-Small_oak_branch.jpg.md",
+            ".firecrawl/commons-candidates-meta.json"
+          ],
+          "visual_review": {
+            "reviewed_with_view_image": true,
+            "review_image_path": ".firecrawl/nature-review-previews/whole_branch__Small_oak_branch.jpg",
+            "annotation_status": "proposal_only_no_mask_created",
+            "observed_content": "Small northern red oak branch on soil/clutter, with multiple connected green leaves, twig, and one acorn.",
+            "proposed_target": "main green oak branch cluster including twig and acorn",
+            "proposed_crop_xywh": [
+              520,
+              620,
+              2260,
+              1350
+            ],
+            "keep_points_xy": [
+              [
+                1630,
+                1120
+              ],
+              [
+                1010,
+                1290
+              ],
+              [
+                2120,
+                1180
+              ],
+              [
+                1600,
+                1640
+              ],
+              [
+                1260,
+                1800
+              ]
+            ],
+            "avoid_points_xy": [
+              [
+                180,
+                390
+              ],
+              [
+                3000,
+                500
+              ],
+              [
+                2970,
+                2220
+              ]
+            ],
+            "desired_glyph_shape": "branchy K/Y-like ornamental glyph with leaf lobes and a small acorn dot",
+            "suitability_notes": "Useful for multi-part foreground connectivity and thin twig retention against textured ground."
+          }
+        },
+        {
+          "id": "fern_emerging_thin_structure",
+          "experiment_role": "fern/needle-like thin structure; delicate tendril fixture",
+          "title": "Close-up of Emerging Fern Frond in Spring",
+          "local_file": {
+            "path": "output/nature-source-images/fern_thin_structure__Close-up_of_Emerging_Fern_Frond_in_Spring.jpg",
+            "sha256": "55e3f1538335b8ac7ff57baf1e558e671639b3a849043028067e7f3902b24bdb",
+            "width": 2400,
+            "height": 3600,
+            "bytes": 367867
+          },
+          "downloadable_image_url": "https://upload.wikimedia.org/wikipedia/commons/e/ef/Close-up_of_Emerging_Fern_Frond_in_Spring.jpg",
+          "origin_page": "https://commons.wikimedia.org/wiki/File:Close-up_of_Emerging_Fern_Frond_in_Spring.jpg",
+          "upstream_origin_pages": [],
+          "author_or_creator": "Girela770",
+          "credit_line": "Girela770",
+          "license": {
+            "short_name": "CC0",
+            "url": "http://creativecommons.org/publicdomain/zero/1.0/deed.en",
+            "usage_terms": "Creative Commons Zero, Public Domain Dedication",
+            "attribution_required": false,
+            "rights_note": "CC0 dedication; attribution not required but origin/author retained for provenance."
+          },
+          "source_evidence_files": [
+            ".firecrawl/nature-source-Close-up_of_Emerging_Fern_Frond_in_Spring.jpg.md",
+            ".firecrawl/commons-candidates-meta.json"
+          ],
+          "visual_review": {
+            "reviewed_with_view_image": true,
+            "review_image_path": ".firecrawl/nature-review-previews/fern_thin_structure__Close-up_of_Emerging_Fern_Frond_in_Spring.jpg",
+            "annotation_status": "proposal_only_no_mask_created",
+            "observed_content": "Emerging fern frond and tendrils beside a vertical trunk/stem, with shallow-focus dark green background.",
+            "proposed_target": "thin green fern shoot/frond; treat large trunk as distractor unless testing combined plant segmentation",
+            "proposed_crop_xywh": [
+              120,
+              1540,
+              1450,
+              1030
+            ],
+            "keep_points_xy": [
+              [
+                430,
+                1960
+              ],
+              [
+                860,
+                2020
+              ],
+              [
+                1260,
+                1800
+              ],
+              [
+                1320,
+                2360
+              ]
+            ],
+            "avoid_points_xy": [
+              [
+                1870,
+                1200
+              ],
+              [
+                1900,
+                2400
+              ],
+              [
+                190,
+                560
+              ]
+            ],
+            "desired_glyph_shape": "curled C/S swash or thin-stroke fern ornament",
+            "suitability_notes": "Good stress case for retaining thin stems and fuzzy margins while avoiding an adjacent high-contrast trunk."
+          }
+        },
+        {
+          "id": "satellite_meandering_mississippi",
+          "experiment_role": "satellite meandering river; high-resolution sinuous water fixture",
+          "title": "Meandering Mississippi (5182095595)",
+          "local_file": {
+            "path": "output/nature-source-images/satellite_meander__Meandering_Mississippi_5182095595.jpg",
+            "sha256": "05f0c26619d46e01648489cc1106c4b762644aa06fb37fedf3206217b6ec5228",
+            "width": 7128,
+            "height": 7140,
+            "bytes": 16182046
+          },
+          "downloadable_image_url": "https://upload.wikimedia.org/wikipedia/commons/b/b9/Meandering_Mississippi_%285182095595%29.jpg",
+          "origin_page": "https://commons.wikimedia.org/wiki/File:Meandering_Mississippi_(5182095595).jpg",
+          "upstream_origin_pages": [
+            "https://images.nasa.gov/details/GSFC_20171208_Archive_e001929",
+            "https://www.flickr.com/photos/gsfc/5182095595/"
+          ],
+          "author_or_creator": "USGS/NASA/Landsat 7",
+          "credit_line": "USGS/NASA/Landsat 7",
+          "license": {
+            "short_name": "Public domain",
+            "url": null,
+            "usage_terms": "Public domain",
+            "attribution_required": false,
+            "rights_note": "Commons marks this NASA/USGS/Landsat image public domain; NASA policy still asks for source acknowledgment and no implied endorsement."
+          },
+          "source_evidence_files": [
+            ".firecrawl/nature-source-Meandering_Mississippi__5182095595_.jpg.md",
+            ".firecrawl/nasa-gsfc-20171208-archive-e001929.md",
+            ".firecrawl/nasa-images-media-usage-guidelines.md",
+            ".firecrawl/commons-candidates-meta.json"
+          ],
+          "visual_review": {
+            "reviewed_with_view_image": true,
+            "review_image_path": ".firecrawl/nature-review-previews/satellite_meander__Meandering_Mississippi_5182095595.jpg",
+            "annotation_status": "proposal_only_no_mask_created",
+            "observed_content": "False-color Landsat view of Mississippi River meanders, oxbows, fields, and towns; turquoise water contrasts with orange/brown land.",
+            "proposed_target": "main turquoise Mississippi channel plus major oxbow water bodies",
+            "proposed_crop_xywh": [
+              2700,
+              250,
+              3850,
+              6600
+            ],
+            "keep_points_xy": [
+              [
+                5520,
+                1380
+              ],
+              [
+                4540,
+                2790
+              ],
+              [
+                4450,
+                4210
+              ],
+              [
+                3220,
+                5660
+              ],
+              [
+                5190,
+                6440
+              ]
+            ],
+            "avoid_points_xy": [
+              [
+                880,
+                1040
+              ],
+              [
+                1140,
+                4200
+              ],
+              [
+                6440,
+                700
+              ]
+            ],
+            "desired_glyph_shape": "large S/G-like river stroke with loops and counters",
+            "suitability_notes": "Excellent for color-separated water extraction and curve simplification into glyph strokes; not a natural-color scene."
+          }
+        },
+        {
+          "id": "satellite_braided_yarlung_zangbo",
+          "experiment_role": "satellite braided river; thin branching channel fixture",
+          "title": "Braided River in Tibet Redraws Its Channels (154747)",
+          "local_file": {
+            "path": "output/nature-source-images/satellite_braided__Braided_River_in_Tibet_Redraws_Its_Channels_154747.jpg",
+            "sha256": "ccfd2bf07230bdd21d4d5f6d6a4c0f4d874570f516e658732360ef153792bbfc",
+            "width": 720,
+            "height": 400,
+            "bytes": 115767
+          },
+          "downloadable_image_url": "https://upload.wikimedia.org/wikipedia/commons/a/a7/Braided_River_in_Tibet_Redraws_Its_Channels_%28154747%29.jpg",
+          "origin_page": "https://commons.wikimedia.org/wiki/File:Braided_River_in_Tibet_Redraws_Its_Channels_(154747).jpg",
+          "upstream_origin_pages": [
+            "https://science.nasa.gov/earth/earth-observatory/braided-river-in-tibet-redraws-its-channels-154747/"
+          ],
+          "author_or_creator": "NASA Earth Observatory image by Michala Garrison and animations by Ross Walter, using Landsat data from the U.S. Geological Survey",
+          "credit_line": "NASA Earth Observatory image by Michala Garrison and animations by Ross Walter, using Landsat data from the U.S. Geological Survey",
+          "license": {
+            "short_name": "Public domain",
+            "url": null,
+            "usage_terms": "Public domain",
+            "attribution_required": false,
+            "rights_note": "Public-domain NASA/USGS evidence is from Commons plus the official NASA Earth Observatory page; avoid logo/endorsement uses."
+          },
+          "source_evidence_files": [
+            ".firecrawl/nature-source-Braided_River_in_Tibet_Redraws_Its_Channels__154747_.jpg.md",
+            ".firecrawl/nasa-eo-braided-river-tibet.md",
+            ".firecrawl/nasa-images-media-usage-guidelines.md",
+            ".firecrawl/commons-candidates-meta.json"
+          ],
+          "visual_review": {
+            "reviewed_with_view_image": true,
+            "review_image_path": ".firecrawl/nature-review-previews/satellite_braided__Braided_River_in_Tibet_Redraws_Its_Channels_154747.jpg",
+            "annotation_status": "proposal_only_no_mask_created",
+            "observed_content": "Landsat view of Yarlung Zangbo River with dark blue braided channels crossing a mountainous tan/green scene; label and scale bar present.",
+            "proposed_target": "dark braided river band; avoid text label and scale bar when deriving masks",
+            "proposed_crop_xywh": [
+              0,
+              135,
+              720,
+              155
+            ],
+            "keep_points_xy": [
+              [
+                105,
+                216
+              ],
+              [
+                250,
+                218
+              ],
+              [
+                365,
+                210
+              ],
+              [
+                575,
+                212
+              ]
+            ],
+            "avoid_points_xy": [
+              [
+                312,
+                171
+              ],
+              [
+                42,
+                377
+              ],
+              [
+                645,
+                60
+              ]
+            ],
+            "desired_glyph_shape": "thin branching horizontal stroke, useful for E/F crossbar or waveform-like ornament",
+            "suitability_notes": "Low-resolution but valuable as a braided-channel topology stress test; embedded label makes it unsuitable for fully automatic masks without cropping."
+          }
+        },
+        {
+          "id": "satellite_ili_delta_oasis",
+          "experiment_role": "satellite river delta/estuary; lake-delta water/ice fixture",
+          "title": "A Delta Oasis in Southeastern Kazakhstan",
+          "local_file": {
+            "path": "output/nature-source-images/satellite_delta_oasis__A_Delta_Oasis_in_Southeastern_Kazakhstan.jpg",
+            "sha256": "fa8ae1a155ac70a823dfa89e126c75573b0eb0dc730c26f39ddf7267a4187179",
+            "width": 4198,
+            "height": 4198,
+            "bytes": 7915992
+          },
+          "downloadable_image_url": "https://upload.wikimedia.org/wikipedia/commons/3/3e/A_Delta_Oasis_in_Southeastern_Kazakhstan.jpg",
+          "origin_page": "https://commons.wikimedia.org/wiki/File:A_Delta_Oasis_in_Southeastern_Kazakhstan.jpg",
+          "upstream_origin_pages": [
+            "https://earthobservatory.nasa.gov/images/146552/a-delta-oasis-in-southeastern-kazakhstan"
+          ],
+          "author_or_creator": "NASA Earth Observatory images by Joshua Stevens, using Landsat data from the U.S. Geological Survey",
+          "credit_line": "NASA Earth Observatory images by Joshua Stevens, using Landsat data from the U.S. Geological Survey",
+          "license": {
+            "short_name": "Public domain",
+            "url": null,
+            "usage_terms": "Public domain",
+            "attribution_required": false,
+            "rights_note": "Public-domain NASA/USGS source; scene includes ice and water, so define the foreground class before making a mask."
+          },
+          "source_evidence_files": [
+            ".firecrawl/nature-source-A_Delta_Oasis_in_Southeastern_Kazakhstan.jpg.md",
+            ".firecrawl/nasa-eo-delta-oasis-kazakhstan.md",
+            ".firecrawl/nasa-images-media-usage-guidelines.md",
+            ".firecrawl/commons-candidates-meta.json"
+          ],
+          "visual_review": {
+            "reviewed_with_view_image": true,
+            "review_image_path": ".firecrawl/nature-review-previews/satellite_delta_oasis__A_Delta_Oasis_in_Southeastern_Kazakhstan.jpg",
+            "annotation_status": "proposal_only_no_mask_created",
+            "observed_content": "Natural-color Landsat view of Ili River Delta/Lake Balkhash with blue water, ice sheets, islands, and desert wetlands.",
+            "proposed_target": "blue/turquoise water-and-ice mass forming the delta/lake shape",
+            "proposed_crop_xywh": [
+              520,
+              240,
+              3100,
+              3350
+            ],
+            "keep_points_xy": [
+              [
+                2200,
+                1180
+              ],
+              [
+                1710,
+                2450
+              ],
+              [
+                2860,
+                1690
+              ],
+              [
+                1120,
+                3070
+              ]
+            ],
+            "avoid_points_xy": [
+              [
+                360,
+                500
+              ],
+              [
+                3800,
+                3600
+              ],
+              [
+                4100,
+                1200
+              ]
+            ],
+            "desired_glyph_shape": "rounded O/Q-like basin with broken counters/island holes",
+            "suitability_notes": "Good for broad area segmentation and hole preservation; water/ice boundary may need semantic decision before mask labeling."
+          }
+        },
+        {
+          "id": "satellite_mackenzie_delta_sediment",
+          "experiment_role": "satellite delta/sediment plume; cloud-like water boundary fixture",
+          "title": "Mackenzie river enters Beaufort sea",
+          "local_file": {
+            "path": "output/nature-source-images/satellite_delta_sediment__Mackenzie_river_enters_Beaufort_sea.jpg",
+            "sha256": "7e58b351d2daf7bacc8d98ef1443a1f1d813de27ab812d8d27c5a386855bfac9",
+            "width": 9000,
+            "height": 7500,
+            "bytes": 67103757
+          },
+          "downloadable_image_url": "https://upload.wikimedia.org/wikipedia/commons/5/51/Mackenzie_river_enters_Beaufort_sea.jpg",
+          "origin_page": "https://commons.wikimedia.org/wiki/File:Mackenzie_river_enters_Beaufort_sea.jpg",
+          "upstream_origin_pages": [
+            "https://earthobservatory.nasa.gov/IOTD/view.php?id=90703&src=eoa-iotd"
+          ],
+          "author_or_creator": "NASA Earth Observatory images by Jesse Allen, using Landsat data from the U.S. Geological Survey",
+          "credit_line": "NASA Earth Observatory images by Jesse Allen, using Landsat data from the U.S. Geological Survey",
+          "license": {
+            "short_name": "Public domain",
+            "url": null,
+            "usage_terms": "Public domain",
+            "attribution_required": false,
+            "rights_note": "Public-domain NASA/USGS source per Commons; NASA no-endorsement and third-party-material caveats still apply."
+          },
+          "source_evidence_files": [
+            ".firecrawl/nature-source-Mackenzie_river_enters_Beaufort_sea.jpg.md",
+            ".firecrawl/nasa-eo-mackenzie-beaufort.md",
+            ".firecrawl/nasa-images-media-usage-guidelines.md",
+            ".firecrawl/commons-candidates-meta.json"
+          ],
+          "visual_review": {
+            "reviewed_with_view_image": true,
+            "review_image_path": ".firecrawl/nature-review-previews/satellite_delta_sediment__Mackenzie_river_enters_Beaufort_sea.jpg",
+            "annotation_status": "proposal_only_no_mask_created",
+            "observed_content": "High-resolution Landsat view of Mackenzie Delta, sediment plumes in the Beaufort Sea, islands, channels, and shoreline wetlands.",
+            "proposed_target": "milky sediment plume plus visible delta channels; choose water/plume foreground for cloud-letter experiments",
+            "proposed_crop_xywh": [
+              750,
+              900,
+              7600,
+              5150
+            ],
+            "keep_points_xy": [
+              [
+                3380,
+                3650
+              ],
+              [
+                4750,
+                4210
+              ],
+              [
+                6200,
+                4930
+              ],
+              [
+                7100,
+                5290
+              ]
+            ],
+            "avoid_points_xy": [
+              [
+                8400,
+                900
+              ],
+              [
+                620,
+                7190
+              ],
+              [
+                7920,
+                6900
+              ]
+            ],
+            "desired_glyph_shape": "soft cloud/C-shape or delta fan with branching counters",
+            "suitability_notes": "Large, detailed image for plume/shoreline simplification; semantic foreground must be defined because water, sediment, and land intermix."
+          }
+        }
+      ],
+      "usable_experiment_fixtures": {
+        "easy_baseline": [
+          "isolated_leaf_silver_maple"
+        ],
+        "cluttered_natural_photos": [
+          "leaf_on_clutter_brown_litter",
+          "whole_branch_oak_acorn",
+          "fern_emerging_thin_structure"
+        ],
+        "thin_structure_stress": [
+          "fern_emerging_thin_structure",
+          "satellite_braided_yarlung_zangbo"
+        ],
+        "satellite_water_shapes": [
+          "satellite_meandering_mississippi",
+          "satellite_braided_yarlung_zangbo",
+          "satellite_ili_delta_oasis",
+          "satellite_mackenzie_delta_sediment"
+        ],
+        "letter_shape_ideas": {
+          "A/M/star": "isolated_leaf_silver_maple",
+          "K/Y branch": "whole_branch_oak_acorn",
+          "C/S swash": "fern_emerging_thin_structure",
+          "S/G river": "satellite_meandering_mississippi",
+          "E/F waveform": "satellite_braided_yarlung_zangbo",
+          "O/Q basin": "satellite_ili_delta_oasis",
+          "C/cloud fan": "satellite_mackenzie_delta_sediment"
+        }
+      },
+      "excluded_or_not_done": [
+        "No fabricated ground-truth masks.",
+        "No paid stock imagery.",
+        "No repo implementation changes outside docs/research/nature-source-manifest.json and ignored output/.firecrawl artifacts."
+      ]
+    }
+  },
+  "source_file_verification": {
+    "status": "ok",
+    "downloaded": false,
+    "files": [
+      {
+        "id": "isolated_leaf_silver_maple",
+        "status": "ok",
+        "path": "output/nature-source-images/isolated_leaf__Autumn_Silver_Maple_Leaf.jpg",
+        "sha256": "ec81db0a17581d5d1b3dc21e4328fd1be22a209cf94affa34fb3e11dd7dfd076"
+      },
+      {
+        "id": "leaf_on_clutter_brown_litter",
+        "status": "ok",
+        "path": "output/nature-source-images/leaf_on_clutter__Top_view_of_brown_leaf_litter_Unsplash.jpg",
+        "sha256": "1cd6f5f16675d69803b75dc9410160354704cdfbb4c5233c65e3ca3e1adcf940"
+      },
+      {
+        "id": "whole_branch_oak_acorn",
+        "status": "ok",
+        "path": "output/nature-source-images/whole_branch__Small_oak_branch.jpg",
+        "sha256": "dd2dca8913e76fc46371b8e2d5bc237ea5cef43c7704f2ff5ebe0eac0e033926"
+      },
+      {
+        "id": "fern_emerging_thin_structure",
+        "status": "ok",
+        "path": "output/nature-source-images/fern_thin_structure__Close-up_of_Emerging_Fern_Frond_in_Spring.jpg",
+        "sha256": "55e3f1538335b8ac7ff57baf1e558e671639b3a849043028067e7f3902b24bdb"
+      },
+      {
+        "id": "satellite_meandering_mississippi",
+        "status": "ok",
+        "path": "output/nature-source-images/satellite_meander__Meandering_Mississippi_5182095595.jpg",
+        "sha256": "05f0c26619d46e01648489cc1106c4b762644aa06fb37fedf3206217b6ec5228"
+      },
+      {
+        "id": "satellite_braided_yarlung_zangbo",
+        "status": "ok",
+        "path": "output/nature-source-images/satellite_braided__Braided_River_in_Tibet_Redraws_Its_Channels_154747.jpg",
+        "sha256": "ccfd2bf07230bdd21d4d5f6d6a4c0f4d874570f516e658732360ef153792bbfc"
+      },
+      {
+        "id": "satellite_ili_delta_oasis",
+        "status": "ok",
+        "path": "output/nature-source-images/satellite_delta_oasis__A_Delta_Oasis_in_Southeastern_Kazakhstan.jpg",
+        "sha256": "fa8ae1a155ac70a823dfa89e126c75573b0eb0dc730c26f39ddf7267a4187179"
+      },
+      {
+        "id": "satellite_mackenzie_delta_sediment",
+        "status": "ok",
+        "path": "output/nature-source-images/satellite_delta_sediment__Mackenzie_river_enters_Beaufort_sea.jpg",
+        "sha256": "7e58b351d2daf7bacc8d98ef1443a1f1d813de27ab812d8d27c5a386855bfac9"
+      }
+    ]
+  },
+  "image_dir": "output/nature-source-images",
+  "execution": "single-process sequential inference; no parallel model execution",
+  "font_scope": "Ornament/symbol font mapped to manual characters; not an automatically generated readable A-Z alphabet.",
+  "methods": [
+    "grabcut",
+    "efficientsam",
+    "slimsam",
+    "water-color"
+  ],
+  "cases": [
+    {
+      "case_id": "leaf_isolated",
+      "glyph": "L",
+      "glyph_idea": "single maple leaf silhouette",
+      "source_image": "output/nature-source-images/isolated_leaf__Autumn_Silver_Maple_Leaf.jpg",
+      "rectangle": [
+        0.033576,
+        0.023562,
+        0.970901,
+        0.9839
+      ],
+      "points": [
+        {
+          "x": 0.506435,
+          "y": 0.484979,
+          "label": 1
+        },
+        {
+          "x": 0.498041,
+          "y": 0.145297,
+          "label": 1
+        },
+        {
+          "x": 0.218243,
+          "y": 0.5537,
+          "label": 1
+        },
+        {
+          "x": 0.786234,
+          "y": 0.557628,
+          "label": 1
+        },
+        {
+          "x": 0.500839,
+          "y": 0.899273,
+          "label": 1
+        },
+        {
+          "x": 0.044768,
+          "y": 0.031415,
+          "label": 0
+        }
+      ],
+      "point_scope": "explicit normalized keep/exclude prompts; not inferred from a ground-truth mask",
+      "review_label": "accepted_for_font",
+      "review_rationale": "manifest crop covers the whole isolated leaf; first pass showed GrabCut preserved lower lobes better than EfficientSAM.",
+      "preferred_methods": [
+        "grabcut",
+        "efficientsam",
+        "slimsam"
+      ],
+      "color_strategy": null,
+      "baseline": 0.78,
+      "artifacts": {
+        "source_bounded_png": "cases/leaf_isolated/source-bounded.png",
+        "crop_png": "cases/leaf_isolated/crop.png",
+        "prompt_overlay_png": "cases/leaf_isolated/prompt-overlay.png",
+        "selected_font_mask_png": "cases/leaf_isolated/selected-font-mask.png",
+        "standalone_selected_png": "selected-glyphs/L_leaf_isolated.png",
+        "standalone_selected_svg": "selected-glyphs/L_leaf_isolated.svg"
+      },
+      "methods": {
+        "grabcut": {
+          "status": "ok",
+          "seconds": 0.968083,
+          "diagnostics": {
+            "shape": [
+              1024,
+              719
+            ],
+            "foreground_pixels": 251557,
+            "coverage": 0.341671,
+            "bbox": [
+              0.03338,
+              0.03125,
+              0.963839,
+              0.96582
+            ],
+            "topology": {
+              "components": 1,
+              "holes": 1
+            },
+            "warnings": []
+          },
+          "artifact": "cases/leaf_isolated/grabcut.png"
+        },
+        "efficientsam": {
+          "status": "ok",
+          "seconds": 1.558579,
+          "diagnostics": {
+            "shape": [
+              1024,
+              719
+            ],
+            "foreground_pixels": 232315,
+            "coverage": 0.315536,
+            "bbox": [
+              0.047288,
+              0.037109,
+              0.944367,
+              0.956055
+            ],
+            "topology": {
+              "components": 11,
+              "holes": 4
+            },
+            "warnings": []
+          },
+          "artifact": "cases/leaf_isolated/efficientsam.png"
+        },
+        "slimsam": {
+          "status": "ok",
+          "seconds": 2.308422,
+          "diagnostics": {
+            "shape": [
+              1024,
+              719
+            ],
+            "foreground_pixels": 310694,
+            "coverage": 0.421992,
+            "bbox": [
+              0.03338,
+              0.023438,
+              0.972184,
+              0.972656
+            ],
+            "topology": {
+              "components": 570,
+              "holes": 158
+            },
+            "warnings": []
+          },
+          "artifact": "cases/leaf_isolated/slimsam.png"
+        }
+      },
+      "source_shape": [
+        5093,
+        3574
+      ],
+      "method_source_shape": [
+        1024,
+        719
+      ],
+      "selected_method": "grabcut",
+      "selected_reason": "selected from explicit preferred_methods after sanity checks; requires visual review for product use",
+      "font_preparation": "selected mask cropped to foreground bbox, tiny components under 18 px removed, resized to <=420 px; no shape generation/completion"
+    },
+    {
+      "case_id": "oak_leaf_single",
+      "glyph": "B",
+      "glyph_idea": "single oak leaf from branch photo",
+      "source_image": "output/nature-source-images/whole_branch__Small_oak_branch.jpg",
+      "rectangle": [
+        0.46,
+        0.3,
+        0.78,
+        0.69
+      ],
+      "points": [
+        {
+          "x": 0.62,
+          "y": 0.49,
+          "label": 1
+        },
+        {
+          "x": 0.7,
+          "y": 0.37,
+          "label": 1
+        },
+        {
+          "x": 0.51,
+          "y": 0.59,
+          "label": 1
+        },
+        {
+          "x": 0.83,
+          "y": 0.42,
+          "label": 0
+        },
+        {
+          "x": 0.52,
+          "y": 0.27,
+          "label": 0
+        }
+      ],
+      "point_scope": "explicit normalized keep/exclude prompts; not inferred from a ground-truth mask",
+      "review_label": "accepted_for_font_if_coherent",
+      "review_rationale": "refined from whole-branch clutter to one prominent oak leaf to avoid accepting a huge-background mask.",
+      "preferred_methods": [
+        "efficientsam",
+        "slimsam",
+        "grabcut"
+      ],
+      "color_strategy": null,
+      "baseline": 0.78,
+      "artifacts": {
+        "source_bounded_png": "cases/oak_leaf_single/source-bounded.png",
+        "crop_png": "cases/oak_leaf_single/crop.png",
+        "prompt_overlay_png": "cases/oak_leaf_single/prompt-overlay.png",
+        "selected_font_mask_png": "cases/oak_leaf_single/selected-font-mask.png",
+        "standalone_selected_png": "selected-glyphs/B_oak_leaf_single.png",
+        "standalone_selected_svg": "selected-glyphs/B_oak_leaf_single.svg"
+      },
+      "methods": {
+        "grabcut": {
+          "status": "ok",
+          "seconds": 1.869044,
+          "diagnostics": {
+            "shape": [
+              768,
+              1024
+            ],
+            "foreground_pixels": 50949,
+            "coverage": 0.064785,
+            "bbox": [
+              0.459961,
+              0.299479,
+              0.748047,
+              0.653646
+            ],
+            "topology": {
+              "components": 1,
+              "holes": 2
+            },
+            "warnings": []
+          },
+          "artifact": "cases/oak_leaf_single/grabcut.png"
+        },
+        "efficientsam": {
+          "status": "ok",
+          "seconds": 1.566467,
+          "diagnostics": {
+            "shape": [
+              768,
+              1024
+            ],
+            "foreground_pixels": 24866,
+            "coverage": 0.031619,
+            "bbox": [
+              0.555664,
+              0.299479,
+              0.743164,
+              0.623698
+            ],
+            "topology": {
+              "components": 7,
+              "holes": 3
+            },
+            "warnings": []
+          },
+          "artifact": "cases/oak_leaf_single/efficientsam.png"
+        },
+        "slimsam": {
+          "status": "ok",
+          "seconds": 2.337241,
+          "diagnostics": {
+            "shape": [
+              768,
+              1024
+            ],
+            "foreground_pixels": 43220,
+            "coverage": 0.054957,
+            "bbox": [
+              0.459961,
+              0.299479,
+              0.743164,
+              0.674479
+            ],
+            "topology": {
+              "components": 15,
+              "holes": 12
+            },
+            "warnings": []
+          },
+          "artifact": "cases/oak_leaf_single/slimsam.png"
+        }
+      },
+      "source_shape": [
+        2448,
+        3264
+      ],
+      "method_source_shape": [
+        768,
+        1024
+      ],
+      "selected_method": "efficientsam",
+      "selected_reason": "selected from explicit preferred_methods after sanity checks; requires visual review for product use",
+      "font_preparation": "selected mask cropped to foreground bbox, tiny components under 18 px removed, resized to <=420 px; no shape generation/completion"
+    },
+    {
+      "case_id": "fern_frond",
+      "glyph": "F",
+      "glyph_idea": "emerging fern frond",
+      "source_image": "output/nature-source-images/fern_thin_structure__Close-up_of_Emerging_Fern_Frond_in_Spring.jpg",
+      "rectangle": [
+        0.05,
+        0.427778,
+        0.654167,
+        0.713889
+      ],
+      "points": [
+        {
+          "x": 0.179167,
+          "y": 0.544444,
+          "label": 1
+        },
+        {
+          "x": 0.358333,
+          "y": 0.561111,
+          "label": 1
+        },
+        {
+          "x": 0.525,
+          "y": 0.5,
+          "label": 1
+        },
+        {
+          "x": 0.55,
+          "y": 0.655556,
+          "label": 1
+        },
+        {
+          "x": 0.779167,
+          "y": 0.333333,
+          "label": 0
+        },
+        {
+          "x": 0.791667,
+          "y": 0.666667,
+          "label": 0
+        }
+      ],
+      "point_scope": "explicit normalized keep/exclude prompts; not inferred from a ground-truth mask",
+      "review_label": "accepted_for_font_if_thin_stem_survives",
+      "review_rationale": "manifest crop excludes most vertical wood; first pass rejected SlimSAM's large black rectangle and prefers smaller plant masks.",
+      "preferred_methods": [
+        "efficientsam",
+        "grabcut",
+        "slimsam"
+      ],
+      "color_strategy": null,
+      "baseline": 0.78,
+      "artifacts": {
+        "source_bounded_png": "cases/fern_frond/source-bounded.png",
+        "crop_png": "cases/fern_frond/crop.png",
+        "prompt_overlay_png": "cases/fern_frond/prompt-overlay.png",
+        "selected_font_mask_png": "cases/fern_frond/selected-font-mask.png",
+        "standalone_selected_png": "selected-glyphs/F_fern_frond.png",
+        "standalone_selected_svg": "selected-glyphs/F_fern_frond.svg"
+      },
+      "methods": {
+        "grabcut": {
+          "status": "ok",
+          "seconds": 1.404313,
+          "diagnostics": {
+            "shape": [
+              1024,
+              683
+            ],
+            "foreground_pixels": 101828,
+            "coverage": 0.145595,
+            "bbox": [
+              0.04978,
+              0.427734,
+              0.654466,
+              0.714844
+            ],
+            "topology": {
+              "components": 25,
+              "holes": 75
+            },
+            "warnings": []
+          },
+          "artifact": "cases/fern_frond/grabcut.png"
+        },
+        "efficientsam": {
+          "status": "ok",
+          "seconds": 1.124115,
+          "diagnostics": {
+            "shape": [
+              1024,
+              683
+            ],
+            "foreground_pixels": 27302,
+            "coverage": 0.039037,
+            "bbox": [
+              0.061493,
+              0.427734,
+              0.654466,
+              0.714844
+            ],
+            "topology": {
+              "components": 1,
+              "holes": 0
+            },
+            "warnings": []
+          },
+          "artifact": "cases/fern_frond/efficientsam.png"
+        },
+        "slimsam": {
+          "status": "ok",
+          "seconds": 1.994341,
+          "diagnostics": {
+            "shape": [
+              1024,
+              683
+            ],
+            "foreground_pixels": 87601,
+            "coverage": 0.125253,
+            "bbox": [
+              0.04978,
+              0.427734,
+              0.654466,
+              0.714844
+            ],
+            "topology": {
+              "components": 4,
+              "holes": 0
+            },
+            "warnings": []
+          },
+          "artifact": "cases/fern_frond/slimsam.png"
+        }
+      },
+      "source_shape": [
+        3600,
+        2400
+      ],
+      "method_source_shape": [
+        1024,
+        683
+      ],
+      "selected_method": "efficientsam",
+      "selected_reason": "selected from explicit preferred_methods after sanity checks; requires visual review for product use",
+      "font_preparation": "selected mask cropped to foreground bbox, tiny components under 18 px removed, resized to <=420 px; no shape generation/completion"
+    },
+    {
+      "case_id": "river_meander",
+      "glyph": "M",
+      "glyph_idea": "satellite meandering river",
+      "source_image": "output/nature-source-images/satellite_meander__Meandering_Mississippi_5182095595.jpg",
+      "rectangle": [
+        0.378788,
+        0.035014,
+        0.918911,
+        0.959398
+      ],
+      "points": [
+        {
+          "x": 0.774411,
+          "y": 0.193277,
+          "label": 1
+        },
+        {
+          "x": 0.636925,
+          "y": 0.390756,
+          "label": 1
+        },
+        {
+          "x": 0.624299,
+          "y": 0.589636,
+          "label": 1
+        },
+        {
+          "x": 0.45174,
+          "y": 0.792717,
+          "label": 1
+        },
+        {
+          "x": 0.728114,
+          "y": 0.901961,
+          "label": 1
+        },
+        {
+          "x": 0.123457,
+          "y": 0.145658,
+          "label": 0
+        },
+        {
+          "x": 0.159933,
+          "y": 0.588235,
+          "label": 0
+        }
+      ],
+      "point_scope": "explicit normalized keep/exclude prompts; not inferred from a ground-truth mask",
+      "review_label": "reported_failure_not_font_default",
+      "review_rationale": "river/delta probes are useful diagnostics, but current masks are blob/noisy candidates rather than recognizable river glyphs; exclude from default font.",
+      "preferred_methods": [
+        "water-color",
+        "efficientsam",
+        "slimsam",
+        "grabcut"
+      ],
+      "color_strategy": "water",
+      "baseline": 0.7,
+      "artifacts": {
+        "source_bounded_png": "cases/river_meander/source-bounded.png",
+        "crop_png": "cases/river_meander/crop.png",
+        "prompt_overlay_png": "cases/river_meander/prompt-overlay.png"
+      },
+      "methods": {
+        "grabcut": {
+          "status": "ok",
+          "seconds": 8.64709,
+          "diagnostics": {
+            "shape": [
+              1024,
+              1022
+            ],
+            "foreground_pixels": 171926,
+            "coverage": 0.164282,
+            "bbox": [
+              0.378669,
+              0.112305,
+              0.919765,
+              0.959961
+            ],
+            "topology": {
+              "components": 4,
+              "holes": 6
+            },
+            "warnings": []
+          },
+          "artifact": "cases/river_meander/grabcut.png"
+        },
+        "efficientsam": {
+          "status": "ok",
+          "seconds": 0.977333,
+          "diagnostics": {
+            "shape": [
+              1024,
+              1022
+            ],
+            "foreground_pixels": 182261,
+            "coverage": 0.174158,
+            "bbox": [
+              0.378669,
+              0.03418,
+              0.919765,
+              0.942383
+            ],
+            "topology": {
+              "components": 48,
+              "holes": 31
+            },
+            "warnings": []
+          },
+          "artifact": "cases/river_meander/efficientsam.png"
+        },
+        "slimsam": {
+          "status": "ok",
+          "seconds": 1.868804,
+          "diagnostics": {
+            "shape": [
+              1024,
+              1022
+            ],
+            "foreground_pixels": 459510,
+            "coverage": 0.43908,
+            "bbox": [
+              0.378669,
+              0.03418,
+              0.919765,
+              0.959961
+            ],
+            "topology": {
+              "components": 80,
+              "holes": 185
+            },
+            "warnings": []
+          },
+          "artifact": "cases/river_meander/slimsam.png"
+        },
+        "water-color": {
+          "status": "ok",
+          "seconds": 0.145123,
+          "diagnostics": {
+            "shape": [
+              1024,
+              1022
+            ],
+            "foreground_pixels": 432579,
+            "coverage": 0.413347,
+            "bbox": [
+              0.378669,
+              0.03418,
+              0.919765,
+              0.959961
+            ],
+            "topology": {
+              "components": 9,
+              "holes": 1236
+            },
+            "warnings": []
+          },
+          "artifact": "cases/river_meander/water-color.png"
+        }
+      },
+      "source_shape": [
+        7140,
+        7128
+      ],
+      "method_source_shape": [
+        1024,
+        1022
+      ],
+      "selected_method": null,
+      "selected_reason": "explicitly reported as a failure/stress case, not accepted for the font"
+    },
+    {
+      "case_id": "delta_oasis",
+      "glyph": "D",
+      "glyph_idea": "satellite delta/lake basin",
+      "source_image": "output/nature-source-images/satellite_delta_oasis__A_Delta_Oasis_in_Southeastern_Kazakhstan.jpg",
+      "rectangle": [
+        0.123869,
+        0.05717,
+        0.862315,
+        0.855169
+      ],
+      "points": [
+        {
+          "x": 0.524059,
+          "y": 0.281086,
+          "label": 1
+        },
+        {
+          "x": 0.407337,
+          "y": 0.583611,
+          "label": 1
+        },
+        {
+          "x": 0.681277,
+          "y": 0.402573,
+          "label": 1
+        },
+        {
+          "x": 0.266794,
+          "y": 0.731301,
+          "label": 1
+        },
+        {
+          "x": 0.085755,
+          "y": 0.119104,
+          "label": 0
+        },
+        {
+          "x": 0.905193,
+          "y": 0.857551,
+          "label": 0
+        }
+      ],
+      "point_scope": "explicit normalized keep/exclude prompts; not inferred from a ground-truth mask",
+      "review_label": "reported_failure_not_font_default",
+      "review_rationale": "broad water/ice/delta basin remains too blob-like for a reviewed glyph; report methods but exclude from default font.",
+      "preferred_methods": [
+        "grabcut",
+        "efficientsam",
+        "slimsam",
+        "water-color"
+      ],
+      "color_strategy": "water",
+      "baseline": 0.7,
+      "artifacts": {
+        "source_bounded_png": "cases/delta_oasis/source-bounded.png",
+        "crop_png": "cases/delta_oasis/crop.png",
+        "prompt_overlay_png": "cases/delta_oasis/prompt-overlay.png"
+      },
+      "methods": {
+        "grabcut": {
+          "status": "ok",
+          "seconds": 6.040846,
+          "diagnostics": {
+            "shape": [
+              1024,
+              1024
+            ],
+            "foreground_pixels": 318749,
+            "coverage": 0.303983,
+            "bbox": [
+              0.168945,
+              0.056641,
+              0.84375,
+              0.855469
+            ],
+            "topology": {
+              "components": 13,
+              "holes": 7
+            },
+            "warnings": []
+          },
+          "artifact": "cases/delta_oasis/grabcut.png"
+        },
+        "efficientsam": {
+          "status": "ok",
+          "seconds": 1.860443,
+          "diagnostics": {
+            "shape": [
+              1024,
+              1024
+            ],
+            "foreground_pixels": 237767,
+            "coverage": 0.226752,
+            "bbox": [
+              0.189453,
+              0.05957,
+              0.827148,
+              0.796875
+            ],
+            "topology": {
+              "components": 31,
+              "holes": 126
+            },
+            "warnings": []
+          },
+          "artifact": "cases/delta_oasis/efficientsam.png"
+        },
+        "slimsam": {
+          "status": "ok",
+          "seconds": 2.621832,
+          "diagnostics": {
+            "shape": [
+              1024,
+              1024
+            ],
+            "foreground_pixels": 295962,
+            "coverage": 0.282251,
+            "bbox": [
+              0.1875,
+              0.060547,
+              0.827148,
+              0.855469
+            ],
+            "topology": {
+              "components": 27,
+              "holes": 26
+            },
+            "warnings": []
+          },
+          "artifact": "cases/delta_oasis/slimsam.png"
+        },
+        "water-color": {
+          "status": "ok",
+          "seconds": 0.116026,
+          "diagnostics": {
+            "shape": [
+              1024,
+              1024
+            ],
+            "foreground_pixels": 454084,
+            "coverage": 0.433048,
+            "bbox": [
+              0.123047,
+              0.056641,
+              0.863281,
+              0.855469
+            ],
+            "topology": {
+              "components": 115,
+              "holes": 758
+            },
+            "warnings": []
+          },
+          "artifact": "cases/delta_oasis/water-color.png"
+        }
+      },
+      "source_shape": [
+        4198,
+        4198
+      ],
+      "method_source_shape": [
+        1024,
+        1024
+      ],
+      "selected_method": null,
+      "selected_reason": "explicitly reported as a failure/stress case, not accepted for the font"
+    },
+    {
+      "case_id": "braided_river_badcase",
+      "glyph": "R",
+      "glyph_idea": "braided river stress case",
+      "source_image": "output/nature-source-images/satellite_braided__Braided_River_in_Tibet_Redraws_Its_Channels_154747.jpg",
+      "rectangle": [
+        0.0,
+        0.3375,
+        1.0,
+        0.725
+      ],
+      "points": [
+        {
+          "x": 0.145833,
+          "y": 0.54,
+          "label": 1
+        },
+        {
+          "x": 0.347222,
+          "y": 0.545,
+          "label": 1
+        },
+        {
+          "x": 0.506944,
+          "y": 0.525,
+          "label": 1
+        },
+        {
+          "x": 0.798611,
+          "y": 0.53,
+          "label": 1
+        },
+        {
+          "x": 0.433333,
+          "y": 0.4275,
+          "label": 0
+        },
+        {
+          "x": 0.058333,
+          "y": 0.9425,
+          "label": 0
+        }
+      ],
+      "point_scope": "explicit normalized keep/exclude prompts; not inferred from a ground-truth mask",
+      "review_label": "reported_badcase_not_font_default",
+      "review_rationale": "diagnostic braided-channel case with map text/scale artifacts; report quality but do not include in the default font subset.",
+      "preferred_methods": [
+        "water-color",
+        "efficientsam",
+        "slimsam",
+        "grabcut"
+      ],
+      "color_strategy": "water",
+      "baseline": 0.7,
+      "artifacts": {
+        "source_bounded_png": "cases/braided_river_badcase/source-bounded.png",
+        "crop_png": "cases/braided_river_badcase/crop.png",
+        "prompt_overlay_png": "cases/braided_river_badcase/prompt-overlay.png"
+      },
+      "methods": {
+        "grabcut": {
+          "status": "ok",
+          "seconds": 1.730907,
+          "diagnostics": {
+            "shape": [
+              400,
+              720
+            ],
+            "foreground_pixels": 29375,
+            "coverage": 0.101997,
+            "bbox": [
+              0.0,
+              0.3625,
+              1.0,
+              0.725
+            ],
+            "topology": {
+              "components": 1,
+              "holes": 1
+            },
+            "warnings": []
+          },
+          "artifact": "cases/braided_river_badcase/grabcut.png"
+        },
+        "efficientsam": {
+          "status": "ok",
+          "seconds": 2.029209,
+          "diagnostics": {
+            "shape": [
+              400,
+              720
+            ],
+            "foreground_pixels": 28416,
+            "coverage": 0.098667,
+            "bbox": [
+              0.0,
+              0.3625,
+              1.0,
+              0.64
+            ],
+            "topology": {
+              "components": 7,
+              "holes": 0
+            },
+            "warnings": []
+          },
+          "artifact": "cases/braided_river_badcase/efficientsam.png"
+        },
+        "slimsam": {
+          "status": "ok",
+          "seconds": 4.123607,
+          "diagnostics": {
+            "shape": [
+              400,
+              720
+            ],
+            "foreground_pixels": 29024,
+            "coverage": 0.100778,
+            "bbox": [
+              0.0,
+              0.3625,
+              1.0,
+              0.6375
+            ],
+            "topology": {
+              "components": 5,
+              "holes": 0
+            },
+            "warnings": []
+          },
+          "artifact": "cases/braided_river_badcase/slimsam.png"
+        },
+        "water-color": {
+          "status": "ok",
+          "seconds": 0.037877,
+          "diagnostics": {
+            "shape": [
+              400,
+              720
+            ],
+            "foreground_pixels": 85796,
+            "coverage": 0.297903,
+            "bbox": [
+              0.0,
+              0.3375,
+              1.0,
+              0.725
+            ],
+            "topology": {
+              "components": 9,
+              "holes": 342
+            },
+            "warnings": []
+          },
+          "artifact": "cases/braided_river_badcase/water-color.png"
+        }
+      },
+      "source_shape": [
+        400,
+        720
+      ],
+      "method_source_shape": [
+        400,
+        720
+      ],
+      "selected_method": null,
+      "selected_reason": "explicitly reported as a failure/stress case, not accepted for the font"
+    }
+  ],
+  "font": {
+    "status": "built",
+    "glyphs": [
+      "L",
+      "B",
+      "F"
+    ],
+    "outputs": {
+      "manifest": "output/nature-experiments/NatureGlyphs/work/manifest.json",
+      "otf": "output/nature-experiments/NatureGlyphs/NatureGlyphs.otf",
+      "ttf": "output/nature-experiments/NatureGlyphs/NatureGlyphs.ttf",
+      "sfd": "output/nature-experiments/NatureGlyphs/NatureGlyphs.sfd",
+      "debug_overlay": "output/nature-experiments/NatureGlyphs/accepted-mask-preview.png",
+      "warnings": []
+    },
+    "proof_png": "font-proof.png",
+    "note": "Actual font built from selected mask-v1 PNGs; masks are cropped/resized only, with no generated style completion."
+  },
+  "artifacts": {
+    "report_json": "nature-experiment-report.json",
+    "contact_sheet_png": "contact-sheet.png"
+  }
+}

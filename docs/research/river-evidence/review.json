@@ -1,0 +1,8 @@
+{
+  "decision": "research_only_not_promoted",
+  "reviewer": "root assistant visual inspection, not human user acceptance",
+  "candidate": "meander_channel_trace_attempt/seeded-color",
+  "candidate_mask_sha256": "c4b221d6c2687da88502aadb8205f45ab5c09c318fecc21107caa7dbd536f8d1",
+  "finding": "Main visible channel isolated more closely, but small holes/side artifacts and sixteen tailored points remain. Diagnostic vector export loses some tiny raster holes; no topology guarantee.",
+  "baseline_decision": "meander_mississippi seeded-grabcut rejected as broad blob"
+}

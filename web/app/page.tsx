@@ -1,7 +1,12 @@
 import Image from 'next/image';
 import Link from 'next/link';
 import { MAX_UPLOAD_BYTES } from '@/lib/contracts';
+import { deploymentMode } from '@/lib/server-auth';
+import { SessionGate } from './session-gate';
 import { UploadWorkbench } from './upload-workbench';
+import { FeedbackPanel } from './feedback-panel';
+
+export const dynamic = 'force-dynamic';
 
 const modes = [
   {
@@ -25,6 +30,7 @@ const steps = [
 ] as const;
 
 export default function Home() {
+  const mode = deploymentMode();
   return (
     <main className="mx-auto w-full max-w-[1200px] px-5 pt-12 pb-24 md:px-10">
       <nav className="mb-6 flex flex-wrap items-center justify-between gap-3 text-sm">
@@ -106,7 +112,10 @@ export default function Home() {
       </section>
 
       <div id="capture">
-        <UploadWorkbench />
+        <SessionGate deploymentMode={mode}>
+          <UploadWorkbench allowDelete={mode !== 'local'} />
+          <FeedbackPanel />
+        </SessionGate>
       </div>
     </main>
   );

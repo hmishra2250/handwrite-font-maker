@@ -1,0 +1,28 @@
+{
+  "status": "succeeded",
+  "attemptCount": 1,
+  "artifacts": {
+    "otf": {
+      "bytes": 1848,
+      "attemptPrefix": true
+    },
+    "ttf": {
+      "bytes": 1744,
+      "attemptPrefix": true
+    },
+    "sfd": {
+      "bytes": 2289,
+      "attemptPrefix": true
+    },
+    "debug_overlay": {
+      "bytes": 2951,
+      "attemptPrefix": true
+    },
+    "manifest": {
+      "bytes": 720,
+      "attemptPrefix": true
+    }
+  },
+  "proof": "output/durable-worker-canary/proof.png",
+  "scope": "Real local PG + tenant registry/visibility + supervised process + Potrace/FontForge; not hosted Auth/Storage or Office evidence."
+}

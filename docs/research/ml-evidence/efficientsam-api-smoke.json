@@ -1,0 +1,10 @@
+{
+  "status": "succeeded",
+  "job_id": "job_29d8de81-269b-4668-8dac-dc8f1ade9b0c",
+  "method": "efficientsam",
+  "model_id": "yunyangx/EfficientSAM@d8dbb1eee73bfb3392aa6f6e8944aeb13f3f4036:ti-box",
+  "warnings": [],
+  "wall_seconds": 1.797,
+  "ttf_bytes": 2408,
+  "scope": "Synthetic color object; actual HTTP segmentation, accepted-mask upload, persisted build, TTF/FreeType proof. Not real-photo accuracy."
+}

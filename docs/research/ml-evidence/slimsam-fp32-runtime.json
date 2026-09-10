@@ -1,0 +1,40 @@
+{
+  "model": "Xenova/slimsam-77-uniform",
+  "revision": "5850ab45f587c112167512ffef949107115e26a0",
+  "variant": "fp32",
+  "provider": "CPUExecutionProvider",
+  "intra_op_threads": 2,
+  "inter_op_threads": 1,
+  "environment": "macOS-26.5-arm64-arm-64bit-Mach-O",
+  "python": "3.14.7",
+  "weights_bytes": 39833906,
+  "runs": [
+    {
+      "kind": "cold",
+      "wall_seconds": 3.4261,
+      "cpu_seconds": 5.7622,
+      "foreground_pixels": 29490
+    },
+    {
+      "kind": "warm",
+      "wall_seconds": 3.1036,
+      "cpu_seconds": 5.1818,
+      "foreground_pixels": 29490
+    },
+    {
+      "kind": "warm",
+      "wall_seconds": 1.8791,
+      "cpu_seconds": 3.6708,
+      "foreground_pixels": 29490
+    },
+    {
+      "kind": "warm",
+      "wall_seconds": 1.7145,
+      "cpu_seconds": 3.418,
+      "foreground_pixels": 29490
+    }
+  ],
+  "warm_median_seconds": 1.8791,
+  "process_peak_rss_bytes": 2711748608,
+  "scope": "Isolated process on a shared development host; repeated synthetic image with known prompts. No representative p95, cloud cost or general quality claim."
+}

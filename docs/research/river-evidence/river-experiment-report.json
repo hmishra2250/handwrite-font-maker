@@ -1,0 +1,973 @@
+{
+  "kind": "river-extraction-experiment-v1",
+  "scope": "Real satellite image experiment with explicit user-style seeds; no ground-truth masks or accuracy claims.",
+  "mask_convention": "uint8 grayscale mask: 0/black = river/water foreground, 255/white = background",
+  "source_verification": {
+    "manifest": {
+      "status": "loaded",
+      "path": "docs/research/nature-source-manifest.json"
+    },
+    "sources": [
+      {
+        "case_id": "meander_mississippi",
+        "source_id": "satellite_meandering_mississippi",
+        "path": "output/nature-source-images/satellite_meander__Meandering_Mississippi_5182095595.jpg",
+        "status": "ok",
+        "sha256": "05f0c26619d46e01648489cc1106c4b762644aa06fb37fedf3206217b6ec5228",
+        "license": {
+          "short_name": "Public domain",
+          "url": null,
+          "usage_terms": "Public domain",
+          "attribution_required": false,
+          "rights_note": "Commons marks this NASA/USGS/Landsat image public domain; NASA policy still asks for source acknowledgment and no implied endorsement."
+        },
+        "origin_page": "https://commons.wikimedia.org/wiki/File:Meandering_Mississippi_(5182095595).jpg",
+        "credit_line": "USGS/NASA/Landsat 7"
+      },
+      {
+        "case_id": "meander_channel_trace_attempt",
+        "source_id": "satellite_meandering_mississippi",
+        "path": "output/nature-source-images/satellite_meander__Meandering_Mississippi_5182095595.jpg",
+        "status": "ok",
+        "sha256": "05f0c26619d46e01648489cc1106c4b762644aa06fb37fedf3206217b6ec5228",
+        "license": {
+          "short_name": "Public domain",
+          "url": null,
+          "usage_terms": "Public domain",
+          "attribution_required": false,
+          "rights_note": "Commons marks this NASA/USGS/Landsat image public domain; NASA policy still asks for source acknowledgment and no implied endorsement."
+        },
+        "origin_page": "https://commons.wikimedia.org/wiki/File:Meandering_Mississippi_(5182095595).jpg",
+        "credit_line": "USGS/NASA/Landsat 7"
+      },
+      {
+        "case_id": "braided_yarlung",
+        "source_id": "satellite_braided_yarlung_zangbo",
+        "path": "output/nature-source-images/satellite_braided__Braided_River_in_Tibet_Redraws_Its_Channels_154747.jpg",
+        "status": "ok",
+        "sha256": "ccfd2bf07230bdd21d4d5f6d6a4c0f4d874570f516e658732360ef153792bbfc",
+        "license": {
+          "short_name": "Public domain",
+          "url": null,
+          "usage_terms": "Public domain",
+          "attribution_required": false,
+          "rights_note": "Public-domain NASA/USGS evidence is from Commons plus the official NASA Earth Observatory page; avoid logo/endorsement uses."
+        },
+        "origin_page": "https://commons.wikimedia.org/wiki/File:Braided_River_in_Tibet_Redraws_Its_Channels_(154747).jpg",
+        "credit_line": "NASA Earth Observatory image by Michala Garrison and animations by Ross Walter, using Landsat data from the U.S. Geological Survey"
+      },
+      {
+        "case_id": "ili_delta_oasis",
+        "source_id": "satellite_ili_delta_oasis",
+        "path": "output/nature-source-images/satellite_delta_oasis__A_Delta_Oasis_in_Southeastern_Kazakhstan.jpg",
+        "status": "ok",
+        "sha256": "fa8ae1a155ac70a823dfa89e126c75573b0eb0dc730c26f39ddf7267a4187179",
+        "license": {
+          "short_name": "Public domain",
+          "url": null,
+          "usage_terms": "Public domain",
+          "attribution_required": false,
+          "rights_note": "Public-domain NASA/USGS source; scene includes ice and water, so define the foreground class before making a mask."
+        },
+        "origin_page": "https://commons.wikimedia.org/wiki/File:A_Delta_Oasis_in_Southeastern_Kazakhstan.jpg",
+        "credit_line": "NASA Earth Observatory images by Joshua Stevens, using Landsat data from the U.S. Geological Survey"
+      },
+      {
+        "case_id": "mackenzie_plume",
+        "source_id": "satellite_mackenzie_delta_sediment",
+        "path": "output/nature-source-images/satellite_delta_sediment__Mackenzie_river_enters_Beaufort_sea.jpg",
+        "status": "ok",
+        "sha256": "7e58b351d2daf7bacc8d98ef1443a1f1d813de27ab812d8d27c5a386855bfac9",
+        "license": {
+          "short_name": "Public domain",
+          "url": null,
+          "usage_terms": "Public domain",
+          "attribution_required": false,
+          "rights_note": "Public-domain NASA/USGS source per Commons; NASA no-endorsement and third-party-material caveats still apply."
+        },
+        "origin_page": "https://commons.wikimedia.org/wiki/File:Mackenzie_river_enters_Beaufort_sea.jpg",
+        "credit_line": "NASA Earth Observatory images by Jesse Allen, using Landsat data from the U.S. Geological Survey"
+      }
+    ],
+    "verified_case_ids": [
+      "meander_mississippi",
+      "meander_channel_trace_attempt",
+      "braided_yarlung",
+      "ili_delta_oasis",
+      "mackenzie_plume"
+    ]
+  },
+  "execution": "single-process sequential; no production pipeline changes",
+  "methods": {
+    "water-color-frozen": "Earlier broad HSV/LAB water-color helper from nature experiment.",
+    "seeded-color": "Explicit keep/exclude LAB color-distance mask, ROI-limited, then keep only components touching keep seeds.",
+    "seeded-grabcut": "Benchmark-only seeded OpenCV GrabCut mask initialized with keep/exclude seeds and ROI; uses cv2.GC_FGD/cv2.GC_BGD seed labels.",
+    "grabcut-box": "Existing rectangle-only GrabCut baseline.",
+    "efficientsam-box": "Optional local EfficientSAM box prompt.",
+    "slimsam-points": "Optional local SlimSAM with explicit keep/exclude seeds."
+  },
+  "cases": [
+    {
+      "case_id": "meander_mississippi",
+      "glyph": "S",
+      "source_id": "satellite_meandering_mississippi",
+      "source_image": "output/nature-source-images/satellite_meander__Meandering_Mississippi_5182095595.jpg",
+      "rectangle": [
+        0.378788,
+        0.035014,
+        0.918911,
+        0.959384
+      ],
+      "points": [
+        {
+          "x": 0.774411,
+          "y": 0.193277,
+          "label": 1
+        },
+        {
+          "x": 0.636925,
+          "y": 0.390756,
+          "label": 1
+        },
+        {
+          "x": 0.624299,
+          "y": 0.589636,
+          "label": 1
+        },
+        {
+          "x": 0.45174,
+          "y": 0.792717,
+          "label": 1
+        },
+        {
+          "x": 0.728114,
+          "y": 0.901961,
+          "label": 1
+        },
+        {
+          "x": 0.123457,
+          "y": 0.145658,
+          "label": 0
+        },
+        {
+          "x": 0.159933,
+          "y": 0.588235,
+          "label": 0
+        },
+        {
+          "x": 0.903479,
+          "y": 0.098039,
+          "label": 0
+        },
+        {
+          "x": 0.85578,
+          "y": 0.490196,
+          "label": 0
+        }
+      ],
+      "params": {
+        "lab_tolerance": 32.0,
+        "exclude_margin": -3.0,
+        "close": 2,
+        "open": 0,
+        "min_area": 80,
+        "keep_seed_radius": 8,
+        "grabcut_iters": 5
+      },
+      "review_label": "visual_rejected_diagnostic",
+      "review_rationale": "Initial run produced broad filled blobs rather than a narrow river trace; retained for comparison only, not font promotion.",
+      "scope": "qualitative real-image river extraction; no ground truth mask",
+      "artifacts": {
+        "source_bounded_png": "cases/meander_mississippi/source-bounded.png",
+        "crop_png": "cases/meander_mississippi/crop.png",
+        "prompt_overlay_png": "cases/meander_mississippi/prompt-overlay.png"
+      },
+      "methods": {
+        "water-color-frozen": {
+          "status": "ok",
+          "seconds": 0.390808,
+          "diagnostics": {
+            "shape": [
+              1024,
+              1022
+            ],
+            "foreground_pixels": 432579,
+            "coverage": 0.413347,
+            "bbox": [
+              0.378669,
+              0.03418,
+              0.919765,
+              0.959961
+            ],
+            "topology": {
+              "components": 9,
+              "holes": 1236
+            },
+            "keep_seed_hits": 5,
+            "keep_seed_total": 5,
+            "warnings": []
+          },
+          "artifact": "cases/meander_mississippi/water-color-frozen.png"
+        },
+        "seeded-color": {
+          "status": "ok",
+          "seconds": 0.481311,
+          "diagnostics": {
+            "shape": [
+              1024,
+              1022
+            ],
+            "foreground_pixels": 385554,
+            "coverage": 0.368413,
+            "bbox": [
+              0.378669,
+              0.03418,
+              0.919765,
+              0.959961
+            ],
+            "topology": {
+              "components": 1,
+              "holes": 625
+            },
+            "keep_seed_hits": 5,
+            "keep_seed_total": 5,
+            "warnings": []
+          },
+          "artifact": "cases/meander_mississippi/seeded-color.png"
+        },
+        "seeded-grabcut": {
+          "status": "ok",
+          "seconds": 17.769395,
+          "diagnostics": {
+            "shape": [
+              1024,
+              1022
+            ],
+            "foreground_pixels": 151540,
+            "coverage": 0.144803,
+            "bbox": [
+              0.378669,
+              0.112305,
+              0.919765,
+              0.959961
+            ],
+            "topology": {
+              "components": 4,
+              "holes": 8
+            },
+            "keep_seed_hits": 5,
+            "keep_seed_total": 5,
+            "warnings": []
+          },
+          "artifact": "cases/meander_mississippi/seeded-grabcut.png"
+        }
+      },
+      "source_shape": [
+        7140,
+        7128
+      ],
+      "method_source_shape": [
+        1024,
+        1022
+      ],
+      "selected_method": null,
+      "selected_reason": "not promoted: requires explicit human visual acceptance; numeric diagnostics alone are insufficient"
+    },
+    {
+      "case_id": "meander_channel_trace_attempt",
+      "glyph": "S",
+      "source_id": "satellite_meandering_mississippi",
+      "source_image": "output/nature-source-images/satellite_meander__Meandering_Mississippi_5182095595.jpg",
+      "rectangle": [
+        0.407625,
+        0.146484,
+        0.919844,
+        0.950195
+      ],
+      "points": [
+        {
+          "x": 0.915934,
+          "y": 0.175781,
+          "label": 1
+        },
+        {
+          "x": 0.705767,
+          "y": 0.297852,
+          "label": 1
+        },
+        {
+          "x": 0.705767,
+          "y": 0.37793,
+          "label": 1
+        },
+        {
+          "x": 0.587488,
+          "y": 0.436523,
+          "label": 1
+        },
+        {
+          "x": 0.568915,
+          "y": 0.532227,
+          "label": 1
+        },
+        {
+          "x": 0.604106,
+          "y": 0.668945,
+          "label": 1
+        },
+        {
+          "x": 0.571848,
+          "y": 0.758789,
+          "label": 1
+        },
+        {
+          "x": 0.567937,
+          "y": 0.848633,
+          "label": 1
+        },
+        {
+          "x": 0.43695,
+          "y": 0.920898,
+          "label": 1
+        },
+        {
+          "x": 0.779081,
+          "y": 0.209961,
+          "label": 0
+        },
+        {
+          "x": 0.798631,
+          "y": 0.356445,
+          "label": 0
+        },
+        {
+          "x": 0.652004,
+          "y": 0.43457,
+          "label": 0
+        },
+        {
+          "x": 0.544477,
+          "y": 0.576172,
+          "label": 0
+        },
+        {
+          "x": 0.686217,
+          "y": 0.629883,
+          "label": 0
+        },
+        {
+          "x": 0.490714,
+          "y": 0.751953,
+          "label": 0
+        },
+        {
+          "x": 0.837732,
+          "y": 0.756836,
+          "label": 0
+        }
+      ],
+      "params": {
+        "lab_tolerance": 18.0,
+        "exclude_margin": -8.0,
+        "close": 1,
+        "open": 1,
+        "min_area": 50,
+        "keep_seed_radius": 4,
+        "grabcut_iters": 5
+      },
+      "review_label": "candidate_needs_human_review",
+      "review_rationale": "One bounded final attempt after visual inspection: narrower crop and seeds placed along visible mid-teal main channel, with excludes on adjacent dark vegetation/banks. Not accepted automatically.",
+      "scope": "qualitative real-image river extraction; no ground truth mask",
+      "artifacts": {
+        "source_bounded_png": "cases/meander_channel_trace_attempt/source-bounded.png",
+        "crop_png": "cases/meander_channel_trace_attempt/crop.png",
+        "prompt_overlay_png": "cases/meander_channel_trace_attempt/prompt-overlay.png"
+      },
+      "methods": {
+        "water-color-frozen": {
+          "status": "ok",
+          "seconds": 0.830663,
+          "diagnostics": {
+            "shape": [
+              1024,
+              1022
+            ],
+            "foreground_pixels": 182055,
+            "coverage": 0.173961,
+            "bbox": [
+              0.407045,
+              0.145508,
+              0.920744,
+              0.950195
+            ],
+            "topology": {
+              "components": 140,
+              "holes": 206
+            },
+            "keep_seed_hits": 9,
+            "keep_seed_total": 9,
+            "warnings": [
+              "speckled-components"
+            ]
+          },
+          "artifact": "cases/meander_channel_trace_attempt/water-color-frozen.png"
+        },
+        "seeded-color": {
+          "status": "ok",
+          "seconds": 2.334082,
+          "diagnostics": {
+            "shape": [
+              1024,
+              1022
+            ],
+            "foreground_pixels": 28362,
+            "coverage": 0.027101,
+            "bbox": [
+              0.407045,
+              0.165039,
+              0.920744,
+              0.94043
+            ],
+            "topology": {
+              "components": 1,
+              "holes": 12
+            },
+            "keep_seed_hits": 7,
+            "keep_seed_total": 9,
+            "warnings": []
+          },
+          "artifact": "cases/meander_channel_trace_attempt/seeded-color.png"
+        },
+        "seeded-grabcut": {
+          "status": "ok",
+          "seconds": 24.176932,
+          "diagnostics": {
+            "shape": [
+              1024,
+              1022
+            ],
+            "foreground_pixels": 127810,
+            "coverage": 0.122128,
+            "bbox": [
+              0.407045,
+              0.145508,
+              0.920744,
+              0.950195
+            ],
+            "topology": {
+              "components": 1,
+              "holes": 13
+            },
+            "keep_seed_hits": 9,
+            "keep_seed_total": 9,
+            "warnings": []
+          },
+          "artifact": "cases/meander_channel_trace_attempt/seeded-grabcut.png"
+        }
+      },
+      "source_shape": [
+        7140,
+        7128
+      ],
+      "method_source_shape": [
+        1024,
+        1022
+      ],
+      "selected_method": null,
+      "selected_reason": "not promoted: requires explicit human visual acceptance; numeric diagnostics alone are insufficient"
+    },
+    {
+      "case_id": "braided_yarlung",
+      "glyph": "B",
+      "source_id": "satellite_braided_yarlung_zangbo",
+      "source_image": "output/nature-source-images/satellite_braided__Braided_River_in_Tibet_Redraws_Its_Channels_154747.jpg",
+      "rectangle": [
+        0.0,
+        0.3375,
+        1.0,
+        0.725
+      ],
+      "points": [
+        {
+          "x": 0.145833,
+          "y": 0.54,
+          "label": 1
+        },
+        {
+          "x": 0.347222,
+          "y": 0.545,
+          "label": 1
+        },
+        {
+          "x": 0.506944,
+          "y": 0.525,
+          "label": 1
+        },
+        {
+          "x": 0.798611,
+          "y": 0.53,
+          "label": 1
+        },
+        {
+          "x": 0.433333,
+          "y": 0.4275,
+          "label": 0
+        },
+        {
+          "x": 0.058333,
+          "y": 0.9425,
+          "label": 0
+        },
+        {
+          "x": 0.895833,
+          "y": 0.15,
+          "label": 0
+        },
+        {
+          "x": 0.958333,
+          "y": 0.69,
+          "label": 0
+        }
+      ],
+      "params": {
+        "lab_tolerance": 24.0,
+        "exclude_margin": -2.0,
+        "close": 1,
+        "open": 1,
+        "min_area": 10,
+        "keep_seed_radius": 4,
+        "grabcut_iters": 5
+      },
+      "review_label": "stress_case_expected_failure",
+      "review_rationale": "Embedded label/scale and very low resolution make this a topology stress case; do not promote unless channels are visibly separated from banks/text.",
+      "scope": "qualitative real-image river extraction; no ground truth mask",
+      "artifacts": {
+        "source_bounded_png": "cases/braided_yarlung/source-bounded.png",
+        "crop_png": "cases/braided_yarlung/crop.png",
+        "prompt_overlay_png": "cases/braided_yarlung/prompt-overlay.png"
+      },
+      "methods": {
+        "water-color-frozen": {
+          "status": "ok",
+          "seconds": 0.144377,
+          "diagnostics": {
+            "shape": [
+              400,
+              720
+            ],
+            "foreground_pixels": 85796,
+            "coverage": 0.297903,
+            "bbox": [
+              0.0,
+              0.3375,
+              1.0,
+              0.725
+            ],
+            "topology": {
+              "components": 9,
+              "holes": 342
+            },
+            "keep_seed_hits": 4,
+            "keep_seed_total": 4,
+            "warnings": []
+          },
+          "artifact": "cases/braided_yarlung/water-color-frozen.png"
+        },
+        "seeded-color": {
+          "status": "ok",
+          "seconds": 0.440192,
+          "diagnostics": {
+            "shape": [
+              400,
+              720
+            ],
+            "foreground_pixels": 14551,
+            "coverage": 0.050524,
+            "bbox": [
+              0.047222,
+              0.3675,
+              0.85,
+              0.6175
+            ],
+            "topology": {
+              "components": 2,
+              "holes": 49
+            },
+            "keep_seed_hits": 4,
+            "keep_seed_total": 4,
+            "warnings": []
+          },
+          "artifact": "cases/braided_yarlung/seeded-color.png"
+        },
+        "seeded-grabcut": {
+          "status": "ok",
+          "seconds": 5.013305,
+          "diagnostics": {
+            "shape": [
+              400,
+              720
+            ],
+            "foreground_pixels": 23693,
+            "coverage": 0.082267,
+            "bbox": [
+              0.0,
+              0.3625,
+              1.0,
+              0.6425
+            ],
+            "topology": {
+              "components": 1,
+              "holes": 1
+            },
+            "keep_seed_hits": 4,
+            "keep_seed_total": 4,
+            "warnings": []
+          },
+          "artifact": "cases/braided_yarlung/seeded-grabcut.png"
+        }
+      },
+      "source_shape": [
+        400,
+        720
+      ],
+      "method_source_shape": [
+        400,
+        720
+      ],
+      "selected_method": null,
+      "selected_reason": "not promoted: requires explicit human visual acceptance; numeric diagnostics alone are insufficient"
+    },
+    {
+      "case_id": "ili_delta_oasis",
+      "glyph": "D",
+      "source_id": "satellite_ili_delta_oasis",
+      "source_image": "output/nature-source-images/satellite_delta_oasis__A_Delta_Oasis_in_Southeastern_Kazakhstan.jpg",
+      "rectangle": [
+        0.123869,
+        0.05717,
+        0.862315,
+        0.855169
+      ],
+      "points": [
+        {
+          "x": 0.524059,
+          "y": 0.281086,
+          "label": 1
+        },
+        {
+          "x": 0.407337,
+          "y": 0.583611,
+          "label": 1
+        },
+        {
+          "x": 0.681277,
+          "y": 0.402573,
+          "label": 1
+        },
+        {
+          "x": 0.266794,
+          "y": 0.731301,
+          "label": 1
+        },
+        {
+          "x": 0.085755,
+          "y": 0.119104,
+          "label": 0
+        },
+        {
+          "x": 0.905193,
+          "y": 0.857551,
+          "label": 0
+        },
+        {
+          "x": 0.976656,
+          "y": 0.28585,
+          "label": 0
+        },
+        {
+          "x": 0.166746,
+          "y": 0.929014,
+          "label": 0
+        }
+      ],
+      "params": {
+        "lab_tolerance": 30.0,
+        "exclude_margin": -4.0,
+        "close": 2,
+        "open": 1,
+        "min_area": 120,
+        "keep_seed_radius": 7,
+        "grabcut_iters": 5
+      },
+      "review_label": "reported_failure_not_font_default",
+      "review_rationale": "Water/ice basin tends to produce broad blob masks; retain as diagnostic unless a coherent delta channel symbol appears.",
+      "scope": "qualitative real-image river extraction; no ground truth mask",
+      "artifacts": {
+        "source_bounded_png": "cases/ili_delta_oasis/source-bounded.png",
+        "crop_png": "cases/ili_delta_oasis/crop.png",
+        "prompt_overlay_png": "cases/ili_delta_oasis/prompt-overlay.png"
+      },
+      "methods": {
+        "water-color-frozen": {
+          "status": "ok",
+          "seconds": 0.510106,
+          "diagnostics": {
+            "shape": [
+              1024,
+              1024
+            ],
+            "foreground_pixels": 454084,
+            "coverage": 0.433048,
+            "bbox": [
+              0.123047,
+              0.056641,
+              0.863281,
+              0.855469
+            ],
+            "topology": {
+              "components": 115,
+              "holes": 758
+            },
+            "keep_seed_hits": 4,
+            "keep_seed_total": 4,
+            "warnings": []
+          },
+          "artifact": "cases/ili_delta_oasis/water-color-frozen.png"
+        },
+        "seeded-color": {
+          "status": "ok",
+          "seconds": 0.633532,
+          "diagnostics": {
+            "shape": [
+              1024,
+              1024
+            ],
+            "foreground_pixels": 209058,
+            "coverage": 0.199373,
+            "bbox": [
+              0.180664,
+              0.056641,
+              0.823242,
+              0.855469
+            ],
+            "topology": {
+              "components": 1,
+              "holes": 111
+            },
+            "keep_seed_hits": 3,
+            "keep_seed_total": 4,
+            "warnings": []
+          },
+          "artifact": "cases/ili_delta_oasis/seeded-color.png"
+        },
+        "seeded-grabcut": {
+          "status": "ok",
+          "seconds": 11.028449,
+          "diagnostics": {
+            "shape": [
+              1024,
+              1024
+            ],
+            "foreground_pixels": 232254,
+            "coverage": 0.221495,
+            "bbox": [
+              0.168945,
+              0.138672,
+              0.863281,
+              0.855469
+            ],
+            "topology": {
+              "components": 2,
+              "holes": 24
+            },
+            "keep_seed_hits": 4,
+            "keep_seed_total": 4,
+            "warnings": []
+          },
+          "artifact": "cases/ili_delta_oasis/seeded-grabcut.png"
+        }
+      },
+      "source_shape": [
+        4198,
+        4198
+      ],
+      "method_source_shape": [
+        1024,
+        1024
+      ],
+      "selected_method": null,
+      "selected_reason": "not promoted: requires explicit human visual acceptance; numeric diagnostics alone are insufficient"
+    },
+    {
+      "case_id": "mackenzie_plume",
+      "glyph": "C",
+      "source_id": "satellite_mackenzie_delta_sediment",
+      "source_image": "output/nature-source-images/satellite_delta_sediment__Mackenzie_river_enters_Beaufort_sea.jpg",
+      "rectangle": [
+        0.083333,
+        0.12,
+        0.927778,
+        0.806667
+      ],
+      "points": [
+        {
+          "x": 0.375556,
+          "y": 0.486667,
+          "label": 1
+        },
+        {
+          "x": 0.527778,
+          "y": 0.561333,
+          "label": 1
+        },
+        {
+          "x": 0.688889,
+          "y": 0.657333,
+          "label": 1
+        },
+        {
+          "x": 0.788889,
+          "y": 0.705333,
+          "label": 1
+        },
+        {
+          "x": 0.933333,
+          "y": 0.12,
+          "label": 0
+        },
+        {
+          "x": 0.068889,
+          "y": 0.958667,
+          "label": 0
+        },
+        {
+          "x": 0.88,
+          "y": 0.92,
+          "label": 0
+        },
+        {
+          "x": 0.233333,
+          "y": 0.253333,
+          "label": 0
+        }
+      ],
+      "params": {
+        "lab_tolerance": 22.0,
+        "exclude_margin": -2.0,
+        "close": 3,
+        "open": 1,
+        "min_area": 160,
+        "keep_seed_radius": 8,
+        "grabcut_iters": 5
+      },
+      "review_label": "reported_failure_not_font_default",
+      "review_rationale": "Sediment plume is semantically ambiguous and soft-edged; retain if useful visually but do not claim river-channel success.",
+      "scope": "qualitative real-image river extraction; no ground truth mask",
+      "artifacts": {
+        "source_bounded_png": "cases/mackenzie_plume/source-bounded.png",
+        "crop_png": "cases/mackenzie_plume/crop.png",
+        "prompt_overlay_png": "cases/mackenzie_plume/prompt-overlay.png"
+      },
+      "methods": {
+        "water-color-frozen": {
+          "status": "ok",
+          "seconds": 0.307971,
+          "diagnostics": {
+            "shape": [
+              853,
+              1024
+            ],
+            "foreground_pixels": 471911,
+            "coverage": 0.54027,
+            "bbox": [
+              0.083008,
+              0.119578,
+              0.928711,
+              0.807737
+            ],
+            "topology": {
+              "components": 8,
+              "holes": 198
+            },
+            "keep_seed_hits": 4,
+            "keep_seed_total": 4,
+            "warnings": []
+          },
+          "artifact": "cases/mackenzie_plume/water-color-frozen.png"
+        },
+        "seeded-color": {
+          "status": "ok",
+          "seconds": 0.436939,
+          "diagnostics": {
+            "shape": [
+              853,
+              1024
+            ],
+            "foreground_pixels": 270595,
+            "coverage": 0.309792,
+            "bbox": [
+              0.083008,
+              0.250879,
+              0.928711,
+              0.807737
+            ],
+            "topology": {
+              "components": 1,
+              "holes": 62
+            },
+            "keep_seed_hits": 4,
+            "keep_seed_total": 4,
+            "warnings": []
+          },
+          "artifact": "cases/mackenzie_plume/seeded-color.png"
+        },
+        "seeded-grabcut": {
+          "status": "ok",
+          "seconds": 3.599834,
+          "diagnostics": {
+            "shape": [
+              853,
+              1024
+            ],
+            "foreground_pixels": 70687,
+            "coverage": 0.080926,
+            "bbox": [
+              0.367188,
+              0.449004,
+              0.928711,
+              0.807737
+            ],
+            "topology": {
+              "components": 3,
+              "holes": 58
+            },
+            "keep_seed_hits": 4,
+            "keep_seed_total": 4,
+            "warnings": []
+          },
+          "artifact": "cases/mackenzie_plume/seeded-grabcut.png"
+        }
+      },
+      "source_shape": [
+        7500,
+        9000
+      ],
+      "method_source_shape": [
+        853,
+        1024
+      ],
+      "selected_method": null,
+      "selected_reason": "not promoted: requires explicit human visual acceptance; numeric diagnostics alone are insufficient"
+    }
+  ],
+  "font": {
+    "status": "not-built",
+    "reason": "no explicitly visually accepted river masks",
+    "rejected_diagnostic_ttf": "RiverGlyphs/RiverGlyphs.ttf",
+    "rejected_note": "Retained from an earlier run only as a rejected diagnostic artifact; not a successful river font."
+  },
+  "artifacts": {
+    "report_json": "river-experiment-report.json",
+    "contact_sheet_png": "river-contact-sheet.png"
+  }
+}
