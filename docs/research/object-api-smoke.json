@@ -1,0 +1,8 @@
+{
+  "status": "succeeded",
+  "job_id": "job_f5496ebe-d64d-4daf-a332-19cd506c43d8",
+  "method": "grabcut",
+  "wall_seconds": 1.317,
+  "ttf_bytes": 1756,
+  "scope": "Synthetic color object; actual HTTP segmentation, accepted-mask upload, persisted build, TTF/FreeType proof. Not real-photo accuracy."
+}

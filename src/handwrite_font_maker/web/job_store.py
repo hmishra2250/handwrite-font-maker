@@ -3,9 +3,23 @@ from __future__ import annotations
 import json
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
-from typing import Protocol
+from typing import Callable, Protocol
 
-from .contracts import FontRequest, InputPhoto, JobArtifact, JobError, JobStage, JobStatus, JobWarning, new_job_id, retention_expires_at
+from .contracts import (
+    CaptureConfig,
+    FontRequest,
+    HardErrorCode,
+    InputPhoto,
+    JobArtifact,
+    JobError,
+    JobStage,
+    JobStatus,
+    JobWarning,
+    capture_from_json,
+    capture_to_json,
+    new_job_id,
+    retention_expires_at,
+)
 
 
 @dataclass
@@ -13,6 +27,7 @@ class JobRecord:
     id: str
     input_photo: InputPhoto
     font: FontRequest
+    capture: CaptureConfig | None = None
     status: JobStatus = JobStatus.QUEUED
     stage: JobStage = JobStage.QUEUED
     warnings: list[JobWarning] = field(default_factory=list)
@@ -20,17 +35,30 @@ class JobRecord:
     error: JobError | None = None
     retention_expires_at: str = field(default_factory=retention_expires_at)
 
-    def as_response(self) -> dict[str, object]:
+    def as_response(self, signed_url_for: Callable[[str], str] | None = None) -> dict[str, object]:
+        artifacts = [_artifact_response(artifact, signed_url_for=signed_url_for) for artifact in self.artifacts]
         return {
             "jobId": self.id,
             "status": self.status.value,
             "stage": self.stage.value,
             "progressLabel": progress_label(self.stage),
             "warnings": [asdict(w) for w in self.warnings],
-            "artifacts": [asdict(a) for a in self.artifacts],
+            "artifacts": artifacts,
             "error": None if self.error is None else {**asdict(self.error), "code": self.error.code.value},
             "retentionExpiresAt": self.retention_expires_at,
         }
+
+
+def _artifact_response(artifact: JobArtifact, *, signed_url_for: Callable[[str], str] | None = None) -> dict[str, object]:
+    return {
+        "kind": artifact.kind,
+        "label": artifact.label,
+        "objectKey": artifact.object_key,
+        "contentType": artifact.content_type,
+        "sizeBytes": artifact.size_bytes,
+        "url": signed_url_for(artifact.object_key) if signed_url_for is not None else artifact.url,
+        "expiresAt": artifact.expires_at,
+    }
 
 
 def progress_label(stage: JobStage) -> str:
@@ -48,7 +76,7 @@ def progress_label(stage: JobStage) -> str:
 
 
 class JobStore(Protocol):
-    def create(self, input_photo: InputPhoto, font: FontRequest) -> JobRecord: ...
+    def create(self, input_photo: InputPhoto, font: FontRequest, capture: CaptureConfig | None = None) -> JobRecord: ...
     def get(self, job_id: str) -> JobRecord | None: ...
     def next_queued(self) -> JobRecord | None: ...
     def save(self, job: JobRecord) -> None: ...
@@ -69,8 +97,8 @@ class JsonJobStore:
     def _write(self, data: dict[str, dict[str, object]]) -> None:
         self.path.write_text(json.dumps(data, indent=2), encoding="utf-8")
 
-    def create(self, input_photo: InputPhoto, font: FontRequest) -> JobRecord:
-        job = JobRecord(id=new_job_id(), input_photo=input_photo, font=font)
+    def create(self, input_photo: InputPhoto, font: FontRequest, capture: CaptureConfig | None = None) -> JobRecord:
+        job = JobRecord(id=new_job_id(), input_photo=input_photo, font=font, capture=capture)
         self.save(job)
         return job
 
@@ -96,10 +124,11 @@ def _to_row(job: JobRecord) -> dict[str, object]:
         "id": job.id,
         "input_photo": asdict(job.input_photo),
         "font": asdict(job.font),
+        "capture": capture_to_json(job.capture),
         "status": job.status.value,
         "stage": job.stage.value,
         "warnings": [asdict(w) for w in job.warnings],
-        "artifacts": [asdict(a) for a in job.artifacts],
+        "artifacts": [{**asdict(a), "url": None, "expires_at": None} for a in job.artifacts],
         "error": None if job.error is None else {**asdict(job.error), "code": job.error.code.value},
         "retention_expires_at": job.retention_expires_at,
     }
@@ -107,12 +136,12 @@ def _to_row(job: JobRecord) -> dict[str, object]:
 
 def _from_row(row: dict[str, object]) -> JobRecord:
     error_row = row.get("error")
-    from .contracts import HardErrorCode
 
     return JobRecord(
         id=str(row["id"]),
         input_photo=InputPhoto(**row["input_photo"]),  # type: ignore[arg-type]
         font=FontRequest(**row["font"]),  # type: ignore[arg-type]
+        capture=capture_from_json(row.get("capture")),
         status=JobStatus(str(row["status"])),
         stage=JobStage(str(row["stage"])),
         warnings=[JobWarning(**w) for w in row.get("warnings", [])],  # type: ignore[arg-type]
@@ -120,6 +149,7 @@ def _from_row(row: dict[str, object]) -> JobRecord:
         error=None if not error_row else JobError(code=HardErrorCode(error_row["code"]), message=error_row["message"], retryable=error_row["retryable"], details=error_row.get("details", {})),  # type: ignore[index,union-attr,arg-type]
         retention_expires_at=str(row["retention_expires_at"]),
     )
+
 
 class PostgresJobStore:
     """Supabase Postgres job store used by Render services when DATABASE_URL is set."""
@@ -133,18 +163,30 @@ class PostgresJobStore:
     def _connect(self):
         return self._psycopg.connect(self.database_url)
 
-    def create(self, input_photo: InputPhoto, font: FontRequest) -> JobRecord:
-        job = JobRecord(id=new_job_id(), input_photo=input_photo, font=font)
+    def create(self, input_photo: InputPhoto, font: FontRequest, capture: CaptureConfig | None = None) -> JobRecord:
+        job = JobRecord(id=new_job_id(), input_photo=input_photo, font=font, capture=capture)
         bucket = input_photo.bucket or "handwrite-font-jobs"
         with self._connect() as conn, conn.cursor() as cur:
             cur.execute(
                 """
                 insert into jobs (id, status, stage, font_name, family_name, style_name,
-                  input_bucket, input_path, input_content_type, input_size_bytes, retention_expires_at)
-                values (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s::timestamptz)
+                  input_bucket, input_path, input_content_type, input_size_bytes, capture_config, retention_expires_at)
+                values (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s::jsonb,%s::timestamptz)
                 """,
-                (job.id, job.status.value, job.stage.value, font.font_name, font.family_name, font.style_name,
-                 bucket, input_photo.object_key, input_photo.content_type, input_photo.size_bytes, job.retention_expires_at),
+                (
+                    job.id,
+                    job.status.value,
+                    job.stage.value,
+                    font.font_name,
+                    font.family_name,
+                    font.style_name,
+                    bucket,
+                    input_photo.object_key,
+                    input_photo.content_type,
+                    input_photo.size_bytes,
+                    json.dumps(capture_to_json(capture)),
+                    job.retention_expires_at,
+                ),
             )
         return job
 
@@ -187,13 +229,21 @@ class PostgresJobStore:
             cur.execute(
                 """
                 update jobs
-                set status=%s, stage=%s, error_code=%s, error_message=%s, error_retryable=%s,
+                set status=%s, stage=%s, capture_config=%s::jsonb, error_code=%s, error_message=%s, error_retryable=%s,
                     error_details=%s::jsonb, updated_at=now(), completed_at = case when %s then now() else completed_at end
                 where id=%s
                 """,
-                (job.status.value, job.stage.value, None if job.error is None else job.error.code.value,
-                 None if job.error is None else job.error.message, None if job.error is None else job.error.retryable,
-                 json.dumps({} if job.error is None else job.error.details), job.status in {JobStatus.SUCCEEDED, JobStatus.FAILED, JobStatus.EXPIRED}, job.id),
+                (
+                    job.status.value,
+                    job.stage.value,
+                    json.dumps(capture_to_json(job.capture)),
+                    None if job.error is None else job.error.code.value,
+                    None if job.error is None else job.error.message,
+                    None if job.error is None else job.error.retryable,
+                    json.dumps({} if job.error is None else job.error.details),
+                    job.status in {JobStatus.SUCCEEDED, JobStatus.FAILED, JobStatus.EXPIRED},
+                    job.id,
+                ),
             )
             cur.execute("delete from job_warnings where job_id=%s", (job.id,))
             for warning in job.warnings:
@@ -212,6 +262,7 @@ def _from_postgres_row(row: dict[str, object], warnings: list[JobWarning], artif
         id=str(row["id"]),
         input_photo=InputPhoto(object_key=str(row["input_path"]), bucket=str(row["input_bucket"]), content_type=str(row["input_content_type"]), size_bytes=int(row["input_size_bytes"])),
         font=FontRequest(font_name=str(row["font_name"]), family_name=str(row["family_name"]), style_name=str(row["style_name"])),
+        capture=capture_from_json(row.get("capture_config")),
         status=JobStatus(str(row["status"])),
         stage=JobStage(str(row["stage"])),
         warnings=warnings,

@@ -1,0 +1,414 @@
+{
+  "scope": "Synthetic controlled example; not real-photo or trained-model accuracy evidence.",
+  "grabcut_seconds": 8.9237,
+  "results": [
+    {
+      "style": "silhouette",
+      "side": 128,
+      "tracing": "faithful",
+      "svg_bytes": 1230,
+      "path_commands": 12,
+      "seconds": 0.12316,
+      "iou_to_full_size_style": 0.97093,
+      "topology": {
+        "components": 6,
+        "holes": 1
+      },
+      "target_topology": {
+        "components": 5,
+        "holes": 4
+      }
+    },
+    {
+      "style": "silhouette",
+      "side": 128,
+      "tracing": "balanced",
+      "svg_bytes": 1069,
+      "path_commands": 14,
+      "seconds": 0.03316,
+      "iou_to_full_size_style": 0.96221,
+      "topology": {
+        "components": 3,
+        "holes": 1
+      },
+      "target_topology": {
+        "components": 5,
+        "holes": 4
+      }
+    },
+    {
+      "style": "silhouette",
+      "side": 128,
+      "tracing": "smooth",
+      "svg_bytes": 943,
+      "path_commands": 12,
+      "seconds": 0.02563,
+      "iou_to_full_size_style": 0.96169,
+      "topology": {
+        "components": 3,
+        "holes": 1
+      },
+      "target_topology": {
+        "components": 5,
+        "holes": 4
+      }
+    },
+    {
+      "style": "silhouette",
+      "side": 256,
+      "tracing": "faithful",
+      "svg_bytes": 3403,
+      "path_commands": 96,
+      "seconds": 0.01522,
+      "iou_to_full_size_style": 0.98356,
+      "topology": {
+        "components": 55,
+        "holes": 1
+      },
+      "target_topology": {
+        "components": 5,
+        "holes": 4
+      }
+    },
+    {
+      "style": "silhouette",
+      "side": 256,
+      "tracing": "balanced",
+      "svg_bytes": 4023,
+      "path_commands": 98,
+      "seconds": 0.01556,
+      "iou_to_full_size_style": 0.97955,
+      "topology": {
+        "components": 9,
+        "holes": 1
+      },
+      "target_topology": {
+        "components": 5,
+        "holes": 4
+      }
+    },
+    {
+      "style": "silhouette",
+      "side": 256,
+      "tracing": "smooth",
+      "svg_bytes": 3753,
+      "path_commands": 96,
+      "seconds": 0.02708,
+      "iou_to_full_size_style": 0.97953,
+      "topology": {
+        "components": 9,
+        "holes": 1
+      },
+      "target_topology": {
+        "components": 5,
+        "holes": 4
+      }
+    },
+    {
+      "style": "silhouette",
+      "side": 512,
+      "tracing": "faithful",
+      "svg_bytes": 2547,
+      "path_commands": 18,
+      "seconds": 0.02067,
+      "iou_to_full_size_style": 0.99301,
+      "topology": {
+        "components": 7,
+        "holes": 1
+      },
+      "target_topology": {
+        "components": 5,
+        "holes": 4
+      }
+    },
+    {
+      "style": "silhouette",
+      "side": 512,
+      "tracing": "balanced",
+      "svg_bytes": 2248,
+      "path_commands": 34,
+      "seconds": 0.0192,
+      "iou_to_full_size_style": 0.99156,
+      "topology": {
+        "components": 16,
+        "holes": 1
+      },
+      "target_topology": {
+        "components": 5,
+        "holes": 4
+      }
+    },
+    {
+      "style": "silhouette",
+      "side": 512,
+      "tracing": "smooth",
+      "svg_bytes": 2023,
+      "path_commands": 18,
+      "seconds": 0.01964,
+      "iou_to_full_size_style": 0.99092,
+      "topology": {
+        "components": 16,
+        "holes": 1
+      },
+      "target_topology": {
+        "components": 5,
+        "holes": 4
+      }
+    },
+    {
+      "style": "silhouette",
+      "side": 1024,
+      "tracing": "faithful",
+      "svg_bytes": 3276,
+      "path_commands": 18,
+      "seconds": 0.02622,
+      "iou_to_full_size_style": 0.9954,
+      "topology": {
+        "components": 5,
+        "holes": 1
+      },
+      "target_topology": {
+        "components": 5,
+        "holes": 4
+      }
+    },
+    {
+      "style": "silhouette",
+      "side": 1024,
+      "tracing": "balanced",
+      "svg_bytes": 2514,
+      "path_commands": 32,
+      "seconds": 0.02753,
+      "iou_to_full_size_style": 0.99429,
+      "topology": {
+        "components": 16,
+        "holes": 1
+      },
+      "target_topology": {
+        "components": 5,
+        "holes": 4
+      }
+    },
+    {
+      "style": "silhouette",
+      "side": 1024,
+      "tracing": "smooth",
+      "svg_bytes": 2160,
+      "path_commands": 18,
+      "seconds": 0.02405,
+      "iou_to_full_size_style": 0.99408,
+      "topology": {
+        "components": 16,
+        "holes": 1
+      },
+      "target_topology": {
+        "components": 5,
+        "holes": 4
+      }
+    },
+    {
+      "style": "dark-detail",
+      "side": 128,
+      "tracing": "faithful",
+      "svg_bytes": 744,
+      "path_commands": 9,
+      "seconds": 0.0095,
+      "iou_to_full_size_style": 0.14114,
+      "topology": {
+        "components": 6,
+        "holes": 0
+      },
+      "target_topology": {
+        "components": 22,
+        "holes": 0
+      }
+    },
+    {
+      "style": "dark-detail",
+      "side": 128,
+      "tracing": "balanced",
+      "svg_bytes": 773,
+      "path_commands": 9,
+      "seconds": 0.01506,
+      "iou_to_full_size_style": 0.09684,
+      "topology": {
+        "components": 3,
+        "holes": 0
+      },
+      "target_topology": {
+        "components": 22,
+        "holes": 0
+      }
+    },
+    {
+      "style": "dark-detail",
+      "side": 128,
+      "tracing": "smooth",
+      "svg_bytes": 773,
+      "path_commands": 9,
+      "seconds": 0.01956,
+      "iou_to_full_size_style": 0.09684,
+      "topology": {
+        "components": 3,
+        "holes": 0
+      },
+      "target_topology": {
+        "components": 22,
+        "holes": 0
+      }
+    },
+    {
+      "style": "dark-detail",
+      "side": 256,
+      "tracing": "faithful",
+      "svg_bytes": 7823,
+      "path_commands": 345,
+      "seconds": 0.01698,
+      "iou_to_full_size_style": 0.39424,
+      "topology": {
+        "components": 218,
+        "holes": 0
+      },
+      "target_topology": {
+        "components": 22,
+        "holes": 0
+      }
+    },
+    {
+      "style": "dark-detail",
+      "side": 256,
+      "tracing": "balanced",
+      "svg_bytes": 10457,
+      "path_commands": 345,
+      "seconds": 0.0155,
+      "iou_to_full_size_style": 0.19291,
+      "topology": {
+        "components": 28,
+        "holes": 0
+      },
+      "target_topology": {
+        "components": 22,
+        "holes": 0
+      }
+    },
+    {
+      "style": "dark-detail",
+      "side": 256,
+      "tracing": "smooth",
+      "svg_bytes": 10419,
+      "path_commands": 345,
+      "seconds": 0.01864,
+      "iou_to_full_size_style": 0.19308,
+      "topology": {
+        "components": 28,
+        "holes": 0
+      },
+      "target_topology": {
+        "components": 22,
+        "holes": 0
+      }
+    },
+    {
+      "style": "dark-detail",
+      "side": 512,
+      "tracing": "faithful",
+      "svg_bytes": 2564,
+      "path_commands": 66,
+      "seconds": 0.01422,
+      "iou_to_full_size_style": 0.76022,
+      "topology": {
+        "components": 22,
+        "holes": 0
+      },
+      "target_topology": {
+        "components": 22,
+        "holes": 0
+      }
+    },
+    {
+      "style": "dark-detail",
+      "side": 512,
+      "tracing": "balanced",
+      "svg_bytes": 3081,
+      "path_commands": 66,
+      "seconds": 0.01471,
+      "iou_to_full_size_style": 0.62299,
+      "topology": {
+        "components": 77,
+        "holes": 0
+      },
+      "target_topology": {
+        "components": 22,
+        "holes": 0
+      }
+    },
+    {
+      "style": "dark-detail",
+      "side": 512,
+      "tracing": "smooth",
+      "svg_bytes": 3042,
+      "path_commands": 66,
+      "seconds": 0.01596,
+      "iou_to_full_size_style": 0.62282,
+      "topology": {
+        "components": 77,
+        "holes": 0
+      },
+      "target_topology": {
+        "components": 22,
+        "holes": 0
+      }
+    },
+    {
+      "style": "dark-detail",
+      "side": 1024,
+      "tracing": "faithful",
+      "svg_bytes": 2758,
+      "path_commands": 66,
+      "seconds": 0.05089,
+      "iou_to_full_size_style": 0.76186,
+      "topology": {
+        "components": 22,
+        "holes": 0
+      },
+      "target_topology": {
+        "components": 22,
+        "holes": 0
+      }
+    },
+    {
+      "style": "dark-detail",
+      "side": 1024,
+      "tracing": "balanced",
+      "svg_bytes": 3685,
+      "path_commands": 66,
+      "seconds": 0.03072,
+      "iou_to_full_size_style": 0.66937,
+      "topology": {
+        "components": 82,
+        "holes": 0
+      },
+      "target_topology": {
+        "components": 22,
+        "holes": 0
+      }
+    },
+    {
+      "style": "dark-detail",
+      "side": 1024,
+      "tracing": "smooth",
+      "svg_bytes": 3660,
+      "path_commands": 66,
+      "seconds": 0.05733,
+      "iou_to_full_size_style": 0.66954,
+      "topology": {
+        "components": 82,
+        "holes": 0
+      },
+      "target_topology": {
+        "components": 22,
+        "holes": 0
+      }
+    }
+  ]
+}

@@ -5,8 +5,10 @@ services:
     dockerfilePath: ./Dockerfile.api
     dockerCommand: python -m handwrite_font_maker.web.server
     plan: free
-    autoDeploy: true
+    autoDeploy: false  # Enable only after the production gates in docs/DEPLOYMENT.md.
     envVars:
+      - key: HOST
+        value: 0.0.0.0
       - key: SUPABASE_URL
         sync: false
       - key: SUPABASE_SERVICE_ROLE_KEY

@@ -17,6 +17,9 @@ describe('Vercel route boundary', () => {
       for (const token of forbidden) {
         expect(source, `${path} contains ${token}`).not.toContain(token);
       }
+      if (!path.includes(join('app', 'api', 'objects', '[...key]', 'route.ts'))) {
+        expect(source, `${path} contains binary fallback type`).not.toContain('application/octet-stream');
+      }
     }
   });
 });

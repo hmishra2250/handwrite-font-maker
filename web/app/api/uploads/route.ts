@@ -16,7 +16,7 @@ export async function POST(request: Request) {
   }
 
   /* --- Local mode: proxy upload-slot creation to the Python backend.
-         The client will PUT the file bytes directly to the Python server. --- */
+         The browser PUTs bytes to a same-origin object proxy so Docker-only hostnames are not exposed. --- */
   if (isLocalMode()) {
     const base = workerBaseUrl();
     const upstream = await fetch(new URL('/uploads', base), {
@@ -25,15 +25,20 @@ export async function POST(request: Request) {
       body: JSON.stringify(body),
       cache: 'no-store',
     });
-    const payload = (await upstream.json()) as Record<string, unknown>;
-    const objectKey = String(payload.objectKey ?? '');
+    const payload = (await upstream.json().catch(() => null)) as Record<string, unknown> | null;
+    if (!upstream.ok) {
+      return NextResponse.json(payload ?? { error: { code: 'INTERNAL_ERROR', message: 'Worker upload-slot creation failed.' } }, { status: upstream.status });
+    }
+    const objectKeyValue = payload?.objectKey ?? payload?.object_key;
+    if (typeof objectKeyValue !== 'string' || objectKeyValue.length < 1) {
+      return NextResponse.json({ error: { code: 'UPLOAD_OBJECT_MISSING', message: 'Worker upload-slot response did not include an object key.' } }, { status: 502 });
+    }
     const response: UploadResponse = {
       mode: 'local',
-      /* Direct URL to the Python backend -- CORS is handled there. */
-      uploadUrl: `${base}/objects/${objectKey}`,
+      uploadUrl: `/api/objects/${objectKeyValue}`,
       method: 'PUT',
-      objectKey,
-      expiresAt: String(payload.expiresAt ?? retentionExpiry(1)),
+      objectKey: objectKeyValue,
+      expiresAt: typeof payload?.expiresAt === 'string' ? payload.expiresAt : retentionExpiry(1),
       maxUploadBytes: MAX_UPLOAD_BYTES,
     };
     return NextResponse.json(response);

@@ -1,0 +1,28 @@
+{
+  "kind": "local-build-benchmark",
+  "environment": {
+    "platform": "macOS-26.5-arm64-arm-64bit-Mach-O",
+    "python": "3.14.7"
+  },
+  "input": "samples/input/synthetic-filled.png",
+  "wall_seconds": 612.787,
+  "cpu_seconds_parent_and_children": 59.85,
+  "subprocesses": {
+    "potrace": {
+      "calls": 94,
+      "wall_seconds": 3.002795418316964
+    },
+    "fontforge": {
+      "calls": 2,
+      "wall_seconds": 527.9543501659646
+    }
+  },
+  "glyph_count": 94,
+  "nonempty_glyph_count": 94,
+  "artifacts_bytes": {
+    "ttf": 105620,
+    "otf": 98096
+  },
+  "illustrative_cloud_active_compute_usd": 0.017771,
+  "projection_assumptions": "Hypothetical 1 vCPU + 2 GiB billed for local wall time at reference rates; NOT a cloud benchmark/invoice. Excludes cold starts, idle hosting, retries/free previews, storage/egress, support, payments, tax and acquisition. Busy shared host; no p95 claim from one run."
+}

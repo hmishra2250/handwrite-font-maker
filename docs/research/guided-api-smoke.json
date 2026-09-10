@@ -1,0 +1,14 @@
+{
+  "job_id": "job_914a6b9b-b8d6-4995-85fa-01913b1424ae",
+  "status": "succeeded",
+  "glyphs": [
+    "A",
+    "i",
+    "O",
+    "g",
+    "-"
+  ],
+  "wall_seconds": 1.027,
+  "ttf_bytes": 2172,
+  "proof": "output/api-smoke/proof.png"
+}

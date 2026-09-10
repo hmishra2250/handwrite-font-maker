@@ -1,0 +1,13 @@
+{
+  "proof": "A",
+  "links": [
+    {
+      "text": "TrueType FontTTF",
+      "href": "http://127.0.0.1:3011/api/objects/jobs/job_2e6625a5-127a-4070-9266-db8d1e94781c/artifacts/MyHandwrite-Regular.ttf"
+    }
+  ],
+  "ttfBytes": 1772,
+  "fontFaceLoaded": true,
+  "missingGlyphWarning": true,
+  "errors": []
+}

@@ -20,3 +20,6 @@ web/.env.local
 web/test-results/
 .env
 .claude/
+
+# Local web-research cache
+.firecrawl/

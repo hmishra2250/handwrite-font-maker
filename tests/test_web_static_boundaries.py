@@ -13,9 +13,11 @@ def test_vercel_routes_do_not_shell_out_or_import_python_pipeline():
             assert token not in source, f'{path} contains forbidden token {token}'
 
 
-def test_vercel_routes_do_not_return_binary_responses():
+def test_vercel_routes_do_not_return_binary_responses_except_local_object_proxy():
+    object_proxy = PROJECT_ROOT / 'web' / 'app' / 'api' / 'objects' / '[...key]' / 'route.ts'
     for path in (PROJECT_ROOT / 'web' / 'app' / 'api').rglob('*.ts'):
         source = path.read_text(encoding='utf-8')
         assert 'arrayBuffer' not in source
         assert 'ReadableStream' not in source
-        assert 'application/octet-stream' not in source
+        if path != object_proxy:
+            assert 'application/octet-stream' not in source

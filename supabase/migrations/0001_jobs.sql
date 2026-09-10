@@ -9,6 +9,7 @@ create table if not exists jobs (
   input_path text not null,
   input_content_type text not null,
   input_size_bytes bigint not null,
+  capture_config jsonb,
   error_code text,
   error_message text,
   error_retryable boolean,

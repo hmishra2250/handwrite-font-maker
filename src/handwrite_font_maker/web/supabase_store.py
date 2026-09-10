@@ -5,6 +5,8 @@ from pathlib import Path
 from typing import Protocol
 from urllib.parse import quote
 
+from .contracts import is_safe_object_key
+
 
 class ObjectStore(Protocol):
     def signed_upload_url(self, object_key: str) -> str: ...
@@ -30,6 +32,8 @@ class SupabaseStorage:
     def signed_upload_url(self, object_key: str) -> str:
         import requests
 
+        if not is_safe_object_key(object_key):
+            raise ValueError("Unsafe object key")
         encoded = quote(object_key, safe="/")
         response = requests.post(f"{self.url}/storage/v1/object/upload/sign/{self.bucket}/{encoded}", headers=self._headers, timeout=20)
         response.raise_for_status()
@@ -42,6 +46,8 @@ class SupabaseStorage:
     def signed_download_url(self, object_key: str, expires_in: int = 1800) -> str:
         import requests
 
+        if not is_safe_object_key(object_key):
+            raise ValueError("Unsafe object key")
         encoded = quote(object_key, safe="/")
         response = requests.post(
             f"{self.url}/storage/v1/object/sign/{self.bucket}/{encoded}",
@@ -59,6 +65,8 @@ class SupabaseStorage:
     def download_to_path(self, object_key: str, destination: Path) -> None:
         import requests
 
+        if not is_safe_object_key(object_key):
+            raise ValueError("Unsafe object key")
         encoded = quote(object_key, safe="/")
         response = requests.get(f"{self.url}/storage/v1/object/{self.bucket}/{encoded}", headers=self._headers, timeout=120)
         response.raise_for_status()
@@ -68,6 +76,8 @@ class SupabaseStorage:
     def upload_from_path(self, object_key: str, source: Path, content_type: str) -> None:
         import requests
 
+        if not is_safe_object_key(object_key):
+            raise ValueError("Unsafe object key")
         encoded = quote(object_key, safe="/")
         with source.open("rb") as handle:
             response = requests.post(
@@ -87,14 +97,18 @@ class LocalObjectStore:
 
     def _path(self, object_key: str) -> Path:
         safe = Path(object_key)
-        if safe.is_absolute() or ".." in safe.parts:
+        if not is_safe_object_key(object_key):
             raise ValueError("Unsafe object key")
         return self.root / safe
 
     def signed_upload_url(self, object_key: str) -> str:
+        if not is_safe_object_key(object_key):
+            raise ValueError("Unsafe object key")
         return f"local://upload/{object_key}"
 
     def signed_download_url(self, object_key: str, expires_in: int = 1800) -> str:
+        if not is_safe_object_key(object_key):
+            raise ValueError("Unsafe object key")
         return f"local://download/{object_key}?expiresIn={expires_in}"
 
     def download_to_path(self, object_key: str, destination: Path) -> None:

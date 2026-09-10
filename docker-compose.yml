@@ -2,7 +2,7 @@ services:
   postgres:
     image: postgres:16-alpine
     ports:
-      - "5433:5432"
+      - "127.0.0.1:5433:5432"
     environment:
       POSTGRES_USER: handwrite
       POSTGRES_PASSWORD: handwrite
@@ -20,8 +20,9 @@ services:
       context: .
       dockerfile: Dockerfile.api
     ports:
-      - "8000:8000"
+      - "127.0.0.1:8000:8000"
     environment:
+      HOST: 0.0.0.0
       DATABASE_URL: postgresql://handwrite:handwrite@postgres:5432/handwrite_fonts
       LOCAL_OBJECT_ROOT: /data/objects
       PROCESS_JOBS_INLINE: "1"
@@ -36,7 +37,7 @@ services:
       context: .
       dockerfile: Dockerfile.web
     ports:
-      - "3000:3000"
+      - "127.0.0.1:3000:3000"
     environment:
       WORKER_API_BASE_URL: http://api:8000
     depends_on:

@@ -1,0 +1,63 @@
+{
+  "source": "https://github.com/opencv/opencv/blob/4.x/samples/data/fruits.jpg",
+  "source_sha256": "9c031d80a1c52da5eca790db896baffec6a7e52bf786cdb7bbfca5c7f880e6a1",
+  "scope": "Single real photograph qualitative probe, no labeled ground truth and no accuracy claim. Source retained only in ignored local output.",
+  "results": [
+    {
+      "box": "tight",
+      "rectangle": [
+        0.13,
+        0.08,
+        0.69,
+        0.99
+      ],
+      "style": "silhouette",
+      "cutout_seconds": 8.202,
+      "components": 1,
+      "coverage": 0.338,
+      "svg_bytes": 2872
+    },
+    {
+      "box": "tight",
+      "rectangle": [
+        0.13,
+        0.08,
+        0.69,
+        0.99
+      ],
+      "style": "dark-detail",
+      "cutout_seconds": 8.202,
+      "components": 27,
+      "coverage": 0.273,
+      "svg_bytes": 44620
+    },
+    {
+      "box": "loose",
+      "rectangle": [
+        0.05,
+        0.03,
+        0.78,
+        0.99
+      ],
+      "style": "silhouette",
+      "cutout_seconds": 12.074,
+      "components": 17,
+      "coverage": 0.3413,
+      "svg_bytes": 4236
+    },
+    {
+      "box": "loose",
+      "rectangle": [
+        0.05,
+        0.03,
+        0.78,
+        0.99
+      ],
+      "style": "dark-detail",
+      "cutout_seconds": 12.074,
+      "components": 38,
+      "coverage": 0.2746,
+      "svg_bytes": 45957
+    }
+  ]
+}

@@ -1,37 +1,17 @@
 import { JOB_RETENTION_HOURS, type JobResponse, retentionExpiry } from './contracts';
 
-export const demoSuccessJob: JobResponse = {
-  jobId: 'demo_job_template_v1',
-  status: 'succeeded',
-  stage: 'complete',
-  progressLabel: 'Demo font generated from the bundled synthetic template',
-  warnings: [
-    {
-      code: 'GLYPH_LOW_INK_COVERAGE',
-      glyph: ',',
-      message: 'Comma has low ink coverage. Tiny punctuation can still be valid.',
-      severity: 'warning',
-      details: { coverageRatio: 0.012 }
-    }
-  ],
-  artifacts: [
-    {
-      kind: 'otf',
-      label: 'OpenType Font',
-      objectKey: '/samples/output/v1-synthetic/TemplateV1Synthetic.otf',
-      url: '/samples/output/v1-synthetic/TemplateV1Synthetic.otf',
-      contentType: 'font/otf',
-      sizeBytes: 1
-    },
-    {
-      kind: 'ttf',
-      label: 'TrueType Font',
-      objectKey: '/samples/output/v1-synthetic/TemplateV1Synthetic.ttf',
-      url: '/samples/output/v1-synthetic/TemplateV1Synthetic.ttf',
-      contentType: 'font/ttf',
-      sizeBytes: 1
-    }
-  ],
+export const demoBackendUnavailable: JobResponse = {
+  jobId: 'demo_backend_unavailable',
+  status: 'failed',
+  stage: 'queued',
+  progressLabel: 'No Python worker is configured for local font builds.',
+  warnings: [],
+  artifacts: [],
+  error: {
+    code: 'INTERNAL_ERROR',
+    message: 'Configure WORKER_API_BASE_URL to run real upload, capture, and font-generation jobs. Demo mode does not publish fake font files.',
+    retryable: true
+  },
   retentionExpiresAt: retentionExpiry(JOB_RETENTION_HOURS)
 };
 

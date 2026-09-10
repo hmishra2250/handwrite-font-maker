@@ -3,8 +3,25 @@ from __future__ import annotations
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
-from ..pipeline import build_font
-from .contracts import HardErrorCode, JobArtifact, JobError, JobStage, JobStatus, JobWarning, hard_error_message
+import numpy as np
+from PIL import Image
+
+from .contracts import (
+    GuidedCapture,
+    HardErrorCode,
+    InputPhoto,
+    JobArtifact,
+    JobError,
+    JobStage,
+    JobStatus,
+    JobWarning,
+    MAX_GUIDED_MASK_SIDE,
+    MAX_GUIDED_TOTAL_BYTES,
+    MAX_IMAGE_PIXELS,
+    MAX_UPLOAD_BYTES,
+    TemplateCapture,
+    hard_error_message,
+)
 from .job_store import JobRecord, JobStore
 from .supabase_store import ObjectStore
 
@@ -15,6 +32,18 @@ CONTENT_TYPES = {
     "debug_overlay": "image/png",
     "manifest": "application/json",
 }
+
+
+def _build_font(**kwargs: object) -> dict[str, object]:
+    from ..pipeline import build_font
+
+    return build_font(**kwargs)  # type: ignore[arg-type]
+
+
+def _build_font_from_masks(**kwargs: object) -> dict[str, object]:
+    from ..pipeline import build_font_from_masks
+
+    return build_font_from_masks(**kwargs)  # type: ignore[arg-type]
 
 
 def process_one(job_store: JobStore, object_store: ObjectStore) -> JobRecord | None:
@@ -34,16 +63,7 @@ def process_job(job: JobRecord, job_store: JobStore, object_store: ObjectStore) 
         input_path = tmp_path / "input" / "source"
         output_dir = tmp_path / "output"
         try:
-            object_store.download_to_path(job.input_photo.object_key, input_path)
-            job.stage = JobStage.FONT_GENERATION
-            job_store.save(job)
-            outputs = build_font(
-                image_path=input_path,
-                font_name=job.font.font_name,
-                family_name=job.font.family_name,
-                style_name=job.font.style_name,
-                output_dir=output_dir,
-            )
+            outputs = _run_build(job, object_store, input_path=input_path, output_dir=output_dir)
             job.stage = JobStage.ARTIFACT_PUBLISH
             job_store.save(job)
             job.artifacts = _publish_artifacts(job.id, outputs, object_store)
@@ -60,9 +80,107 @@ def process_job(job: JobRecord, job_store: JobStore, object_store: ObjectStore) 
             job.status = JobStatus.FAILED
             job.stage = _stage_for_exception(exc)
             code = _code_for_exception(exc)
-            job.error = JobError(code=code, message=hard_error_message(code), retryable=code not in {HardErrorCode.FONTFORGE_UNAVAILABLE, HardErrorCode.POTRACE_UNAVAILABLE}, details={"exception": exc.__class__.__name__})
+            job.error = JobError(code=code, message=hard_error_message(code), retryable=code not in {HardErrorCode.FONTFORGE_UNAVAILABLE, HardErrorCode.POTRACE_UNAVAILABLE}, details={"exception": exc.__class__.__name__, "message": str(exc)[:300]})
             job_store.save(job)
             return job
+
+
+def _run_build(job: JobRecord, object_store: ObjectStore, *, input_path: Path, output_dir: Path) -> dict[str, object]:
+    capture = job.capture
+    if isinstance(capture, GuidedCapture):
+        job.stage = JobStage.GLYPH_EXTRACTION
+        glyph_dir = input_path.parent / "glyphs"
+        glyph_dir.mkdir(parents=True, exist_ok=True)
+        glyph_args: list[dict[str, object]] = []
+        total_bytes = 0
+        for index, glyph in enumerate(capture.glyphs):
+            glyph_path = glyph_dir / f"{index:02d}_{ord(glyph.char):04x}.png"
+            object_store.download_to_path(glyph.input_photo.object_key, glyph_path)
+            total_bytes += _validate_guided_mask(glyph_path, glyph.input_photo)
+            if total_bytes > MAX_GUIDED_TOTAL_BYTES:
+                raise ValueError(HardErrorCode.UPLOAD_OBJECT_TOO_LARGE.value)
+            glyph_args.append({"char": glyph.char, "image_path": glyph_path, "baseline": glyph.baseline})
+        job.stage = JobStage.FONT_GENERATION
+        return _build_font_from_masks(
+            glyphs=glyph_args,
+            font_name=job.font.font_name,
+            family_name=job.font.family_name,
+            style_name=job.font.style_name,
+            output_dir=output_dir,
+        )
+
+    object_store.download_to_path(job.input_photo.object_key, input_path)
+    _validate_input_image(input_path, job.input_photo)
+    job.stage = JobStage.FONT_GENERATION
+    if isinstance(capture, TemplateCapture):
+        return _build_font(
+            image_path=input_path,
+            font_name=job.font.font_name,
+            family_name=job.font.family_name,
+            style_name=job.font.style_name,
+            output_dir=output_dir,
+            alignment=capture.alignment,
+            corners=capture.corners,
+            paper_size=capture.paper_size,
+        )
+    return _build_font(
+        image_path=input_path,
+        font_name=job.font.font_name,
+        family_name=job.font.family_name,
+        style_name=job.font.style_name,
+        output_dir=output_dir,
+    )
+
+
+def _validate_input_image(path: Path, photo: InputPhoto) -> int:
+    size = path.stat().st_size
+    if size <= 0:
+        raise ValueError(HardErrorCode.UPLOAD_OBJECT_MISSING.value)
+    if size > MAX_UPLOAD_BYTES or photo.size_bytes > MAX_UPLOAD_BYTES:
+        raise ValueError(HardErrorCode.UPLOAD_OBJECT_TOO_LARGE.value)
+    if photo.content_type not in {"image/jpeg", "image/png", "image/webp"}:
+        raise ValueError(HardErrorCode.UNSUPPORTED_IMAGE_TYPE.value)
+    try:
+        with Image.open(path) as image:
+            width, height = image.size
+            if width <= 0 or height <= 0 or width * height > MAX_IMAGE_PIXELS:
+                raise ValueError(HardErrorCode.UPLOAD_OBJECT_TOO_LARGE.value)
+            actual = Image.MIME.get(image.format or "")
+            if actual and actual != photo.content_type:
+                raise ValueError(HardErrorCode.UNSUPPORTED_IMAGE_TYPE.value)
+            image.verify()
+    except ValueError:
+        raise
+    except Exception as exc:
+        raise ValueError(HardErrorCode.UNSUPPORTED_IMAGE_TYPE.value) from exc
+    return size
+
+
+def _validate_guided_mask(path: Path, photo: InputPhoto) -> int:
+    size = _validate_input_image(path, photo)
+    if photo.content_type != "image/png":
+        raise ValueError(HardErrorCode.UNSUPPORTED_IMAGE_TYPE.value)
+    try:
+        with Image.open(path) as image:
+            if image.format != "PNG":
+                raise ValueError(HardErrorCode.UNSUPPORTED_IMAGE_TYPE.value)
+            width, height = image.size
+            if max(width, height) > MAX_GUIDED_MASK_SIDE or width * height > MAX_GUIDED_MASK_SIDE * MAX_GUIDED_MASK_SIDE:
+                raise ValueError(HardErrorCode.UPLOAD_OBJECT_TOO_LARGE.value)
+            rgba = image.convert("RGBA")
+            alpha = np.asarray(rgba.getchannel("A"))
+            if bool((alpha < 255).any()):
+                raise ValueError(HardErrorCode.GLYPH_EXTRACTION_FAILED.value)
+            grayscale = np.asarray(rgba.convert("L"))
+            foreground = grayscale < 128
+            coverage = float(foreground.mean())
+            if coverage <= 0.0001 or coverage >= 0.98:
+                raise ValueError(HardErrorCode.GLYPH_EXTRACTION_FAILED.value)
+    except ValueError:
+        raise
+    except Exception as exc:
+        raise ValueError(HardErrorCode.UNSUPPORTED_IMAGE_TYPE.value) from exc
+    return size
 
 
 def _publish_artifacts(job_id: str, outputs: dict[str, object], object_store: ObjectStore) -> list[JobArtifact]:
@@ -89,7 +207,10 @@ def _label(kind: str) -> str:
 
 
 def _code_for_exception(exc: Exception) -> HardErrorCode:
-    message = str(exc).lower()
+    text = str(exc)
+    if text in {code.value for code in HardErrorCode}:
+        return HardErrorCode(text)
+    message = text.lower()
     if "potrace" in message:
         return HardErrorCode.POTRACE_UNAVAILABLE
     if "fontforge" in message and "validation" not in message:
@@ -109,6 +230,8 @@ def _stage_for_exception(exc: Exception) -> JobStage:
         return JobStage.MARKER_DETECTION
     if code.name.startswith("HOMOGRAPHY"):
         return JobStage.HOMOGRAPHY_RECTIFICATION
+    if code in {HardErrorCode.GLYPH_EXTRACTION_FAILED, HardErrorCode.GLYPH_REQUIRED_SET_MISSING, HardErrorCode.UNSUPPORTED_IMAGE_TYPE, HardErrorCode.UPLOAD_OBJECT_TOO_LARGE}:
+        return JobStage.GLYPH_EXTRACTION
     if code in {HardErrorCode.FONT_VALIDATION_FAILED}:
         return JobStage.FONT_VALIDATION
     return JobStage.FONT_GENERATION

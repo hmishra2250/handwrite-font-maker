@@ -7,7 +7,7 @@ const geistMono = Geist_Mono({ variable: '--font-geist-mono', subsets: ['latin']
 
 export const metadata: Metadata = {
   title: 'Handwrite Font Maker',
-  description: 'Test the marker-template handwriting to font workflow.'
+  description: 'Capture handwriting or handmade character shapes, review real masks, and build validated desktop font files.'
 };
 
 export const viewport: Viewport = {
